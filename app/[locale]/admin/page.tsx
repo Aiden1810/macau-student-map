@@ -378,9 +378,17 @@ export default function AdminModerationPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingShop, setEditingShop] = useState<ShopRow | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchAllShops = useCallback(async () => {
-    setLoading(true);
+  const fetchAllShops = useCallback(async (opts?: {silent?: boolean}) => {
+    const silent = opts?.silent ?? false;
+
+    if (silent) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
     setError(null);
 
     const {data, error: fetchError} = await supabase
@@ -394,12 +402,23 @@ export default function AdminModerationPage() {
     if (fetchError) {
       setError(fetchError.message);
       setShops([]);
-      setLoading(false);
+
+      if (silent) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
+
       return;
     }
 
     setShops((data ?? []).map((row) => ({...row, id: String(row.id)})));
-    setLoading(false);
+
+    if (silent) {
+      setRefreshing(false);
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const checkAdminRole = useCallback(async () => {
@@ -430,6 +449,23 @@ export default function AdminModerationPage() {
   useEffect(() => {
     checkAdminRole();
   }, [checkAdminRole]);
+
+  useEffect(() => {
+    if (!isAdmin) {
+      return;
+    }
+
+    const channel = supabase
+      .channel('admin-shops-realtime')
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'shops'}, () => {
+        fetchAllShops({silent: true});
+      })
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [fetchAllShops, isAdmin]);
 
   const pendingCount = useMemo(
     () => shops.filter((item) => item.status === 'pending' || item.status === null).length,
@@ -642,6 +678,13 @@ export default function AdminModerationPage() {
               <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700">
                 待审核：{pendingCount}
               </span>
+              <button
+                type="button"
+                onClick={() => fetchAllShops({silent: true})}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+              >
+                {refreshing ? '刷新中...' : '刷新列表'}
+              </button>
               <button
                 type="button"
                 onClick={() => setShowCreateModal(true)}
