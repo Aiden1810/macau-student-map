@@ -26,7 +26,7 @@ interface ShopListProps {
   collapseMobileSheetSignal?: number;
 }
 
-const SHEET_MINIMIZED = 10;
+const SHEET_MINIMIZED = 14;
 const SHEET_EXPANDED = 84;
 
 export default function ShopList({
@@ -188,7 +188,16 @@ export default function ShopList({
           className="mx-auto mb-2 block h-1.5 w-12 touch-none rounded-full bg-slate-300"
         />
 
-        <div className="flex h-[calc(100%-1.25rem)] flex-col">{listContent}</div>
+        {sheetLevel === 'min' ? (
+          <div className="px-1 pt-1">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2">
+              <p className="text-sm font-semibold text-slate-700">附近店铺</p>
+              <p className="mt-0.5 text-xs text-slate-500">共 {filteredShops.length} 家，向上拖动查看完整列表</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex h-[calc(100%-1.25rem)] flex-col">{listContent}</div>
+        )}
       </div>
     </>
   );
