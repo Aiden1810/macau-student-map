@@ -379,6 +379,7 @@ export default function AdminModerationPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingShop, setEditingShop] = useState<ShopRow | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [statusTab, setStatusTab] = useState<'pending' | 'verified'>('pending');
 
   const fetchAllShops = useCallback(async (opts?: {silent?: boolean}) => {
     const silent = opts?.silent ?? false;
@@ -470,6 +471,16 @@ export default function AdminModerationPage() {
   const pendingCount = useMemo(
     () => shops.filter((item) => item.status === 'pending' || item.status === null).length,
     [shops]
+  );
+
+  const verifiedCount = useMemo(() => shops.filter((item) => item.status === 'verified').length, [shops]);
+
+  const visibleShops = useMemo(
+    () =>
+      shops.filter((shop) =>
+        statusTab === 'pending' ? shop.status === 'pending' || shop.status === null : shop.status === 'verified'
+      ),
+    [shops, statusTab]
   );
 
   const updateStatus = async (shopId: string, nextStatus: ShopStatus, action: BusyActionType) => {
@@ -674,10 +685,29 @@ export default function AdminModerationPage() {
               <p className="mt-1 text-sm text-slate-600">可审核投稿、直接发布店铺、编辑分类与标签。</p>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setStatusTab('pending')}
+                className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
+                  statusTab === 'pending'
+                    ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-200'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
                 待审核：{pendingCount}
-              </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusTab('verified')}
+                className={`rounded-full px-3 py-1 text-sm font-semibold transition ${
+                  statusTab === 'verified'
+                    ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                已审核通过：{verifiedCount}
+              </button>
               <button
                 type="button"
                 onClick={() => fetchAllShops({silent: true})}
@@ -704,13 +734,13 @@ export default function AdminModerationPage() {
 
         {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
-        {shops.length === 0 ? (
+        {visibleShops.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500 shadow-sm">
-            暂无店铺数据。
+            {statusTab === 'pending' ? '暂无待审核店铺。' : '暂无已审核通过店铺。'}
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
-            {shops.map((shop) => {
+            {visibleShops.map((shop) => {
               const isApproving = busyAction?.shopId === shop.id && busyAction.action === 'approve';
               const isRejecting = busyAction?.shopId === shop.id && busyAction.action === 'reject';
               const isDeleting = busyAction?.shopId === shop.id && busyAction.action === 'delete';
