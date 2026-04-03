@@ -98,9 +98,12 @@ export default function ShopCard({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 mb-3">
-        {shop.tags.map((tag) => (
-          <span key={tag} className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md">
+      <div className="mb-3 flex flex-wrap gap-2">
+        {shop.tags.map((tag, index) => (
+          <span
+            key={tag}
+            className={`rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600 ${index > 2 ? 'hidden sm:inline-flex' : ''}`}
+          >
             {tag}
           </span>
         ))}
@@ -113,10 +116,12 @@ export default function ShopCard({
         </p>
       </div>
 
-      <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-50">
-        <StarRating score={shop.rating} reviewCount={shop.reviews} />
+      <div className="mt-auto border-t border-slate-50 pt-3">
+        <div className="mb-2">
+          <StarRating score={shop.rating} reviewCount={shop.reviews} />
+        </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {canApprove && isPending && (
             <button
               type="button"
@@ -143,7 +148,7 @@ export default function ShopCard({
 
           <Link
             href={`/${locale}/shop/${shop.id}`}
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+            className="inline-flex items-center rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
           >
             查看评论
           </Link>

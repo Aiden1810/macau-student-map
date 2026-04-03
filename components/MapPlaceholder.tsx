@@ -2,8 +2,7 @@
 
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
-import {Map, Marker, Popup, type MapRef} from 'react-map-gl/mapbox';
-import {Store} from 'lucide-react';
+import {Layer, Map, Marker, Popup, Source, type MapLayerMouseEvent, type MapRef} from 'react-map-gl/mapbox';
 import StarRating from '@/components/StarRating';
 import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {Shop} from '@/types/shop';
@@ -27,6 +26,8 @@ const MACAU_CENTER = {
   latitude: 22.1896,
   zoom: 14
 } as const;
+
+const CLUSTER_SOURCE_ID = 'shops-clusters';
 
 function mapLocaleToNameField(locale: string) {
   if (locale === 'zh-CN') return 'name_zh-Hans';
@@ -65,6 +66,24 @@ export default function MapPlaceholder({
   const selectedShop = useMemo(
     () => shops.find((shop) => shop.id === selectedShopId) ?? null,
     [shops, selectedShopId]
+  );
+
+  const shopsGeoJson = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: shops.map((shop) => ({
+        type: 'Feature' as const,
+        properties: {
+          id: shop.id,
+          name: shop.name
+        },
+        geometry: {
+          type: 'Point' as const,
+          coordinates: shop.coordinates
+        }
+      }))
+    }),
+    [shops]
   );
 
   useEffect(() => {
@@ -120,7 +139,39 @@ export default function MapPlaceholder({
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
         style={{width: '100%', height: '100%'}}
         onLoad={handleMapLoad}
-        onClick={(event) => {
+        interactiveLayerIds={['clusters', 'unclustered-point']}
+        onClick={(event: MapLayerMouseEvent) => {
+          const map = mapRef.current?.getMap();
+          if (!map) return;
+
+          const clickedFeature = event.features?.[0];
+          const layerId = clickedFeature?.layer?.id;
+
+          if (layerId === 'clusters') {
+            const clusterId = clickedFeature.properties?.cluster_id;
+            if (typeof clusterId === 'number') {
+              const source = map.getSource(CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource;
+              source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+                if (err) return;
+                const coordinates = (clickedFeature.geometry as GeoJSON.Point).coordinates as [number, number];
+                map.easeTo({center: coordinates, zoom, duration: 500});
+              });
+            }
+            return;
+          }
+
+          if (layerId === 'unclustered-point') {
+            const clickedId = Number(clickedFeature.properties?.id);
+            if (Number.isFinite(clickedId)) {
+              const shop = shops.find((item) => item.id === clickedId);
+              if (shop) {
+                onSelectShop(shop.id);
+                setPopupShop(shop);
+              }
+            }
+            return;
+          }
+
           if (!contributionPickMode || !onPickCoordinates) return;
           const {lng, lat} = event.lngLat;
           onPickCoordinates([lng, lat]);
@@ -136,50 +187,56 @@ export default function MapPlaceholder({
           </Marker>
         )}
 
-        {shops.map((shop) => {
-          const [longitude, latitude] = shop.coordinates;
-          const isSelected = selectedShopId === shop.id;
-          const isHovered = hoveredShopId === shop.id;
-          const isActive = isSelected || isHovered;
-
-          return (
-            <Marker
-              key={shop.id}
-              longitude={longitude}
-              latitude={latitude}
-              anchor="bottom"
-              onClick={(e) => {
-                e.originalEvent.stopPropagation();
-                onSelectShop(shop.id);
-                setPopupShop(shop);
-              }}
-            >
-              <button
-                type="button"
-                className={`group relative -translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-                  isActive ? 'scale-110' : 'hover:scale-110'
-                }`}
-                aria-label={t('selectShop', {name: shop.name})}
-              >
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 shadow-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-                    isActive ? 'border-[#FFCC00] bg-[#FFCC00] ring-4 ring-[#FFCC00]/35' : 'border-white bg-[#FFD94A]'
-                  }`}
-                >
-                  <Store className={`h-4 w-4 ${isActive ? 'text-[#124d2f]' : 'text-[#1f5136]'}`} />
-                </div>
-
-                <div
-                  className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-3 py-1.5 bg-slate-800 text-white text-xs rounded-lg transition-opacity pointer-events-none ${
-                    isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                  }`}
-                >
-                  {t('shopPin', {name: shop.name})}
-                </div>
-              </button>
-            </Marker>
-          );
-        })}
+        <Source
+          id={CLUSTER_SOURCE_ID}
+          type="geojson"
+          data={shopsGeoJson}
+          cluster
+          clusterMaxZoom={15}
+          clusterRadius={45}
+        >
+          <Layer
+            id="clusters"
+            type="circle"
+            filter={['has', 'point_count']}
+            paint={{
+              'circle-color': '#006633',
+              'circle-radius': ['step', ['get', 'point_count'], 18, 10, 22, 25, 28],
+              'circle-stroke-color': '#ffffff',
+              'circle-stroke-width': 2
+            }}
+          />
+          <Layer
+            id="cluster-count"
+            type="symbol"
+            filter={['has', 'point_count']}
+            layout={{
+              'text-field': ['get', 'point_count_abbreviated'],
+              'text-size': 12
+            }}
+            paint={{
+              'text-color': '#ffffff'
+            }}
+          />
+          <Layer
+            id="unclustered-point"
+            type="circle"
+            filter={['!', ['has', 'point_count']]}
+            paint={{
+              'circle-color': '#FFD94A',
+              'circle-radius': [
+                'case',
+                ['==', ['get', 'id'], selectedShopId ?? -1],
+                10,
+                ['==', ['get', 'id'], hoveredShopId ?? -1],
+                10,
+                7
+              ],
+              'circle-stroke-color': '#ffffff',
+              'circle-stroke-width': 2
+            }}
+          />
+        </Source>
 
         {popupShop && (
           <Popup

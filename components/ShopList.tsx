@@ -185,7 +185,7 @@ export default function ShopList({
       <div className="hidden w-full flex-col gap-4 md:flex">{listContent}</div>
 
       <div
-        className="fixed inset-x-0 bottom-0 z-40 rounded-t-3xl border border-slate-200 bg-white/85 p-3 shadow-2xl backdrop-blur-md transition-[height] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 rounded-t-3xl border border-slate-200 bg-white/90 p-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] shadow-2xl backdrop-blur-md transition-[height] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden"
         style={sheetStyle}
       >
         <div
@@ -228,7 +228,7 @@ export default function ShopList({
               });
             }
           }}
-          className="mx-auto mb-2 block h-1.5 w-12 rounded-full bg-slate-300"
+          className="mx-auto mb-2 block h-1.5 w-12 touch-none rounded-full bg-slate-300"
         />
 
         <div className="flex h-[calc(100%-1.25rem)] flex-col">{listContent}</div>
