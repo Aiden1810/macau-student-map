@@ -189,7 +189,7 @@ export default function ShopList({
         />
 
         {sheetLevel === 'min' ? (
-          <div className="px-1 pt-1">
+          <div className="px-1 pt-0.5">
             <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2">
               <p className="text-sm font-semibold text-slate-700">附近店铺</p>
               <p className="mt-0.5 text-xs text-slate-500">共 {filteredShops.length} 家，向上拖动查看完整列表</p>

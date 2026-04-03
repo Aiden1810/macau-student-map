@@ -289,15 +289,13 @@ export default function Page() {
         contributeLabel={tContribute('button')}
       />
 
-      <main className="relative mx-auto max-w-7xl px-4 pt-[calc(env(safe-area-inset-top,0px)+4.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+2.25rem)] sm:px-6 sm:pt-[calc(env(safe-area-inset-top,0px)+5.5rem)] md:h-[calc(100dvh-4rem)] md:pb-4 lg:px-8">
-        <div className="pointer-events-none absolute inset-x-4 top-3 z-30 sm:inset-x-6 lg:inset-x-8">
-          <div className="pointer-events-auto">
-            <FilterBar
-              selectedCategory={selectedCategory}
-              selectedSubTag={selectedSubTag}
-              onChange={handleFilterChange}
-            />
-          </div>
+      <main className="relative mx-auto max-w-7xl px-4 pt-[calc(env(safe-area-inset-top,0px)+4.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] sm:px-6 sm:pt-[calc(env(safe-area-inset-top,0px)+5.5rem)] md:h-[calc(100dvh-4rem)] md:pb-4 lg:px-8">
+        <div className="mb-[2px]">
+          <FilterBar
+            selectedCategory={selectedCategory}
+            selectedSubTag={selectedSubTag}
+            onChange={handleFilterChange}
+          />
         </div>
 
 
@@ -331,7 +329,7 @@ export default function Page() {
           <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 shadow-sm">{pageNotice}</p>
         )}
 
-        <div className="grid grid-cols-1 gap-5 md:h-[calc(100dvh-11rem)] md:grid-cols-12 md:gap-6">
+        <div className="grid grid-cols-1 gap-[2px] md:h-[calc(100dvh-11rem)] md:grid-cols-12 md:gap-6">
           <div className="order-1 h-[58dvh] min-h-[360px] md:order-2 md:col-span-8 md:h-full lg:col-span-8">
             <MapPlaceholder
               shops={mapVisibleShops}

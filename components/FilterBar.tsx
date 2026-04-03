@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo, useState} from 'react';
+import {useMemo} from 'react';
 
 export const FILTER_CONFIG = {
   美食: ['咖啡', '炸鸡', '茶餐厅', '甜品', '正餐', '夜宵', '日料', '奶茶', '韩料', '冰淇淋'],
@@ -20,8 +20,6 @@ interface FilterBarProps {
 const MAIN_CATEGORY_OPTIONS: Array<MainCategory> = ['美食', '氛围', '评价'];
 
 export default function FilterBar({selectedCategory, selectedSubTag, onChange}: FilterBarProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-
   const subTagOptions = useMemo(() => {
     if (!selectedCategory) {
       return [] as string[];
@@ -57,84 +55,59 @@ export default function FilterBar({selectedCategory, selectedSubTag, onChange}: 
   };
 
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white/95 px-3 py-3 shadow-sm backdrop-blur md:px-4">
-      <div className="mb-2 flex items-center justify-between md:hidden">
+    <section className="rounded-2xl border border-slate-200/80 bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur md:px-4 md:py-3">
+      <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
         <button
           type="button"
-          onClick={() => setMobileOpen((prev) => !prev)}
-          className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+          onClick={handleAllClick}
+          className={`min-h-10 shrink-0 rounded-full border px-4 text-sm font-medium transition ${
+            selectedCategory === null
+              ? 'border-[#006633] bg-[#006633] text-white'
+              : 'border-slate-200 bg-white text-slate-700 active:scale-[0.99]'
+          }`}
         >
-          {mobileOpen ? '收起筛选' : '展开筛选'}
+          全部
         </button>
 
-        {(selectedCategory || selectedSubTag) && (
+        {MAIN_CATEGORY_OPTIONS.map((category) => (
           <button
+            key={category}
             type="button"
-            onClick={() => {
-              handleAllClick();
-              setMobileOpen(false);
-            }}
-            className="text-xs font-medium text-[#006633]"
-          >
-            清空
-          </button>
-        )}
-      </div>
-
-      <div className={`${mobileOpen ? 'block' : 'hidden'} md:block`}>
-        <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
-          <button
-            type="button"
-            onClick={handleAllClick}
-            className={`min-h-10 shrink-0 rounded-full border px-4 text-sm font-medium transition ${
-              selectedCategory === null
+            onClick={() => handleCategoryClick(category)}
+            className={`min-h-10 shrink-0 rounded-full border px-4 text-sm font-semibold transition ${
+              selectedCategory === category
                 ? 'border-[#006633] bg-[#006633] text-white'
-                : 'border-slate-200 bg-white text-slate-700 active:scale-[0.99]'
+                : 'border-slate-200 bg-slate-50 text-slate-700 active:scale-[0.99]'
             }`}
           >
-            全部
+            {category}
           </button>
-
-          {MAIN_CATEGORY_OPTIONS.map((category) => (
-            <button
-              key={category}
-              type="button"
-              onClick={() => handleCategoryClick(category)}
-              className={`min-h-10 shrink-0 rounded-full border px-4 text-sm font-semibold transition ${
-                selectedCategory === category
-                  ? 'border-[#006633] bg-[#006633] text-white'
-                  : 'border-slate-200 bg-slate-50 text-slate-700 active:scale-[0.99]'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-
-        {selectedCategory && (
-          <div className="hide-scrollbar mt-2 flex items-center gap-2 overflow-x-auto pb-1">
-            {subTagOptions.map((tag) => {
-              const typedTag = tag as SubTag;
-              const isActive = selectedSubTag === typedTag;
-
-              return (
-                <button
-                  key={typedTag}
-                  type="button"
-                  onClick={() => handleSubTagClick(typedTag)}
-                  className={`min-h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition ${
-                    isActive
-                      ? 'border-[#FFCC00] bg-[#FFF9E6] text-[#006633]'
-                      : 'border-slate-200 bg-white text-slate-600 active:scale-[0.99]'
-                  }`}
-                >
-                  {typedTag}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        ))}
       </div>
+
+      {selectedCategory && (
+        <div className="hide-scrollbar mt-2 flex items-center gap-2 overflow-x-auto pb-1">
+          {subTagOptions.map((tag) => {
+            const typedTag = tag as SubTag;
+            const isActive = selectedSubTag === typedTag;
+
+            return (
+              <button
+                key={typedTag}
+                type="button"
+                onClick={() => handleSubTagClick(typedTag)}
+                className={`min-h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition ${
+                  isActive
+                    ? 'border-[#FFCC00] bg-[#FFF9E6] text-[#006633]'
+                    : 'border-slate-200 bg-white text-slate-600 active:scale-[0.99]'
+                }`}
+              >
+                {typedTag}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
