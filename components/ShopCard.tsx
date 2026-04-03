@@ -3,7 +3,7 @@ import Link from 'next/link';
 import {Check, Navigation, Tag, Trash2} from 'lucide-react';
 import {useLocale, useTranslations} from 'next-intl';
 import StarRating from '@/components/StarRating';
-import {getRatingTag} from '@/lib/utils/ratingTag';
+import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {Shop} from '@/types/shop';
 
 interface ShopCardProps {
@@ -55,7 +55,7 @@ export default function ShopCard({
   const isPendingAddress = address === '地址信息收录中 (Address pending)';
   const coverImageUrl = shop.imageUrls?.[0] ?? '';
   const hasValidImageUrl = typeof coverImageUrl === 'string' && coverImageUrl.trim().length > 0;
-  const ratingTag = getRatingTag(shop.rating);
+  const ratingTag = getRatingTagFromData(shop.rating, shop.tags, shop.subTags ?? []);
 
   return (
     <div className="group cursor-pointer rounded-2xl border border-slate-100/90 bg-white/95 p-4 shadow-md transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:shadow-xl">

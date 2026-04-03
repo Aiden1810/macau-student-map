@@ -52,7 +52,7 @@ export default function Header({
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#FFCC00]/60 bg-[#0c4b2f] text-white shadow-md shadow-[#003a24]/35">
             <span className="text-xs font-extrabold tracking-wide">MU</span>
           </div>
-          <h1 className="truncate text-lg font-bold text-slate-900 sm:text-xl">Macau Lens</h1>
+          <h1 className="truncate text-lg font-bold text-white sm:text-xl">Macau Lens</h1>
         </div>
 
         <div className="flex-1 max-w-md mx-4 hidden md:block">

@@ -1,6 +1,7 @@
 'use client';
 
 import {FormEvent, useCallback, useEffect, useMemo, useState} from 'react';
+import toast from 'react-hot-toast';
 import {Link} from '@/i18n/navigation';
 import {supabase} from '@/lib/supabase';
 
@@ -355,7 +356,7 @@ export default function AdminModerationPage() {
       .select(
         'id,name,address,longitude,latitude,category,main_category,sub_tags,tags,image_urls,review_text,student_discount,status,created_at'
       )
-      .in('status', ['pending', 'verified', 'rejected'])
+      .or('status.in.(pending,verified,rejected),status.is.null')
       .order('created_at', {ascending: false});
 
     if (fetchError) {
@@ -431,12 +432,79 @@ export default function AdminModerationPage() {
 
     if (deleteError) {
       setError(deleteError.message);
+      toast.error(`删除失败：${deleteError.message}`);
       setBusyAction(null);
       return;
     }
 
+    toast.success('店铺已永久删除');
     await fetchAllShops();
     setBusyAction(null);
+  };
+
+  const clearReviewText = async (shopId: string) => {
+    if (!isAdmin) return;
+
+    const confirmed = window.confirm('确认清空该店铺的文字评价？');
+    if (!confirmed) return;
+
+    const {error: updateError} = await supabase.from('shops').update({review_text: null}).eq('id', shopId);
+
+    if (updateError) {
+      setError(updateError.message);
+      toast.error(`清空评价失败：${updateError.message}`);
+      return;
+    }
+
+    toast.success('文字评价已清空');
+    await fetchAllShops();
+  };
+
+  const removeImageAtIndex = async (shop: ShopRow, index: number) => {
+    if (!isAdmin) return;
+
+    const currentImages = shop.image_urls ?? [];
+
+    if (index < 0 || index >= currentImages.length) {
+      return;
+    }
+
+    const confirmed = window.confirm('确认删除这张图片？');
+    if (!confirmed) return;
+
+    const nextImages = currentImages.filter((_, imageIndex) => imageIndex !== index);
+
+    const {error: updateError} = await supabase
+      .from('shops')
+      .update({image_urls: nextImages.length > 0 ? nextImages : null})
+      .eq('id', shop.id);
+
+    if (updateError) {
+      setError(updateError.message);
+      toast.error(`删除图片失败：${updateError.message}`);
+      return;
+    }
+
+    toast.success('图片已删除');
+    await fetchAllShops();
+  };
+
+  const clearAllImages = async (shopId: string) => {
+    if (!isAdmin) return;
+
+    const confirmed = window.confirm('确认清空所有图片？');
+    if (!confirmed) return;
+
+    const {error: updateError} = await supabase.from('shops').update({image_urls: null}).eq('id', shopId);
+
+    if (updateError) {
+      setError(updateError.message);
+      toast.error(`清空图片失败：${updateError.message}`);
+      return;
+    }
+
+    toast.success('图片已全部清空');
+    await fetchAllShops();
   };
 
   const handleCreate = async (payload: Record<string, unknown>) => {
@@ -478,12 +546,14 @@ export default function AdminModerationPage() {
   const statusLabel = (status: ShopStatus | null) => {
     if (status === 'verified') return '已上线';
     if (status === 'rejected') return '已驳回';
+    if (status === null) return '待审核(空状态)';
     return '待审核';
   };
 
   const statusClassName = (status: ShopStatus | null) => {
     if (status === 'verified') return 'bg-emerald-100 text-emerald-700';
     if (status === 'rejected') return 'bg-rose-100 text-rose-700';
+    if (status === null) return 'bg-amber-100 text-amber-700';
     return 'bg-amber-100 text-amber-700';
   };
 
@@ -584,9 +654,58 @@ export default function AdminModerationPage() {
                     <p>
                       旧 tags：<span className="font-medium text-slate-800">{shop.tags?.length ? shop.tags.join(', ') : '-'}</span>
                     </p>
+                    <p>
+                      文字评价：
+                      <span className="ml-1 font-medium text-slate-800">{shop.review_text?.trim() ? '有内容' : '空'}</span>
+                    </p>
+                    <p>
+                      图片数量：<span className="font-medium text-slate-800">{shop.image_urls?.length ?? 0}</span>
+                    </p>
                   </div>
 
+                  {shop.image_urls && shop.image_urls.length > 0 && (
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <p className="mb-2 text-xs font-semibold text-slate-600">图片管理</p>
+                      <div className="space-y-2">
+                        {shop.image_urls.map((url, index) => (
+                          <div key={`${shop.id}-img-${index}`} className="flex items-center justify-between gap-2 rounded-md bg-white px-2 py-1.5">
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="truncate text-xs text-indigo-600 hover:underline"
+                            >
+                              {url}
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => removeImageAtIndex(shop, index)}
+                              className="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-100"
+                            >
+                              删除该图
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="mt-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => clearReviewText(shop.id)}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                    >
+                      清空文字评价
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => clearAllImages(shop.id)}
+                      className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                    >
+                      清空所有图片
+                    </button>
                     {shop.status !== 'verified' && (
                       <button
                         type="button"

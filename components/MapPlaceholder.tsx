@@ -5,7 +5,7 @@ import {useLocale, useTranslations} from 'next-intl';
 import {Map, Marker, Popup, type MapRef} from 'react-map-gl/mapbox';
 import {Store} from 'lucide-react';
 import StarRating from '@/components/StarRating';
-import {getRatingTag} from '@/lib/utils/ratingTag';
+import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {Shop, ViewMode} from '@/types/shop';
 
 interface MapPlaceholderProps {
@@ -196,11 +196,17 @@ export default function MapPlaceholder({
               <h3 className="text-base font-bold leading-tight">{popupShop.name}</h3>
 
               <div className="mt-2 flex items-center gap-2">
-                <span
-                  className={`rounded-md px-2 py-0.5 text-xs font-semibold ${getRatingTag(popupShop.rating).bgClass} ${getRatingTag(popupShop.rating).textClass}`}
-                >
-                  {getRatingTag(popupShop.rating).label}
-                </span>
+                {(() => {
+                  const popupRatingTag = getRatingTagFromData(popupShop.rating, popupShop.tags, popupShop.subTags ?? []);
+
+                  return (
+                    <span
+                      className={`rounded-md px-2 py-0.5 text-xs font-semibold ${popupRatingTag.bgClass} ${popupRatingTag.textClass}`}
+                    >
+                      {popupRatingTag.label}
+                    </span>
+                  );
+                })()}
               </div>
 
               <div className="mt-2">

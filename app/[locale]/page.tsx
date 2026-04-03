@@ -11,6 +11,7 @@ import ShopList from '@/components/ShopList';
 import {FILTERS} from '@/data/shops';
 import {mapShopList} from '@/lib/mappers/shop';
 import {supabase} from '@/lib/supabase';
+import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {FilterOption, Shop, ViewMode} from '@/types/shop';
 
 export default function Page() {
@@ -51,15 +52,10 @@ export default function Page() {
         .select(
           'id,name,category,student_discount,tags,latitude,longitude,status,rating,total_sum,rating_count,review_text,image_urls,address,main_category,sub_tags'
         )
-        .in('status', ['verified', 'pending']);
+        .or('status.in.(verified,pending),status.is.null');
 
       if (category) {
         query = query.eq('main_category', category);
-      }
-
-      if (subTag) {
-        const escapedTag = subTag.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-        query = query.or(`sub_tags.cs.{"${escapedTag}"},tags.cs.{"${escapedTag}"}`);
       }
 
       const {data, error} = await query;
@@ -71,7 +67,15 @@ export default function Page() {
         return;
       }
 
-      setShops(mapShopList((data ?? []) as unknown[]));
+      const mappedShops = mapShopList((data ?? []) as unknown[]);
+      const fullyFilteredShops = subTag
+        ? mappedShops.filter((shop) => {
+            const ratingTag = getRatingTagFromData(shop.rating, shop.tags, shop.subTags ?? []).label;
+            return shop.subTags?.includes(subTag) || shop.tags.includes(subTag) || ratingTag === subTag;
+          })
+        : mappedShops;
+
+      setShops(fullyFilteredShops);
 
       if (hasFetchedRef.current) {
         toast.success('已更新点位');
@@ -343,7 +347,6 @@ export default function Page() {
               setActiveFilter={setActiveFilter}
               filteredShops={filteredShops}
               loading={loading}
-              viewMode={viewMode}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               onLocateShop={handleLocateShop}
