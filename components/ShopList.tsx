@@ -27,6 +27,7 @@ interface ShopListProps {
   collapseMobileSheetSignal?: number;
 }
 
+const SHEET_MINIMIZED = 8;
 const SHEET_COLLAPSED = 35;
 const SHEET_EXPANDED = 86;
 
@@ -52,16 +53,26 @@ export default function ShopList({
   onDeleteShop,
   collapseMobileSheetSignal = 0
 }: ShopListProps) {
-  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [sheetLevel, setSheetLevel] = useState<'min' | 'collapsed' | 'expanded'>('collapsed');
   const [dragging, setDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const startYRef = useRef<number | null>(null);
-  const startExpandedRef = useRef(false);
+  const startLevelRef = useRef<'min' | 'collapsed' | 'expanded'>('collapsed');
 
-  const sheetHeight = useMemo(() => (sheetExpanded ? SHEET_EXPANDED : SHEET_COLLAPSED), [sheetExpanded]);
+  const sheetHeight = useMemo(() => {
+    if (sheetLevel === 'expanded') {
+      return SHEET_EXPANDED;
+    }
+
+    if (sheetLevel === 'min') {
+      return SHEET_MINIMIZED;
+    }
+
+    return SHEET_COLLAPSED;
+  }, [sheetLevel]);
 
   useEffect(() => {
-    setSheetExpanded(false);
+    setSheetLevel('min');
     setDragOffset(0);
     setDragging(false);
     startYRef.current = null;
@@ -69,27 +80,39 @@ export default function ShopList({
 
   const startDrag = (clientY: number) => {
     startYRef.current = clientY;
-    startExpandedRef.current = sheetExpanded;
+    startLevelRef.current = sheetLevel;
     setDragging(true);
   };
 
   const moveDrag = (clientY: number) => {
     if (startYRef.current === null) return;
     const deltaY = clientY - startYRef.current;
-    const base = startExpandedRef.current ? SHEET_EXPANDED : SHEET_COLLAPSED;
+    const base =
+      startLevelRef.current === 'expanded'
+        ? SHEET_EXPANDED
+        : startLevelRef.current === 'collapsed'
+          ? SHEET_COLLAPSED
+          : SHEET_MINIMIZED;
     const offset = (-deltaY / window.innerHeight) * 100;
-    const nextHeight = Math.max(SHEET_COLLAPSED, Math.min(SHEET_EXPANDED, base + offset));
+    const nextHeight = Math.max(SHEET_MINIMIZED, Math.min(SHEET_EXPANDED, base + offset));
     setDragOffset(nextHeight - base);
   };
 
   const endDrag = () => {
     if (startYRef.current === null) return;
-    const threshold = 8;
-    if (dragOffset > threshold) {
-      setSheetExpanded(true);
-    } else if (dragOffset < -threshold) {
-      setSheetExpanded(false);
-    }
+
+    const currentHeight = sheetHeight + dragOffset;
+    const snapCandidates = [
+      {level: 'min' as const, value: SHEET_MINIMIZED},
+      {level: 'collapsed' as const, value: SHEET_COLLAPSED},
+      {level: 'expanded' as const, value: SHEET_EXPANDED}
+    ];
+
+    const nearest = snapCandidates.reduce((prev, item) => {
+      return Math.abs(item.value - currentHeight) < Math.abs(prev.value - currentHeight) ? item : prev;
+    });
+
+    setSheetLevel(nearest.level);
     setDragging(false);
     setDragOffset(0);
     startYRef.current = null;
@@ -178,11 +201,33 @@ export default function ShopList({
           onTouchStart={(e) => startDrag(e.touches[0].clientY)}
           onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
           onTouchEnd={endDrag}
-          onClick={() => setSheetExpanded((prev) => !prev)}
+          onClick={() => {
+            setSheetLevel((prev) => {
+              if (prev === 'min') {
+                return 'collapsed';
+              }
+
+              if (prev === 'collapsed') {
+                return 'expanded';
+              }
+
+              return 'collapsed';
+            });
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              setSheetExpanded((prev) => !prev);
+              setSheetLevel((prev) => {
+                if (prev === 'min') {
+                  return 'collapsed';
+                }
+
+                if (prev === 'collapsed') {
+                  return 'expanded';
+                }
+
+                return 'collapsed';
+              });
             }
           }}
           className="mx-auto mb-2 block h-1.5 w-12 rounded-full bg-slate-300"

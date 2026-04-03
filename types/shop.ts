@@ -17,6 +17,8 @@ export interface Shop {
   coordinates: [number, number];
   studentDiscount: string | null;
   tags: string[];
+  mainCategory?: string | null;
+  subTags?: string[];
   rating: number;
   reviews: number;
   recommendStatus: RecommendStatus;

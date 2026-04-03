@@ -311,6 +311,8 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
     row?.latlng ??
     (lngCandidate !== undefined && latCandidate !== undefined ? [lngCandidate, latCandidate] : undefined);
   const rawTags = row?.tags;
+  const rawMainCategory = row?.main_category;
+  const rawSubTags = row?.sub_tags;
   const rawDiscount = row?.student_discount ?? null;
   const rawStatus = row?.recommend_status;
   const rawRating = row?.rating;
@@ -324,6 +326,12 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
   const normalizedReviewText =
     typeof rawReviewText === 'string' && rawReviewText.trim().length > 0 ? rawReviewText.trim() : null;
 
+  const normalizedMainCategory =
+    typeof rawMainCategory === 'string' && rawMainCategory.trim().length > 0 ? rawMainCategory.trim() : null;
+  const normalizedSubTags = normalizeStringArray(rawSubTags);
+  const legacyTags = normalizeTags(rawTags);
+  const mergedTags = Array.from(new Set([...(normalizedMainCategory ? [normalizedMainCategory] : []), ...normalizedSubTags, ...legacyTags]));
+
   const shop: Shop = {
     id: String(rawId ?? rawName),
     name: rawName,
@@ -332,7 +340,9 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
     type: mapCategoryToShopType(rawType),
     coordinates: parseCoordinates(rawCoordinates),
     studentDiscount: typeof rawDiscount === 'string' ? rawDiscount : null,
-    tags: normalizeTags(rawTags),
+    tags: mergedTags,
+    mainCategory: normalizedMainCategory,
+    subTags: normalizedSubTags,
     rating: reviewMetrics.rating,
     reviews: reviewMetrics.reviews,
     recommendStatus: normalizeRecommendStatus(rawStatus),

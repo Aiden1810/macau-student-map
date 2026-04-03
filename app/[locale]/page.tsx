@@ -59,7 +59,8 @@ export default function Page() {
       }
 
       if (subTag) {
-        query = query.contains('sub_tags', [subTag]);
+        const escapedTag = subTag.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        query = query.or(`sub_tags.cs.{"${escapedTag}"},tags.cs.{"${escapedTag}"}`);
       }
 
       const {data, error} = await query;
@@ -260,16 +261,21 @@ export default function Page() {
   return (
     <div className="min-h-[100dvh] bg-slate-50 text-slate-800">
       <Header
-        viewMode={viewMode}
-        setViewMode={setViewMode}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        title={t('title')}
         searchPlaceholder={t('searchPlaceholder')}
         isAdmin={isAdmin}
         userEmail={userEmail}
         loginHref="/admin-login"
         onLogout={handleLogout}
+        onToggleContribute={() => {
+          setIsContributeOpen((prev) => !prev);
+          setMapPickMode(false);
+          setManualCoordinates(null);
+          setPageError(null);
+          setPageNotice(null);
+        }}
+        contributeLabel={tContribute('button')}
       />
 
       <main className="relative mx-auto h-[calc(100dvh-4rem)] max-w-7xl px-4 pt-[calc(env(safe-area-inset-top,0px)+5rem)] pb-4 sm:px-6 sm:pt-[calc(env(safe-area-inset-top,0px)+5.5rem)] lg:px-8">
@@ -285,19 +291,6 @@ export default function Page() {
 
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-600">{t('welcome')}</p>
-          <button
-            type="button"
-            onClick={() => {
-              setIsContributeOpen((prev) => !prev);
-              setMapPickMode(false);
-              setManualCoordinates(null);
-              setPageError(null);
-              setPageNotice(null);
-            }}
-            className="inline-flex items-center rounded-xl border border-[#CCAA00] bg-[#FFCC00] px-3 py-2 text-sm font-semibold text-[#124d2f] transition hover:brightness-95"
-          >
-            {tContribute('button')}
-          </button>
         </div>
 
         {isContributeOpen && (
