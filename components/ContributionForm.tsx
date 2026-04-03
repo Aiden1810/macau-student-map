@@ -27,7 +27,6 @@ export default function ContributionForm({
   manualCoordinates
 }: ContributionFormProps) {
   const tContribute = useTranslations('Contribute');
-  const tFilters = useTranslations('Filters');
 
   const [geocodeQuery, setGeocodeQuery] = useState('');
   const debouncedGeocodeQuery = useDebounce(geocodeQuery, 300);
@@ -232,7 +231,7 @@ export default function ContributionForm({
           longitude: manualCoordinates![0],
           latitude: manualCoordinates![1],
           tags,
-          image_url: imageUrl || null,
+          image_urls: imageUrls,
           review_text: reviewText.trim() || null,
           category,
           status: 'pending',

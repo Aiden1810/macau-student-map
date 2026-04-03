@@ -47,7 +47,8 @@ function pickFirstNonEmptyString(...candidates: unknown[]): string | null {
 }
 
 function pickRawName(raw: Record<string, unknown>): string {
-  return pickFirstNonEmptyString(raw?.name, raw?.shop_name, raw?.title, raw?.shop?.name) ?? DEFAULT_SHOP_NAME;
+  const shop = isObject(raw?.shop) ? raw.shop : null;
+  return pickFirstNonEmptyString(raw?.name, raw?.shop_name, raw?.title, shop?.name) ?? DEFAULT_SHOP_NAME;
 }
 
 function pickRawAddress(raw: Record<string, unknown>): string {
