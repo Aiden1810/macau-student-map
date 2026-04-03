@@ -2,7 +2,7 @@
 
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
-import {Layer, Map, Marker, Popup, Source, type MapLayerMouseEvent, type MapRef} from 'react-map-gl/mapbox';
+import {Layer, Map, Marker, Popup, Source, type MapRef} from 'react-map-gl/mapbox';
 import StarRating from '@/components/StarRating';
 import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {Shop} from '@/types/shop';
@@ -140,7 +140,7 @@ export default function MapPlaceholder({
         style={{width: '100%', height: '100%'}}
         onLoad={handleMapLoad}
         interactiveLayerIds={['clusters', 'unclustered-point']}
-        onClick={(event: MapLayerMouseEvent) => {
+        onClick={(event) => {
           const map = mapRef.current?.getMap();
           if (!map) return;
 
