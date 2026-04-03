@@ -6,11 +6,10 @@ import {Map, Marker, Popup, type MapRef} from 'react-map-gl/mapbox';
 import {Store} from 'lucide-react';
 import StarRating from '@/components/StarRating';
 import {getRatingTagFromData} from '@/lib/utils/ratingTag';
-import {Shop, ViewMode} from '@/types/shop';
+import {Shop} from '@/types/shop';
 
 interface MapPlaceholderProps {
   shops: Shop[];
-  viewMode: ViewMode;
   selectedShopId: Shop['id'] | null;
   hoveredShopId?: Shop['id'] | null;
   onSelectShop: (shopId: Shop['id']) => void;
@@ -51,7 +50,6 @@ function applyMapLabelLanguage(map: mapboxgl.Map, locale: string) {
 
 export default function MapPlaceholder({
   shops,
-  viewMode: _viewMode,
   selectedShopId,
   hoveredShopId = null,
   onSelectShop,

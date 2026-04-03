@@ -2,7 +2,7 @@ import {Search} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
-import {FilterOption, Shop, ViewMode} from '@/types/shop';
+import {FilterOption, Shop} from '@/types/shop';
 
 interface ShopListProps {
   filters: FilterOption[];
@@ -10,7 +10,6 @@ interface ShopListProps {
   setActiveFilter: (filter: FilterOption) => void;
   filteredShops: Shop[];
   loading: boolean;
-  viewMode: ViewMode;
   searchQuery: string;
   setSearchQuery: (value: string) => void;
   onLocateShop: (shopId: Shop['id']) => void;
@@ -37,7 +36,6 @@ export default function ShopList({
   setActiveFilter,
   filteredShops,
   loading,
-  viewMode: _viewMode,
   searchQuery,
   setSearchQuery,
   onLocateShop,

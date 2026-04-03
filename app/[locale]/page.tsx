@@ -20,7 +20,7 @@ export default function Page() {
   const tContribute = useTranslations('Contribute');
   const tShopCard = useTranslations('ShopCard');
 
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [, setViewMode] = useState<ViewMode>('list');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<FilterOption>('全部');
   const [selectedCategory, setSelectedCategory] = useState<MainCategory | null>(null);
@@ -328,7 +328,6 @@ export default function Page() {
           <div className="order-1 h-[42dvh] min-h-[260px] md:order-2 md:col-span-8 md:h-full lg:col-span-8">
             <MapPlaceholder
               shops={mapVisibleShops}
-              viewMode={viewMode}
               selectedShopId={selectedShopId}
               hoveredShopId={hoveredShopId}
               onSelectShop={setSelectedShopId}
