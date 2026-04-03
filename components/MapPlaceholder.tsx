@@ -153,7 +153,7 @@ export default function MapPlaceholder({
               if (typeof clusterId === 'number') {
                 const source = map.getSource(CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource;
                 source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-                  if (err) return;
+                  if (err || typeof zoom !== 'number') return;
                   const coordinates = (clickedFeature.geometry as GeoJSON.Point).coordinates as [number, number];
                   map.easeTo({center: coordinates, zoom, duration: 500});
                 });
