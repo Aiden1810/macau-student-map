@@ -145,31 +145,33 @@ export default function MapPlaceholder({
           if (!map) return;
 
           const clickedFeature = event.features?.[0];
-          const layerId = clickedFeature?.layer?.id;
+          if (clickedFeature) {
+            const layerId = clickedFeature.layer?.id;
 
-          if (layerId === 'clusters') {
-            const clusterId = clickedFeature.properties?.cluster_id;
-            if (typeof clusterId === 'number') {
-              const source = map.getSource(CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource;
-              source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-                if (err) return;
-                const coordinates = (clickedFeature.geometry as GeoJSON.Point).coordinates as [number, number];
-                map.easeTo({center: coordinates, zoom, duration: 500});
-              });
-            }
-            return;
-          }
-
-          if (layerId === 'unclustered-point') {
-            const clickedId = Number(clickedFeature.properties?.id);
-            if (Number.isFinite(clickedId)) {
-              const shop = shops.find((item) => item.id === clickedId);
-              if (shop) {
-                onSelectShop(shop.id);
-                setPopupShop(shop);
+            if (layerId === 'clusters') {
+              const clusterId = clickedFeature.properties?.cluster_id;
+              if (typeof clusterId === 'number') {
+                const source = map.getSource(CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource;
+                source.getClusterExpansionZoom(clusterId, (err, zoom) => {
+                  if (err) return;
+                  const coordinates = (clickedFeature.geometry as GeoJSON.Point).coordinates as [number, number];
+                  map.easeTo({center: coordinates, zoom, duration: 500});
+                });
               }
+              return;
             }
-            return;
+
+            if (layerId === 'unclustered-point') {
+              const clickedId = Number(clickedFeature.properties?.id);
+              if (Number.isFinite(clickedId)) {
+                const shop = shops.find((item) => item.id === clickedId);
+                if (shop) {
+                  onSelectShop(shop.id);
+                  setPopupShop(shop);
+                }
+              }
+              return;
+            }
           }
 
           if (!contributionPickMode || !onPickCoordinates) return;
