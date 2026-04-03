@@ -26,9 +26,8 @@ interface ShopListProps {
   collapseMobileSheetSignal?: number;
 }
 
-const SHEET_MINIMIZED = 8;
-const SHEET_COLLAPSED = 35;
-const SHEET_EXPANDED = 86;
+const SHEET_MINIMIZED = 10;
+const SHEET_EXPANDED = 84;
 
 export default function ShopList({
   filters,
@@ -51,22 +50,14 @@ export default function ShopList({
   onDeleteShop,
   collapseMobileSheetSignal = 0
 }: ShopListProps) {
-  const [sheetLevel, setSheetLevel] = useState<'min' | 'collapsed' | 'expanded'>('collapsed');
+  const [sheetLevel, setSheetLevel] = useState<'min' | 'expanded'>('min');
   const [dragging, setDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const startYRef = useRef<number | null>(null);
-  const startLevelRef = useRef<'min' | 'collapsed' | 'expanded'>('collapsed');
+  const startLevelRef = useRef<'min' | 'expanded'>('min');
 
   const sheetHeight = useMemo(() => {
-    if (sheetLevel === 'expanded') {
-      return SHEET_EXPANDED;
-    }
-
-    if (sheetLevel === 'min') {
-      return SHEET_MINIMIZED;
-    }
-
-    return SHEET_COLLAPSED;
+    return sheetLevel === 'expanded' ? SHEET_EXPANDED : SHEET_MINIMIZED;
   }, [sheetLevel]);
 
   useEffect(() => {
@@ -85,12 +76,7 @@ export default function ShopList({
   const moveDrag = (clientY: number) => {
     if (startYRef.current === null) return;
     const deltaY = clientY - startYRef.current;
-    const base =
-      startLevelRef.current === 'expanded'
-        ? SHEET_EXPANDED
-        : startLevelRef.current === 'collapsed'
-          ? SHEET_COLLAPSED
-          : SHEET_MINIMIZED;
+    const base = startLevelRef.current === 'expanded' ? SHEET_EXPANDED : SHEET_MINIMIZED;
     const offset = (-deltaY / window.innerHeight) * 100;
     const nextHeight = Math.max(SHEET_MINIMIZED, Math.min(SHEET_EXPANDED, base + offset));
     setDragOffset(nextHeight - base);
@@ -100,17 +86,8 @@ export default function ShopList({
     if (startYRef.current === null) return;
 
     const currentHeight = sheetHeight + dragOffset;
-    const snapCandidates = [
-      {level: 'min' as const, value: SHEET_MINIMIZED},
-      {level: 'collapsed' as const, value: SHEET_COLLAPSED},
-      {level: 'expanded' as const, value: SHEET_EXPANDED}
-    ];
-
-    const nearest = snapCandidates.reduce((prev, item) => {
-      return Math.abs(item.value - currentHeight) < Math.abs(prev.value - currentHeight) ? item : prev;
-    });
-
-    setSheetLevel(nearest.level);
+    const midpoint = (SHEET_MINIMIZED + SHEET_EXPANDED) / 2;
+    setSheetLevel(currentHeight >= midpoint ? 'expanded' : 'min');
     setDragging(false);
     setDragOffset(0);
     startYRef.current = null;
@@ -200,32 +177,12 @@ export default function ShopList({
           onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
           onTouchEnd={endDrag}
           onClick={() => {
-            setSheetLevel((prev) => {
-              if (prev === 'min') {
-                return 'collapsed';
-              }
-
-              if (prev === 'collapsed') {
-                return 'expanded';
-              }
-
-              return 'collapsed';
-            });
+            setSheetLevel((prev) => (prev === 'min' ? 'expanded' : 'min'));
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              setSheetLevel((prev) => {
-                if (prev === 'min') {
-                  return 'collapsed';
-                }
-
-                if (prev === 'collapsed') {
-                  return 'expanded';
-                }
-
-                return 'collapsed';
-              });
+              setSheetLevel((prev) => (prev === 'min' ? 'expanded' : 'min'));
             }
           }}
           className="mx-auto mb-2 block h-1.5 w-12 touch-none rounded-full bg-slate-300"
