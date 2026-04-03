@@ -77,7 +77,15 @@ export default function Header({
             {contributeLabel}
           </button>
 
-          {userEmail ? (
+          <Link
+            href={isAdmin ? '/admin' : loginHref}
+            className="inline-flex items-center gap-1 rounded-full border border-[#FFCC00]/80 bg-[#FFCC00] px-3 py-1.5 text-xs font-semibold text-[#0f3d26] transition hover:brightness-95"
+          >
+            <LogIn className="h-3.5 w-3.5" />
+            管理员
+          </Link>
+
+          {userEmail && (
             <div className="hidden items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs text-white md:flex">
               {isAdmin && <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />}
               <span className="max-w-[140px] truncate">{userEmail}</span>
@@ -90,14 +98,6 @@ export default function Header({
                 {tAuth('logout')}
               </button>
             </div>
-          ) : (
-            <Link
-              href={loginHref}
-              className="hidden items-center gap-1 rounded-full border border-[#FFCC00]/80 bg-[#FFCC00] px-3 py-1.5 text-xs font-semibold text-[#0f3d26] transition hover:brightness-95 md:inline-flex"
-            >
-              <LogIn className="h-3.5 w-3.5" />
-              {tAuth('login')}
-            </Link>
           )}
         </div>
       </div>
