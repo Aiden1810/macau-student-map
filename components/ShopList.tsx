@@ -1,5 +1,5 @@
 import {Search} from 'lucide-react';
-import {useMemo, useRef, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
 import {FilterOption, Shop, ViewMode} from '@/types/shop';
@@ -24,6 +24,7 @@ interface ShopListProps {
   canDelete: boolean;
   deletingShopId: Shop['id'] | null;
   onDeleteShop: (shopId: Shop['id']) => void;
+  collapseMobileSheetSignal?: number;
 }
 
 const SHEET_COLLAPSED = 35;
@@ -48,7 +49,8 @@ export default function ShopList({
   onApproveShop,
   canDelete,
   deletingShopId,
-  onDeleteShop
+  onDeleteShop,
+  collapseMobileSheetSignal = 0
 }: ShopListProps) {
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -57,6 +59,13 @@ export default function ShopList({
   const startExpandedRef = useRef(false);
 
   const sheetHeight = useMemo(() => (sheetExpanded ? SHEET_EXPANDED : SHEET_COLLAPSED), [sheetExpanded]);
+
+  useEffect(() => {
+    setSheetExpanded(false);
+    setDragOffset(0);
+    setDragging(false);
+    startYRef.current = null;
+  }, [collapseMobileSheetSignal]);
 
   const startDrag = (clientY: number) => {
     startYRef.current = clientY;

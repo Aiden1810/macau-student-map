@@ -22,6 +22,7 @@ export default function Page() {
   const [activeFilter, setActiveFilter] = useState<FilterOption>('全部');
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
   const [hoveredShopId, setHoveredShopId] = useState<Shop['id'] | null>(null);
+  const [collapseMobileSheetSignal, setCollapseMobileSheetSignal] = useState(0);
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -149,6 +150,7 @@ export default function Page() {
   const handleLocateShop = (shopId: Shop['id']) => {
     setSelectedShopId(shopId);
     setViewMode('map');
+    setCollapseMobileSheetSignal((prev) => prev + 1);
   };
 
   const handleApproveShop = async (shopId: Shop['id']) => {
@@ -323,6 +325,7 @@ export default function Page() {
               canDelete={isAdmin}
               deletingShopId={deletingShopId}
               onDeleteShop={handleDeleteShop}
+              collapseMobileSheetSignal={collapseMobileSheetSignal}
             />
           </div>
         </div>
