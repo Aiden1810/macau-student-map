@@ -149,6 +149,7 @@ export default function ShopCard({
           </Link>
 
           <button
+            type="button"
             onClick={() => onLocate?.(shop.id)}
             className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors"
           >

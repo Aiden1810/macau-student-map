@@ -142,14 +142,46 @@ function AdminShopForm({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    const name = form.name.trim();
+    if (!name) {
+      toast.error('店名不能为空');
+      return;
+    }
+
+    const longitudeValue = form.longitude.trim();
+    const latitudeValue = form.latitude.trim();
+
+    const parsedLongitude = longitudeValue ? Number(longitudeValue) : null;
+    const parsedLatitude = latitudeValue ? Number(latitudeValue) : null;
+
+    if (longitudeValue && Number.isNaN(parsedLongitude)) {
+      toast.error('Longitude 必须是数字');
+      return;
+    }
+
+    if (latitudeValue && Number.isNaN(parsedLatitude)) {
+      toast.error('Latitude 必须是数字');
+      return;
+    }
+
+    if (parsedLongitude !== null && (parsedLongitude < -180 || parsedLongitude > 180)) {
+      toast.error('Longitude 超出范围（-180 ~ 180）');
+      return;
+    }
+
+    if (parsedLatitude !== null && (parsedLatitude < -90 || parsedLatitude > 90)) {
+      toast.error('Latitude 超出范围（-90 ~ 90）');
+      return;
+    }
+
     const customSubTags = parseCommaValues(form.custom_sub_tags);
     const mergedSubTags = Array.from(new Set([...form.sub_tags, ...customSubTags]));
 
     const payload: Record<string, unknown> = {
-      name: form.name.trim(),
+      name,
       address: form.address.trim() || null,
-      longitude: form.longitude.trim() ? Number(form.longitude) : null,
-      latitude: form.latitude.trim() ? Number(form.latitude) : null,
+      longitude: parsedLongitude,
+      latitude: parsedLatitude,
       category: form.category.trim() || null,
       main_category: form.main_category.trim() || null,
       sub_tags: mergedSubTags,
@@ -399,7 +431,10 @@ export default function AdminModerationPage() {
     checkAdminRole();
   }, [checkAdminRole]);
 
-  const pendingCount = useMemo(() => shops.filter((item) => item.status === 'pending').length, [shops]);
+  const pendingCount = useMemo(
+    () => shops.filter((item) => item.status === 'pending' || item.status === null).length,
+    [shops]
+  );
 
   const updateStatus = async (shopId: string, nextStatus: ShopStatus, action: BusyActionType) => {
     if (!isAdmin || busyAction) return;
@@ -411,10 +446,12 @@ export default function AdminModerationPage() {
 
     if (updateError) {
       setError(updateError.message);
+      toast.error(`操作失败：${updateError.message}`);
       setBusyAction(null);
       return;
     }
 
+    toast.success(nextStatus === 'verified' ? '店铺已通过并上线' : '店铺已驳回');
     await fetchAllShops();
     setBusyAction(null);
   };
@@ -515,10 +552,12 @@ export default function AdminModerationPage() {
 
     if (insertError) {
       setError(insertError.message);
+      toast.error(`新增失败：${insertError.message}`);
       setSaving(false);
       return;
     }
 
+    toast.success('店铺已新增并上线');
     setShowCreateModal(false);
     setSaving(false);
     await fetchAllShops();
@@ -534,10 +573,12 @@ export default function AdminModerationPage() {
 
     if (updateError) {
       setError(updateError.message);
+      toast.error(`保存失败：${updateError.message}`);
       setSaving(false);
       return;
     }
 
+    toast.success('店铺信息已更新');
     setEditingShop(null);
     setSaving(false);
     await fetchAllShops();
