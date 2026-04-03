@@ -51,7 +51,7 @@ function applyMapLabelLanguage(map: mapboxgl.Map, locale: string) {
 
 export default function MapPlaceholder({
   shops,
-  viewMode,
+  viewMode: _viewMode,
   selectedShopId,
   hoveredShopId = null,
   onSelectShop,

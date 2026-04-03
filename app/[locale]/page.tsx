@@ -31,7 +31,6 @@ export default function Page() {
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [approvingShopId, setApprovingShopId] = useState<Shop['id'] | null>(null);
   const [deletingShopId, setDeletingShopId] = useState<Shop['id'] | null>(null);
 
@@ -88,13 +87,11 @@ export default function Page() {
     const {data: authData, error: authError} = await supabase.auth.getUser();
 
     if (authError || !authData?.user) {
-      setIsAuthenticated(false);
       setUserRole(null);
       setUserEmail(null);
       return;
     }
 
-    setIsAuthenticated(true);
     setUserEmail(authData.user.email ?? null);
 
     const {data: profile, error: profileError} = await supabase

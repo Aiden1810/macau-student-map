@@ -39,9 +39,11 @@ type ShopFormValue = {
   status: ShopStatus;
 };
 
+type BusyActionType = 'approve' | 'reject' | 'delete';
+
 type BusyAction = {
   shopId: string;
-  action: 'approve' | 'reject' | 'delete';
+  action: BusyActionType;
 } | null;
 
 const MAIN_CATEGORIES = ['美食', '氛围', '评价'] as const;
@@ -398,7 +400,7 @@ export default function AdminModerationPage() {
 
   const pendingCount = useMemo(() => shops.filter((item) => item.status === 'pending').length, [shops]);
 
-  const updateStatus = async (shopId: string, nextStatus: ShopStatus, action: BusyAction['action']) => {
+  const updateStatus = async (shopId: string, nextStatus: ShopStatus, action: BusyActionType) => {
     if (!isAdmin || busyAction) return;
 
     setBusyAction({shopId, action});

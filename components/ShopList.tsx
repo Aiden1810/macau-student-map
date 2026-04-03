@@ -37,7 +37,7 @@ export default function ShopList({
   setActiveFilter,
   filteredShops,
   loading,
-  viewMode,
+  viewMode: _viewMode,
   searchQuery,
   setSearchQuery,
   onLocateShop,
