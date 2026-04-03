@@ -3,7 +3,6 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
 import {Map, Marker, Popup, type MapRef} from 'react-map-gl/mapbox';
-import {BookOpen, Coffee} from 'lucide-react';
 import StarRating from '@/components/StarRating';
 import {getRatingTag} from '@/lib/utils/ratingTag';
 import {Shop, ViewMode} from '@/types/shop';
@@ -12,6 +11,7 @@ interface MapPlaceholderProps {
   shops: Shop[];
   viewMode: ViewMode;
   selectedShopId: Shop['id'] | null;
+  hoveredShopId?: Shop['id'] | null;
   onSelectShop: (shopId: Shop['id']) => void;
   contributionPickMode?: boolean;
   onPickCoordinates?: (coords: [number, number]) => void;
@@ -52,6 +52,7 @@ export default function MapPlaceholder({
   shops,
   viewMode,
   selectedShopId,
+  hoveredShopId = null,
   onSelectShop,
   contributionPickMode = false,
   onPickCoordinates,
@@ -112,9 +113,7 @@ export default function MapPlaceholder({
   };
 
   return (
-    <div
-      className={`w-full md:w-7/12 lg:w-2/3 h-[60vh] md:h-full rounded-2xl overflow-hidden relative border border-slate-200 shadow-inner ${viewMode === 'list' ? 'hidden md:block' : 'block'}`}
-    >
+    <div className="relative h-full w-full overflow-hidden rounded-2xl border border-slate-200 shadow-inner">
       <Map
         ref={mapRef}
         initialViewState={MACAU_CENTER}
@@ -141,6 +140,8 @@ export default function MapPlaceholder({
         {shops.map((shop) => {
           const [longitude, latitude] = shop.coordinates;
           const isSelected = selectedShopId === shop.id;
+          const isHovered = hoveredShopId === shop.id;
+          const isActive = isSelected || isHovered;
 
           return (
             <Marker
@@ -156,27 +157,17 @@ export default function MapPlaceholder({
             >
               <button
                 type="button"
-                className={`group relative -translate-y-1 transition-transform ${
-                  isSelected ? 'scale-110' : 'hover:scale-110'
+                className={`group relative -translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                  isActive ? 'scale-110' : 'hover:scale-110'
                 }`}
                 aria-label={t('selectShop', {name: shop.name})}
               >
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 ${
-                    isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-white'
-                  } ${
-                    shop.recommendStatus === 'recommend'
-                      ? 'bg-emerald-500'
-                      : shop.recommendStatus === 'avoid'
-                        ? 'bg-rose-500'
-                        : 'bg-amber-500'
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-[10px] font-black text-white shadow-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                    isActive ? 'border-[#FFCC00] bg-[#FFCC00] text-[#124d2f] ring-4 ring-[#FFCC00]/35' : 'border-white bg-[#006633]'
                   }`}
                 >
-                  {shop.type === '餐饮' ? (
-                    <Coffee className="w-4 h-4 text-white" />
-                  ) : (
-                    <BookOpen className="w-4 h-4 text-white" />
-                  )}
+                  MU
                 </div>
 
                 <div

@@ -21,6 +21,7 @@ export default function Page() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<FilterOption>('全部');
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
+  const [hoveredShopId, setHoveredShopId] = useState<Shop['id'] | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -223,7 +224,7 @@ export default function Page() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+    <div className="min-h-[100dvh] bg-slate-50 text-slate-800">
       <Header
         viewMode={viewMode}
         setViewMode={setViewMode}
@@ -237,7 +238,7 @@ export default function Page() {
         onLogout={handleLogout}
       />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="mx-auto h-[calc(100dvh-4rem)] max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-600">{t('welcome')}</p>
           <button
@@ -249,7 +250,7 @@ export default function Page() {
               setPageError(null);
               setPageNotice(null);
             }}
-            className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            className="inline-flex items-center rounded-xl border border-[#CCAA00] bg-[#FFCC00] px-3 py-2 text-sm font-semibold text-[#124d2f] transition hover:brightness-95"
           >
             {tContribute('button')}
           </button>
@@ -281,39 +282,45 @@ export default function Page() {
         {pageError && <p className="mb-4 text-sm text-rose-600">{pageError}</p>}
         {pageNotice && <p className="mb-4 text-sm text-emerald-600">{pageNotice}</p>}
 
-        <div className="flex flex-col md:flex-row gap-6 h-[calc(100vh-10rem)]">
-          <ShopList
-            filters={FILTERS}
-            activeFilter={activeFilter}
-            setActiveFilter={setActiveFilter}
-            filteredShops={filteredShops}
-            loading={loading}
-            viewMode={viewMode}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            onLocateShop={handleLocateShop}
-            mobileSearchPlaceholder={t('mobileSearchPlaceholder')}
-            emptyText={t('emptyResult')}
-            filterLabelMap={filterLabelMap}
-            canApprove={isAdmin}
-            approvingShopId={approvingShopId}
-            onApproveShop={handleApproveShop}
-            canDelete={isAuthenticated}
-            deletingShopId={deletingShopId}
-            onDeleteShop={handleDeleteShop}
-          />
+        <div className="grid h-[calc(100dvh-14.5rem)] grid-cols-1 gap-4 md:h-[calc(100dvh-11rem)] md:grid-cols-12 md:gap-6">
+          <div className="order-1 h-[42dvh] min-h-[260px] md:order-2 md:col-span-8 md:h-full lg:col-span-8">
+            <MapPlaceholder
+              shops={mapVisibleShops}
+              viewMode={viewMode}
+              selectedShopId={selectedShopId}
+              hoveredShopId={hoveredShopId}
+              onSelectShop={setSelectedShopId}
+              contributionPickMode={mapPickMode}
+              onPickCoordinates={(coords) => {
+                setManualCoordinates(coords);
+                setMapPickMode(false);
+              }}
+            />
+          </div>
 
-          <MapPlaceholder
-            shops={mapVisibleShops}
-            viewMode={viewMode}
-            selectedShopId={selectedShopId}
-            onSelectShop={setSelectedShopId}
-            contributionPickMode={mapPickMode}
-            onPickCoordinates={(coords) => {
-              setManualCoordinates(coords);
-              setMapPickMode(false);
-            }}
-          />
+          <div className="order-2 min-h-0 md:order-1 md:col-span-4 lg:col-span-4">
+            <ShopList
+              filters={FILTERS}
+              activeFilter={activeFilter}
+              setActiveFilter={setActiveFilter}
+              filteredShops={filteredShops}
+              loading={loading}
+              viewMode={viewMode}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              onLocateShop={handleLocateShop}
+              onHoverShop={setHoveredShopId}
+              mobileSearchPlaceholder={t('mobileSearchPlaceholder')}
+              emptyText={t('emptyResult')}
+              filterLabelMap={filterLabelMap}
+              canApprove={isAdmin}
+              approvingShopId={approvingShopId}
+              onApproveShop={handleApproveShop}
+              canDelete={isAuthenticated}
+              deletingShopId={deletingShopId}
+              onDeleteShop={handleDeleteShop}
+            />
+          </div>
         </div>
       </main>
     </div>

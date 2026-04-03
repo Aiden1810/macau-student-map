@@ -1,5 +1,6 @@
 import {List, LogIn, LogOut, Map as MapIcon, Search, ShieldCheck} from 'lucide-react';
 import {useTranslations} from 'next-intl';
+import {useEffect, useState} from 'react';
 import {Link} from '@/i18n/navigation';
 import {ViewMode} from '@/types/shop';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
@@ -30,25 +31,42 @@ export default function Header({
   onLogout
 }: HeaderProps) {
   const tAuth = useTranslations('Auth');
+  const [isCompact, setIsCompact] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setIsCompact(window.scrollY > 50);
+    onScroll();
+    window.addEventListener('scroll', onScroll, {passive: true});
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+    <header
+      className={`sticky top-0 z-50 border-b border-emerald-900/20 text-white shadow-sm backdrop-blur-md transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+        isCompact ? 'bg-[#006633]/86' : 'bg-[#006633]/96'
+      }`}
+    >
+      <div
+        className={`mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+          isCompact ? 'h-12' : 'h-16'
+        }`}
+      >
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-md">
             MU
           </div>
-          <h1 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-violet-500 bg-clip-text text-transparent">
+          <h1 className="text-xl font-bold text-white">
             {title}
           </h1>
         </div>
 
         <div className="flex-1 max-w-md mx-4 hidden md:block">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/80" />
             <input
               type="text"
               placeholder={searchPlaceholder}
-              className="w-full pl-10 pr-4 py-2 bg-slate-100 border-transparent focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 rounded-full text-sm transition-all outline-none"
+              className="w-full rounded-full border border-white/30 bg-white/15 py-2 pl-10 pr-4 text-sm text-white placeholder:text-white/70 outline-none transition-all focus:border-[#FFCC00] focus:ring-2 focus:ring-[#FFCC00]/40"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -59,13 +77,13 @@ export default function Header({
           <LanguageSwitcher />
 
           {userEmail ? (
-            <div className="hidden items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 sm:flex">
+            <div className="hidden items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs text-white sm:flex">
               {isAdmin && <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />}
               <span className="max-w-[140px] truncate">{userEmail}</span>
               <button
                 type="button"
                 onClick={onLogout}
-                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-800"
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-white transition hover:bg-white/15"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 {tAuth('logout')}
@@ -74,7 +92,7 @@ export default function Header({
           ) : (
             <Link
               href={loginHref}
-              className="hidden items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 transition hover:bg-indigo-100 sm:inline-flex"
+              className="hidden items-center gap-1 rounded-full border border-[#FFCC00]/80 bg-[#FFCC00] px-3 py-1.5 text-xs font-semibold text-[#0f3d26] transition hover:brightness-95 sm:inline-flex"
             >
               <LogIn className="h-3.5 w-3.5" />
               {tAuth('login')}

@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import {Navigation, Tag} from 'lucide-react';
+import {Check, Navigation, Tag, Trash2} from 'lucide-react';
 import {useLocale, useTranslations} from 'next-intl';
 import StarRating from '@/components/StarRating';
 import {getRatingTag} from '@/lib/utils/ratingTag';
@@ -20,11 +20,11 @@ interface ShopCardProps {
 
 function ShopPlaceholder() {
   return (
-    <div className="flex h-40 w-full items-center justify-center bg-gray-100">
+    <div className="flex h-40 w-full items-center justify-center bg-emerald-50">
       <svg
         viewBox="0 0 120 80"
         aria-hidden="true"
-        className="h-16 w-24 text-gray-400"
+        className="h-16 w-24 text-[#0f7a43]"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
@@ -58,7 +58,7 @@ export default function ShopCard({
   const ratingTag = getRatingTag(shop.rating);
 
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 hover:shadow-lg transition-shadow cursor-pointer group">
+    <div className="group cursor-pointer rounded-2xl border border-slate-100 bg-white p-4 shadow-md transition-shadow hover:shadow-lg">
       <div className="mb-3 overflow-hidden rounded-xl border border-slate-100">
         {hasValidImageUrl ? (
           <Image src={coverImageUrl} alt={shop.name} width={640} height={360} className="h-40 w-full object-cover" />
@@ -122,8 +122,9 @@ export default function ShopCard({
               type="button"
               onClick={() => onApprove?.(shop.id)}
               disabled={approving}
-              className="rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
+              <Check className="h-3.5 w-3.5" />
               {approving ? t('approving') : t('approve')}
             </button>
           )}
@@ -133,8 +134,9 @@ export default function ShopCard({
               type="button"
               onClick={() => onDelete?.(shop.id)}
               disabled={deleting}
-              className="rounded-md bg-rose-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
+              <Trash2 className="h-3.5 w-3.5" />
               {deleting ? '删除中...' : '删除'}
             </button>
           )}
