@@ -48,7 +48,6 @@ type BusyAction = {
 } | null;
 
 const MAIN_CATEGORIES = ['美食', '氛围', '评价'] as const;
-const ADMIN_EMAIL_ALLOWLIST = ['2772157757@qq.com'];
 
 const SUB_TAG_OPTIONS: Record<(typeof MAIN_CATEGORIES)[number], string[]> = {
   美食: ['咖啡', '炸鸡', '茶餐厅', '甜品', '正餐', '夜宵', '日料', '奶茶', '韩料', '冰淇淋'],
@@ -432,22 +431,13 @@ export default function AdminModerationPage() {
       return;
     }
 
-    const currentEmail = (authData.user.email ?? '').trim().toLowerCase();
-    const isAllowlistedAdmin = ADMIN_EMAIL_ALLOWLIST.includes(currentEmail);
-
     const {data: profile, error: roleError} = await supabase
       .from('profiles')
       .select('role')
       .eq('id', authData.user.id)
       .maybeSingle();
 
-    if (roleError) {
-      setIsAdmin(false);
-      setLoading(false);
-      return;
-    }
-
-    if (profile?.role !== 'admin' && !isAllowlistedAdmin) {
+    if (roleError || profile?.role !== 'admin') {
       setIsAdmin(false);
       setLoading(false);
       return;
