@@ -162,9 +162,9 @@ export default function MapPlaceholder({
             }
 
             if (layerId === 'unclustered-point') {
-              const clickedId = Number(clickedFeature.properties?.id);
-              if (Number.isFinite(clickedId)) {
-                const shop = shops.find((item) => item.id === clickedId);
+              const clickedId = String(clickedFeature.properties?.id ?? '');
+              if (clickedId.length > 0) {
+                const shop = shops.find((item) => String(item.id) === clickedId);
                 if (shop) {
                   onSelectShop(shop.id);
                   setPopupShop(shop);
