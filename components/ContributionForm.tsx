@@ -177,7 +177,7 @@ export default function ContributionForm({
     setIsDuplicate(duplicate);
 
     if (duplicate) {
-      setContributeError(tContribute('duplicateWarning'));
+      setContributeMessage('检测到同地点已存在店铺：本次会进入待审核队列，不会直接上线。');
     }
   };
 
@@ -204,7 +204,7 @@ export default function ContributionForm({
   const handleSubmitContribute = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const canSubmitFromSearch = !!selectedPlace && !isDuplicate;
+    const canSubmitFromSearch = !!selectedPlace;
     const canSubmitFromManual = manualMode && !!manualCoordinates && manualShopName.trim().length > 0;
 
     if ((!canSubmitFromSearch && !canSubmitFromManual) || submitLoading) return;
@@ -376,7 +376,7 @@ export default function ContributionForm({
         </div>
       )}
 
-      {((selectedPlace && !isDuplicate && !duplicateLoading) || (manualMode && manualCoordinates)) && (
+      {((selectedPlace && !duplicateLoading) || (manualMode && manualCoordinates)) && (
         <form onSubmit={handleSubmitContribute} className="mt-4 space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">店铺分类 (Shop Category)</label>

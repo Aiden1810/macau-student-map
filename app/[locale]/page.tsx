@@ -14,6 +14,8 @@ import {supabase} from '@/lib/supabase';
 import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {FilterOption, Shop, ViewMode} from '@/types/shop';
 
+const RATING_SUB_TAGS: SubTag[] = ['封神之作', '值得一试', '中规中矩', '建议避雷', '暂无评分'];
+
 export default function Page() {
   const t = useTranslations('Common');
   const tFilters = useTranslations('Filters');
@@ -47,18 +49,14 @@ export default function Page() {
     setLoading(true);
 
     try {
-      let query = supabase
+      const statusFilter = userRole === 'admin' ? 'status.in.(pending,verified,rejected),status.is.null' : 'status.eq.verified';
+
+      const {data, error} = await supabase
         .from('shops')
         .select(
           'id,name,category,student_discount,tags,latitude,longitude,status,rating,total_sum,rating_count,review_text,image_urls,address,main_category,sub_tags'
         )
-        .or('status.in.(verified,pending),status.is.null');
-
-      if (category) {
-        query = query.eq('main_category', category);
-      }
-
-      const {data, error} = await query;
+        .or(statusFilter);
 
       if (error) {
         console.error('Failed to fetch shops:', error.message);
@@ -68,12 +66,24 @@ export default function Page() {
       }
 
       const mappedShops = mapShopList((data ?? []) as unknown[]);
-      const fullyFilteredShops = subTag
-        ? mappedShops.filter((shop) => {
-            const ratingTag = getRatingTagFromData(shop.rating, shop.tags, shop.subTags ?? []).label;
-            return shop.subTags?.includes(subTag) || shop.tags.includes(subTag) || ratingTag === subTag;
-          })
-        : mappedShops;
+      const fullyFilteredShops = mappedShops.filter((shop) => {
+        const ratingTag = getRatingTagFromData(shop.rating, shop.tags, shop.subTags ?? []).label;
+        const categoryMatched =
+          !category ||
+          (category === '评价'
+            ? RATING_SUB_TAGS.some((tag) => shop.subTags?.includes(tag) || shop.tags.includes(tag) || ratingTag === tag)
+            : shop.mainCategory === category);
+
+        if (!categoryMatched) {
+          return false;
+        }
+
+        if (!subTag) {
+          return true;
+        }
+
+        return shop.subTags?.includes(subTag) || shop.tags.includes(subTag) || ratingTag === subTag;
+      });
 
       setShops(fullyFilteredShops);
 
@@ -85,7 +95,7 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userRole]);
 
   const fetchCurrentUserRole = useCallback(async () => {
     const {data: authData, error: authError} = await supabase.auth.getUser();
