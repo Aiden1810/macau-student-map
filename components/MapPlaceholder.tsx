@@ -4,7 +4,6 @@ import {useEffect, useMemo, useRef, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
 import {Map, Marker, Popup, type MapRef} from 'react-map-gl/mapbox';
 import {Store} from 'lucide-react';
-import {Store} from 'lucide-react';
 import StarRating from '@/components/StarRating';
 import {getRatingTag} from '@/lib/utils/ratingTag';
 import {Shop, ViewMode} from '@/types/shop';
