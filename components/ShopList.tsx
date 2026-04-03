@@ -130,7 +130,7 @@ export default function ShopList({
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4 pr-1">
         {loading ? (
-          Array.from({length: 3}).map((_, index) => <ShopCardSkeleton key={`skeleton-${index}`} />)
+          Array.from({length: 6}).map((_, index) => <ShopCardSkeleton key={`skeleton-${index}`} />)
         ) : (
           <div className="space-y-4">
             {filteredShops.map((shop) => (

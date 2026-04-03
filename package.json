@@ -19,6 +19,7 @@
     "next-intl": "^4.9.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-hot-toast": "^2.6.0",
     "react-map-gl": "^8.1.0"
   },
   "devDependencies": {

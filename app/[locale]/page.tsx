@@ -1,8 +1,10 @@
 'use client';
 
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslations} from 'next-intl';
+import toast from 'react-hot-toast';
 import ContributionForm from '@/components/ContributionForm';
+import FilterBar, {MainCategory, SubTag} from '@/components/FilterBar';
 import Header from '@/components/Header';
 import MapPlaceholder from '@/components/MapPlaceholder';
 import ShopList from '@/components/ShopList';
@@ -20,6 +22,8 @@ export default function Page() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<FilterOption>('全部');
+  const [selectedCategory, setSelectedCategory] = useState<MainCategory | null>(null);
+  const [selectedSubTag, setSelectedSubTag] = useState<SubTag | null>(null);
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
   const [hoveredShopId, setHoveredShopId] = useState<Shop['id'] | null>(null);
   const [collapseMobileSheetSignal, setCollapseMobileSheetSignal] = useState(0);
@@ -37,23 +41,43 @@ export default function Page() {
 
   const [pageNotice, setPageNotice] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  const hasFetchedRef = useRef(false);
 
-  const fetchShops = useCallback(async () => {
+  const fetchShops = useCallback(async (category: MainCategory | null, subTag: SubTag | null) => {
     setLoading(true);
 
     try {
-      const {data, error} = await supabase
+      let query = supabase
         .from('shops')
-        .select('id,name,category,student_discount,tags,latitude,longitude,status,rating,total_sum,rating_count,review_text,image_urls,address')
+        .select(
+          'id,name,category,student_discount,tags,latitude,longitude,status,rating,total_sum,rating_count,review_text,image_urls,address,main_category,sub_tags'
+        )
         .in('status', ['verified', 'pending']);
+
+      if (category) {
+        query = query.eq('main_category', category);
+      }
+
+      if (subTag) {
+        query = query.contains('sub_tags', [subTag]);
+      }
+
+      const {data, error} = await query;
 
       if (error) {
         console.error('Failed to fetch shops:', error.message);
         setShops([]);
+        toast.error('加载失败，请检查网络');
         return;
       }
 
       setShops(mapShopList((data ?? []) as unknown[]));
+
+      if (hasFetchedRef.current) {
+        toast.success('已更新点位');
+      }
+
+      hasFetchedRef.current = true;
     } finally {
       setLoading(false);
     }
@@ -88,7 +112,6 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    fetchShops();
     fetchCurrentUserRole();
 
     const {
@@ -100,7 +123,11 @@ export default function Page() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [fetchShops, fetchCurrentUserRole]);
+  }, [fetchCurrentUserRole]);
+
+  useEffect(() => {
+    fetchShops(selectedCategory, selectedSubTag);
+  }, [fetchShops, selectedCategory, selectedSubTag]);
 
   const isAdmin = userRole === 'admin';
   const mapVisibleShops = isAdmin ? shops : shops.filter((shop) => shop.status === 'verified');
@@ -147,6 +174,11 @@ export default function Page() {
     }
   }, [filteredShops, selectedShopId]);
 
+  const handleFilterChange = (category: MainCategory | null, subTag: SubTag | null) => {
+    setSelectedCategory(category);
+    setSelectedSubTag(subTag);
+  };
+
   const handleLocateShop = (shopId: Shop['id']) => {
     setSelectedShopId(shopId);
     setViewMode('map');
@@ -172,7 +204,7 @@ export default function Page() {
     }
 
     setPageNotice(tShopCard('approveSuccess'));
-    await fetchShops();
+    await fetchShops(selectedCategory, selectedSubTag);
   };
 
   const handleDeleteShop = async (shopId: Shop['id']) => {
@@ -200,7 +232,7 @@ export default function Page() {
 
     if (!data || data.length === 0) {
       setPageError('删除未生效：请检查 Supabase RLS 的 DELETE 权限策略。');
-      await fetchShops();
+      await fetchShops(selectedCategory, selectedSubTag);
       return;
     }
 
@@ -240,7 +272,17 @@ export default function Page() {
         onLogout={handleLogout}
       />
 
-      <main className="mx-auto h-[calc(100dvh-4rem)] max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <main className="relative mx-auto h-[calc(100dvh-4rem)] max-w-7xl px-4 pt-[calc(env(safe-area-inset-top,0px)+5rem)] pb-4 sm:px-6 sm:pt-[calc(env(safe-area-inset-top,0px)+5.5rem)] lg:px-8">
+        <div className="pointer-events-none absolute inset-x-4 top-3 z-30 sm:inset-x-6 lg:inset-x-8">
+          <div className="pointer-events-auto">
+            <FilterBar
+              selectedCategory={selectedCategory}
+              selectedSubTag={selectedSubTag}
+              onChange={handleFilterChange}
+            />
+          </div>
+        </div>
+
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-600">{t('welcome')}</p>
           <button
@@ -271,7 +313,7 @@ export default function Page() {
               setManualCoordinates(null);
             }}
             onSuccess={async () => {
-              await fetchShops();
+              await fetchShops(selectedCategory, selectedSubTag);
               setPageNotice(tContribute('submitSuccess'));
               setPageError(null);
               setIsContributeOpen(false);
