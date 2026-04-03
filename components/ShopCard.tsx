@@ -58,7 +58,7 @@ export default function ShopCard({
   const ratingTag = getRatingTag(shop.rating);
 
   return (
-    <div className="group cursor-pointer rounded-2xl border border-slate-100 bg-white p-4 shadow-md transition-shadow hover:shadow-lg">
+    <div className="group cursor-pointer rounded-2xl border border-slate-100/90 bg-white/95 p-4 shadow-md transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:shadow-xl">
       <div className="mb-3 overflow-hidden rounded-xl border border-slate-100">
         {hasValidImageUrl ? (
           <Image src={coverImageUrl} alt={shop.name} width={640} height={360} className="h-40 w-full object-cover" />
@@ -69,7 +69,7 @@ export default function ShopCard({
 
       <div className="flex justify-between items-start mb-2 gap-2">
         <div className="min-w-0">
-          <h3 className="font-bold text-lg text-slate-800 group-hover:text-indigo-600 transition-colors truncate">
+          <h3 className="truncate text-lg font-bold text-slate-800 transition-colors duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:text-[#006633]">
             {shop.name}
           </h3>
           <p className={`mt-1 text-sm ${isPendingAddress ? 'text-gray-400' : 'text-slate-500'} truncate`}>
@@ -106,7 +106,7 @@ export default function ShopCard({
         ))}
       </div>
 
-      <div className="mb-4 rounded-lg bg-slate-50 px-3 py-2">
+      <div className="mb-4 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{t('reviewTitle')}</p>
         <p className="text-sm text-slate-700 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]">
           {shop.reviewText?.trim() ? shop.reviewText : t('noDetailedReview')}
@@ -122,7 +122,7 @@ export default function ShopCard({
               type="button"
               onClick={() => onApprove?.(shop.id)}
               disabled={approving}
-              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Check className="h-3.5 w-3.5" />
               {approving ? t('approving') : t('approve')}
@@ -134,7 +134,7 @@ export default function ShopCard({
               type="button"
               onClick={() => onDelete?.(shop.id)}
               disabled={deleting}
-              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Trash2 className="h-3.5 w-3.5" />
               {deleting ? '删除中...' : '删除'}

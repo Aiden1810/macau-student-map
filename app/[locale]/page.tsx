@@ -279,10 +279,14 @@ export default function Page() {
           />
         )}
 
-        {pageError && <p className="mb-4 text-sm text-rose-600">{pageError}</p>}
-        {pageNotice && <p className="mb-4 text-sm text-emerald-600">{pageNotice}</p>}
+        {pageError && (
+          <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 shadow-sm">{pageError}</p>
+        )}
+        {pageNotice && (
+          <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 shadow-sm">{pageNotice}</p>
+        )}
 
-        <div className="grid h-[calc(100dvh-14.5rem)] grid-cols-1 gap-4 md:h-[calc(100dvh-11rem)] md:grid-cols-12 md:gap-6">
+        <div className="grid h-[calc(100dvh-14.5rem)] grid-cols-1 gap-5 md:h-[calc(100dvh-11rem)] md:grid-cols-12 md:gap-6">
           <div className="order-1 h-[42dvh] min-h-[260px] md:order-2 md:col-span-8 md:h-full lg:col-span-8">
             <MapPlaceholder
               shops={mapVisibleShops}

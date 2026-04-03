@@ -113,7 +113,7 @@ export default function MapPlaceholder({
   };
 
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-2xl border border-slate-200 shadow-inner">
+    <div className="relative h-full w-full overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_10px_28px_rgba(2,30,18,0.08)] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]">
       <Map
         ref={mapRef}
         initialViewState={MACAU_CENTER}

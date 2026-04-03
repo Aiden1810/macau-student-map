@@ -47,15 +47,16 @@ export default function Header({
       }`}
     >
       <div
-        className={`mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+        className={`relative mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 sm:px-6 lg:px-8 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
           isCompact ? 'h-12' : 'h-16'
         }`}
       >
+        <div className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[#FFCC00]/70 to-transparent" />
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-md">
-            MU
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#FFCC00]/60 bg-[#0c4b2f] text-white shadow-md shadow-[#003a24]/35">
+            <span className="text-xs font-extrabold tracking-wide">MU</span>
           </div>
-          <h1 className="text-xl font-bold text-white">
+          <h1 className="text-xl font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">
             {title}
           </h1>
         </div>
