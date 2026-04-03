@@ -117,28 +117,30 @@ export default function ShopList({
     <>
       <div className="hidden w-full flex-col gap-4 md:flex">{listContent}</div>
 
-      <div className="md:hidden">
-        <div className="rounded-t-3xl border border-slate-200 bg-white/95 px-3 py-2 shadow-xl backdrop-blur-md">
+      <div
+        className={`fixed inset-x-0 bottom-0 z-40 rounded-t-3xl border border-slate-200 bg-white/95 px-3 py-2 shadow-2xl backdrop-blur-md transition-[height] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden ${
+          mobileExpanded ? 'h-[78dvh]' : 'h-[112px]'
+        }`}
+      >
+        <button
+          type="button"
+          aria-label="展开店铺抽屉"
+          onClick={() => setMobileExpanded((prev) => !prev)}
+          className="mx-auto mb-2 block h-1.5 w-12 rounded-full bg-slate-300"
+        />
+
+        {!mobileExpanded ? (
           <button
             type="button"
-            aria-label="展开店铺抽屉"
-            onClick={() => setMobileExpanded((prev) => !prev)}
-            className="mx-auto mb-2 block h-1.5 w-12 rounded-full bg-slate-300"
-          />
-
-          {!mobileExpanded ? (
-            <button
-              type="button"
-              onClick={() => setMobileExpanded(true)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-left"
-            >
-              <p className="text-sm font-semibold text-slate-700">附近店铺</p>
-              <p className="mt-0.5 text-xs text-slate-500">共 {filteredShops.length} 家，点击查看完整列表</p>
-            </button>
-          ) : (
-            <div className="flex h-[42dvh] flex-col">{listContent}</div>
-          )}
-        </div>
+            onClick={() => setMobileExpanded(true)}
+            className="w-full rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-left"
+          >
+            <p className="text-sm font-semibold text-slate-700">附近店铺</p>
+            <p className="mt-0.5 text-xs text-slate-500">共 {filteredShops.length} 家，点击查看完整列表</p>
+          </button>
+        ) : (
+          <div className="flex h-[calc(100%-1.75rem)] flex-col">{listContent}</div>
+        )}
       </div>
     </>
   );
