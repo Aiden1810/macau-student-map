@@ -24,14 +24,40 @@ export default function AdminLoginPage() {
       password
     });
 
-    setSubmitting(false);
-
     if (signInError) {
+      setSubmitting(false);
       setError(signInError.message);
       return;
     }
 
-    router.replace('/');
+    const {data: authData, error: authError} = await supabase.auth.getUser();
+
+    if (authError || !authData.user) {
+      setSubmitting(false);
+      setError('登录状态获取失败，请重试');
+      return;
+    }
+
+    const {data: profile, error: profileError} = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', authData.user.id)
+      .maybeSingle();
+
+    setSubmitting(false);
+
+    if (profileError) {
+      setError(profileError.message);
+      return;
+    }
+
+    if (profile?.role !== 'admin') {
+      await supabase.auth.signOut();
+      setError('该账号没有管理员权限');
+      return;
+    }
+
+    router.replace('/admin');
     router.refresh();
   };
 
