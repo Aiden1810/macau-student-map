@@ -3,6 +3,7 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
 import {Map, Marker, Popup, type MapRef} from 'react-map-gl/mapbox';
+import {Store} from 'lucide-react';
 import StarRating from '@/components/StarRating';
 import {getRatingTag} from '@/lib/utils/ratingTag';
 import {Shop, ViewMode} from '@/types/shop';
@@ -163,11 +164,11 @@ export default function MapPlaceholder({
                 aria-label={t('selectShop', {name: shop.name})}
               >
                 <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-[10px] font-black text-white shadow-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-                    isActive ? 'border-[#FFCC00] bg-[#FFCC00] text-[#124d2f] ring-4 ring-[#FFCC00]/35' : 'border-white bg-[#006633]'
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 shadow-lg transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                    isActive ? 'border-[#FFCC00] bg-[#FFCC00] ring-4 ring-[#FFCC00]/35' : 'border-white bg-[#FFD94A]'
                   }`}
                 >
-                  MU
+                  <Store className={`h-4 w-4 ${isActive ? 'text-[#124d2f]' : 'text-[#1f5136]'}`} />
                 </div>
 
                 <div

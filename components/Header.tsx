@@ -56,7 +56,7 @@ export default function Header({
           <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#FFCC00]/60 bg-[#0c4b2f] text-white shadow-md shadow-[#003a24]/35">
             <span className="text-xs font-extrabold tracking-wide">MU</span>
           </div>
-          <h1 className="text-xl font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">
+          <h1 className="text-xl font-bold text-[#FFCC00] drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]">
             {title}
           </h1>
         </div>

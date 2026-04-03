@@ -1,5 +1,5 @@
 import {Search} from 'lucide-react';
-import {useMemo, useState} from 'react';
+import {useMemo, useRef, useState} from 'react';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
 import {FilterOption, Shop, ViewMode} from '@/types/shop';
@@ -26,6 +26,9 @@ interface ShopListProps {
   onDeleteShop: (shopId: Shop['id']) => void;
 }
 
+const SHEET_COLLAPSED = 35;
+const SHEET_EXPANDED = 86;
+
 export default function ShopList({
   filters,
   activeFilter,
@@ -48,13 +51,49 @@ export default function ShopList({
   onDeleteShop
 }: ShopListProps) {
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const startYRef = useRef<number | null>(null);
+  const startExpandedRef = useRef(false);
 
-  const sheetHeightClass = useMemo(() => (sheetExpanded ? 'h-[82dvh]' : 'h-[35dvh]'), [sheetExpanded]);
+  const sheetHeight = useMemo(() => (sheetExpanded ? SHEET_EXPANDED : SHEET_COLLAPSED), [sheetExpanded]);
+
+  const startDrag = (clientY: number) => {
+    startYRef.current = clientY;
+    startExpandedRef.current = sheetExpanded;
+    setDragging(true);
+  };
+
+  const moveDrag = (clientY: number) => {
+    if (startYRef.current === null) return;
+    const deltaY = clientY - startYRef.current;
+    const base = startExpandedRef.current ? SHEET_EXPANDED : SHEET_COLLAPSED;
+    const offset = (-deltaY / window.innerHeight) * 100;
+    const nextHeight = Math.max(SHEET_COLLAPSED, Math.min(SHEET_EXPANDED, base + offset));
+    setDragOffset(nextHeight - base);
+  };
+
+  const endDrag = () => {
+    if (startYRef.current === null) return;
+    const threshold = 8;
+    if (dragOffset > threshold) {
+      setSheetExpanded(true);
+    } else if (dragOffset < -threshold) {
+      setSheetExpanded(false);
+    }
+    setDragging(false);
+    setDragOffset(0);
+    startYRef.current = null;
+  };
+
+  const sheetStyle = {
+    height: `${sheetHeight + dragOffset}dvh`
+  };
 
   const listContent = (
     <>
-      <div className="relative md:hidden mb-2">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+      <div className="mb-2 relative md:hidden">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           placeholder={mobileSearchPlaceholder}
@@ -64,7 +103,7 @@ export default function ShopList({
         />
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-2">
         {filters.map((filter) => (
           <button
             key={filter}
@@ -80,7 +119,7 @@ export default function ShopList({
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto space-y-4 pb-4 pr-1">
+      <div className="flex-1 space-y-4 overflow-y-auto pb-4 pr-1">
         {loading ? (
           Array.from({length: 3}).map((_, index) => <ShopCardSkeleton key={`skeleton-${index}`} />)
         ) : (
@@ -113,18 +152,31 @@ export default function ShopList({
 
   return (
     <>
-      <div className={`hidden w-full flex-col gap-4 md:flex ${viewMode === 'map' ? '' : ''}`}>
-        {listContent}
-      </div>
+      <div className="hidden w-full flex-col gap-4 md:flex">{listContent}</div>
 
       <div
-        className={`fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border border-slate-200 bg-white/80 p-3 shadow-2xl backdrop-blur-md transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden ${sheetHeightClass}`}
+        className="fixed inset-x-0 bottom-0 z-40 rounded-t-3xl border border-slate-200 bg-white/85 p-3 shadow-2xl backdrop-blur-md transition-[height] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden"
+        style={sheetStyle}
       >
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="拖动店铺抽屉"
+          onMouseDown={(e) => startDrag(e.clientY)}
+          onMouseMove={(e) => dragging && moveDrag(e.clientY)}
+          onMouseUp={endDrag}
+          onMouseLeave={endDrag}
+          onTouchStart={(e) => startDrag(e.touches[0].clientY)}
+          onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
+          onTouchEnd={endDrag}
           onClick={() => setSheetExpanded((prev) => !prev)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSheetExpanded((prev) => !prev);
+            }
+          }}
           className="mx-auto mb-2 block h-1.5 w-12 rounded-full bg-slate-300"
-          aria-label="Toggle shop list drawer"
         />
 
         <div className="flex h-[calc(100%-1.25rem)] flex-col">{listContent}</div>

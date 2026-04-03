@@ -320,7 +320,7 @@ export default function Page() {
               canApprove={isAdmin}
               approvingShopId={approvingShopId}
               onApproveShop={handleApproveShop}
-              canDelete={isAuthenticated}
+              canDelete={isAdmin}
               deletingShopId={deletingShopId}
               onDeleteShop={handleDeleteShop}
             />
