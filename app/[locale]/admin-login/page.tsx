@@ -4,6 +4,8 @@ import {FormEvent, useState} from 'react';
 import {useRouter} from '@/i18n/navigation';
 import {supabase} from '@/lib/supabase';
 
+const ADMIN_EMAIL_WHITELIST = ['2772157757@qq.com'];
+
 export default function AdminLoginPage() {
   const router = useRouter();
 
@@ -51,7 +53,10 @@ export default function AdminLoginPage() {
       return;
     }
 
-    if (profile?.role !== 'admin') {
+    const normalizedEmail = authData.user.email?.trim().toLowerCase() ?? '';
+    const isWhitelisted = ADMIN_EMAIL_WHITELIST.includes(normalizedEmail);
+
+    if (profile?.role !== 'admin' && !isWhitelisted) {
       await supabase.auth.signOut();
       setError('该账号没有管理员权限');
       return;
