@@ -40,6 +40,20 @@ export default function ContributionForm({
   const [manualShopName, setManualShopName] = useState('');
   const [category, setCategory] = useState<string>('');
 
+  const deriveHierarchyFromCategory = (rawCategory: string) => {
+    const normalized = rawCategory.trim();
+
+    if (['餐饮', '美食'].includes(normalized)) {
+      return {mainCategory: '美食', defaultSubTags: ['值得一试']};
+    }
+
+    if (['服务', '校园'].includes(normalized)) {
+      return {mainCategory: '氛围', defaultSubTags: ['中规中矩']};
+    }
+
+    return {mainCategory: '评价', defaultSubTags: ['中规中矩']};
+  };
+
   const [initialRating, setInitialRating] = useState(4);
   const [reviewText, setReviewText] = useState('');
   const [tagsInput, setTagsInput] = useState('');
@@ -209,6 +223,13 @@ export default function ContributionForm({
       .map((item) => item.trim())
       .filter(Boolean);
 
+    const hierarchy = deriveHierarchyFromCategory(category);
+    const ratingSubTag = initialRating >= 4.7 ? '封神之作' : initialRating >= 4.2 ? '值得一试' : '中规中矩';
+    const explicitRatingTags = tags.filter((tag) => ['封神之作', '值得一试', '中规中矩', '建议避雷', '暂无评分'].includes(tag));
+
+    const subTags = Array.from(new Set([...hierarchy.defaultSubTags, ratingSubTag, ...explicitRatingTags]));
+    const mainCategory = hierarchy.mainCategory;
+
     const safeRating = Number(initialRating.toFixed(1));
 
     const payload = canSubmitFromSearch
@@ -218,6 +239,8 @@ export default function ContributionForm({
           longitude: selectedPlace!.coordinates[0],
           latitude: selectedPlace!.coordinates[1],
           tags,
+          main_category: mainCategory,
+          sub_tags: subTags,
           image_urls: imageUrls,
           review_text: reviewText.trim() || null,
           category,
@@ -231,6 +254,8 @@ export default function ContributionForm({
           longitude: manualCoordinates![0],
           latitude: manualCoordinates![1],
           tags,
+          main_category: mainCategory,
+          sub_tags: subTags,
           image_urls: imageUrls,
           review_text: reviewText.trim() || null,
           category,
