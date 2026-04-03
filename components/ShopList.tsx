@@ -1,5 +1,5 @@
 import {Search} from 'lucide-react';
-import {useEffect, useMemo, useRef, useState} from 'react';
+import {useEffect, useState} from 'react';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
 import {FilterOption, Shop} from '@/types/shop';
@@ -26,9 +26,6 @@ interface ShopListProps {
   collapseMobileSheetSignal?: number;
 }
 
-const SHEET_MINIMIZED = 14;
-const SHEET_EXPANDED = 84;
-
 export default function ShopList({
   filters,
   activeFilter,
@@ -50,52 +47,11 @@ export default function ShopList({
   onDeleteShop,
   collapseMobileSheetSignal = 0
 }: ShopListProps) {
-  const [sheetLevel, setSheetLevel] = useState<'min' | 'expanded'>('min');
-  const [dragging, setDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState(0);
-  const startYRef = useRef<number | null>(null);
-  const startLevelRef = useRef<'min' | 'expanded'>('min');
-
-  const sheetHeight = useMemo(() => {
-    return sheetLevel === 'expanded' ? SHEET_EXPANDED : SHEET_MINIMIZED;
-  }, [sheetLevel]);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
 
   useEffect(() => {
-    setSheetLevel('min');
-    setDragOffset(0);
-    setDragging(false);
-    startYRef.current = null;
+    setMobileExpanded(false);
   }, [collapseMobileSheetSignal]);
-
-  const startDrag = (clientY: number) => {
-    startYRef.current = clientY;
-    startLevelRef.current = sheetLevel;
-    setDragging(true);
-  };
-
-  const moveDrag = (clientY: number) => {
-    if (startYRef.current === null) return;
-    const deltaY = clientY - startYRef.current;
-    const base = startLevelRef.current === 'expanded' ? SHEET_EXPANDED : SHEET_MINIMIZED;
-    const offset = (-deltaY / window.innerHeight) * 100;
-    const nextHeight = Math.max(SHEET_MINIMIZED, Math.min(SHEET_EXPANDED, base + offset));
-    setDragOffset(nextHeight - base);
-  };
-
-  const endDrag = () => {
-    if (startYRef.current === null) return;
-
-    const currentHeight = sheetHeight + dragOffset;
-    const midpoint = (SHEET_MINIMIZED + SHEET_EXPANDED) / 2;
-    setSheetLevel(currentHeight >= midpoint ? 'expanded' : 'min');
-    setDragging(false);
-    setDragOffset(0);
-    startYRef.current = null;
-  };
-
-  const sheetStyle = {
-    height: `${sheetHeight + dragOffset}dvh`
-  };
 
   const listContent = (
     <>
@@ -126,7 +82,7 @@ export default function ShopList({
         ))}
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto pb-4 pr-1">
+      <div className="flex-1 space-y-4 overflow-y-auto pb-1 pr-1">
         {loading ? (
           Array.from({length: 6}).map((_, index) => <ShopCardSkeleton key={`skeleton-${index}`} />)
         ) : (
@@ -161,43 +117,28 @@ export default function ShopList({
     <>
       <div className="hidden w-full flex-col gap-4 md:flex">{listContent}</div>
 
-      <div
-        className="fixed inset-x-0 bottom-0 z-40 rounded-t-3xl border border-slate-200 bg-white/90 p-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] shadow-2xl backdrop-blur-md transition-[height] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden"
-        style={sheetStyle}
-      >
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label="拖动店铺抽屉"
-          onMouseDown={(e) => startDrag(e.clientY)}
-          onMouseMove={(e) => dragging && moveDrag(e.clientY)}
-          onMouseUp={endDrag}
-          onMouseLeave={endDrag}
-          onTouchStart={(e) => startDrag(e.touches[0].clientY)}
-          onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
-          onTouchEnd={endDrag}
-          onClick={() => {
-            setSheetLevel((prev) => (prev === 'min' ? 'expanded' : 'min'));
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setSheetLevel((prev) => (prev === 'min' ? 'expanded' : 'min'));
-            }
-          }}
-          className="mx-auto mb-2 block h-1.5 w-12 touch-none rounded-full bg-slate-300"
-        />
+      <div className="md:hidden">
+        <div className="rounded-t-3xl border border-slate-200 bg-white/95 px-3 py-2 shadow-xl backdrop-blur-md">
+          <button
+            type="button"
+            aria-label="展开店铺抽屉"
+            onClick={() => setMobileExpanded((prev) => !prev)}
+            className="mx-auto mb-2 block h-1.5 w-12 rounded-full bg-slate-300"
+          />
 
-        {sheetLevel === 'min' ? (
-          <div className="px-1 pt-0.5">
-            <div className="rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2">
+          {!mobileExpanded ? (
+            <button
+              type="button"
+              onClick={() => setMobileExpanded(true)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/90 px-3 py-2 text-left"
+            >
               <p className="text-sm font-semibold text-slate-700">附近店铺</p>
-              <p className="mt-0.5 text-xs text-slate-500">共 {filteredShops.length} 家，向上拖动查看完整列表</p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex h-[calc(100%-1.25rem)] flex-col">{listContent}</div>
-        )}
+              <p className="mt-0.5 text-xs text-slate-500">共 {filteredShops.length} 家，点击查看完整列表</p>
+            </button>
+          ) : (
+            <div className="flex h-[42dvh] flex-col">{listContent}</div>
+          )}
+        </div>
       </div>
     </>
   );
