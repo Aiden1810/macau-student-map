@@ -290,7 +290,7 @@ export default function Page() {
       />
 
       <main className="relative mx-auto max-w-7xl px-4 pt-1.5 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:px-6 sm:pt-2 md:h-[calc(100dvh-4rem)] md:pb-4 lg:px-8">
-        <div className="mb-[2px]">
+        <div className="mb-[1px]">
           <FilterBar
             selectedCategory={selectedCategory}
             selectedSubTag={selectedSubTag}
