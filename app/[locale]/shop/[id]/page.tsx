@@ -395,7 +395,7 @@ export default function ShopDetailPage() {
 
     const {data, error} = await supabase
       .from('shops')
-      .select('id,name,address,image_urls,category,student_discount,tags,latitude,longitude,status,rating,total_sum,rating_count,review_text')
+      .select('id,name,address,image_urls,category,student_discount,tags,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text')
       .eq('id', shopId)
       .maybeSingle();
 

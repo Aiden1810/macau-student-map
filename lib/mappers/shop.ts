@@ -1,8 +1,21 @@
-import {RecommendStatus, Shop, ShopStatus, ShopType} from '@/types/shop';
+import {
+  RecommendStatus,
+  Shop,
+  ShopCategoryKey,
+  ShopDrawerType,
+  ShopFeature,
+  ShopRatingLabel,
+  ShopStatus,
+  ShopType
+} from '@/types/shop';
 
 const VALID_SHOP_TYPES: ShopType[] = ['餐饮', '服务'];
 const VALID_RECOMMEND_STATUS: RecommendStatus[] = ['recommend', 'neutral', 'avoid'];
 const VALID_SHOP_STATUS: ShopStatus[] = ['pending', 'verified', 'rejected'];
+const VALID_CATEGORY_KEYS: Array<Exclude<ShopCategoryKey, 'all' | 'review'>> = ['food', 'drink', 'vibe', 'deal'];
+const VALID_SHOP_DRAWER_TYPES: ShopDrawerType[] = ['全部', '正餐', '快餐小吃', '饮品甜点', '服务'];
+const VALID_FEATURES: ShopFeature[] = ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'];
+const VALID_RATING_LABELS: ShopRatingLabel[] = ['封神之作', '强烈推荐', '还行吧', '建议避雷', '暂无评分'];
 const MACAU_CENTER: [number, number] = [113.5439, 22.1911];
 const DEFAULT_SHOP_NAME = '未知店铺 (Unnamed Shop)';
 const DEFAULT_SHOP_ADDRESS = '地址信息收录中 (Address pending)';
@@ -122,6 +135,83 @@ function mapCategoryToShopType(value: unknown): ShopType {
   return '服务';
 }
 
+function normalizeCategoryKey(value: unknown): Exclude<ShopCategoryKey, 'all' | 'review'> {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (VALID_CATEGORY_KEYS.includes(normalized as Exclude<ShopCategoryKey, 'all' | 'review'>)) {
+      return normalized as Exclude<ShopCategoryKey, 'all' | 'review'>;
+    }
+
+    if (['美食', '餐饮'].includes(value.trim())) {
+      return 'food';
+    }
+
+    if (['饮品', '咖啡', '奶茶'].includes(value.trim())) {
+      return 'drink';
+    }
+
+    if (['氛围', '环境'].includes(value.trim())) {
+      return 'vibe';
+    }
+
+    if (['优惠', '折扣'].includes(value.trim())) {
+      return 'deal';
+    }
+  }
+
+  return 'food';
+}
+
+function normalizeShopDrawerType(value: unknown): ShopDrawerType {
+  if (typeof value === 'string' && VALID_SHOP_DRAWER_TYPES.includes(value as ShopDrawerType)) {
+    return value as ShopDrawerType;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '餐饮') {
+      return '正餐';
+    }
+  }
+
+  return '全部';
+}
+
+function normalizeFeatures(input: unknown): ShopFeature[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item): item is ShopFeature => VALID_FEATURES.includes(item as ShopFeature));
+}
+
+function normalizeRatingLabel(value: unknown, score: number): ShopRatingLabel {
+  if (typeof value === 'string' && VALID_RATING_LABELS.includes(value as ShopRatingLabel)) {
+    return value as ShopRatingLabel;
+  }
+
+  if (score >= 5) {
+    return '封神之作';
+  }
+
+  if (score >= 4) {
+    return '强烈推荐';
+  }
+
+  if (score >= 3) {
+    return '还行吧';
+  }
+
+  if (score >= 1) {
+    return '建议避雷';
+  }
+
+  return '暂无评分';
+}
+
 function parseMaybeNumber(value: unknown): number | null {
   if (isFiniteNumber(value)) {
     return value;
@@ -194,9 +284,24 @@ function parseCoordinates(input: unknown): [number, number] {
 function normalizeReviewMetrics(
   rating: unknown,
   reviews: unknown,
+  reviewCount: unknown,
   totalSum: unknown,
   ratingCount: unknown
 ): Pick<Shop, 'rating' | 'reviews'> {
+  const parsedReviewCount =
+    typeof reviewCount === 'number' ? reviewCount : typeof reviewCount === 'string' ? Number(reviewCount) : NaN;
+
+  const safeReviewCount = Number.isFinite(parsedReviewCount) && parsedReviewCount > 0 ? Math.floor(parsedReviewCount) : 0;
+
+  if (safeReviewCount > 0) {
+    const parsedSum = typeof totalSum === 'number' ? totalSum : typeof totalSum === 'string' ? Number(totalSum) : 0;
+
+    const safeSum = Number.isFinite(parsedSum) ? parsedSum : 0;
+    const average = Number((safeSum / safeReviewCount).toFixed(1));
+
+    return {rating: average, reviews: safeReviewCount};
+  }
+
   const parsedCount =
     typeof ratingCount === 'number' ? ratingCount : typeof ratingCount === 'string' ? Number(ratingCount) : NaN;
 
@@ -238,10 +343,6 @@ function normalizeStringArray(input: unknown): string[] {
   }
 
   return [];
-}
-
-function normalizeTags(input: unknown): string[] {
-  return normalizeStringArray(input);
 }
 
 function normalizeRecommendStatus(value: unknown): RecommendStatus {
@@ -313,24 +414,32 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
   const rawTags = row?.tags;
   const rawMainCategory = row?.main_category;
   const rawSubTags = row?.sub_tags;
+  const rawFeatures = row?.features;
+  const rawShopType = row?.shop_type;
   const rawDiscount = row?.student_discount ?? null;
   const rawStatus = row?.recommend_status;
   const rawRating = row?.rating;
   const rawReviews = row?.reviews;
+  const rawReviewCount = row?.review_count;
   const rawTotalSum = row?.total_sum;
   const rawRatingCount = row?.rating_count;
   const rawReviewText = row?.review_text;
   const rawShopStatus = row?.status;
+  const rawCategory = row?.category;
 
-  const reviewMetrics = normalizeReviewMetrics(rawRating, rawReviews, rawTotalSum, rawRatingCount);
+  const reviewMetrics = normalizeReviewMetrics(rawRating, rawReviews, rawReviewCount, rawTotalSum, rawRatingCount);
   const normalizedReviewText =
     typeof rawReviewText === 'string' && rawReviewText.trim().length > 0 ? rawReviewText.trim() : null;
 
   const normalizedMainCategory =
     typeof rawMainCategory === 'string' && rawMainCategory.trim().length > 0 ? rawMainCategory.trim() : null;
   const normalizedSubTags = normalizeStringArray(rawSubTags);
-  const legacyTags = normalizeTags(rawTags);
-  const mergedTags = Array.from(new Set([...(normalizedMainCategory ? [normalizedMainCategory] : []), ...normalizedSubTags, ...legacyTags]));
+  const legacyTags = normalizeStringArray(rawTags);
+  const mergedTags = Array.from(
+    new Set([...(normalizedMainCategory ? [normalizedMainCategory] : []), ...normalizedSubTags, ...legacyTags])
+  );
+
+  const normalizedCategory = normalizeCategoryKey(rawCategory);
 
   const shop: Shop = {
     id: String(rawId ?? rawName),
@@ -338,9 +447,13 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
     address: rawAddress,
     imageUrls: rawImageUrls,
     type: mapCategoryToShopType(rawType),
+    category: normalizedCategory,
     coordinates: parseCoordinates(rawCoordinates),
     studentDiscount: typeof rawDiscount === 'string' ? rawDiscount : null,
     tags: mergedTags,
+    features: normalizeFeatures(rawFeatures),
+    shopType: normalizeShopDrawerType(rawShopType),
+    ratingLabel: normalizeRatingLabel(row?.rating_label, reviewMetrics.rating),
     mainCategory: normalizedMainCategory,
     subTags: normalizedSubTags,
     rating: reviewMetrics.rating,

@@ -1,10 +1,11 @@
 'use client';
 
-import {FormEvent, useEffect, useState} from 'react';
+import {FormEvent, useEffect, useMemo, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import ImageUpload from '@/components/ImageUpload';
 import {useDebounce} from '@/lib/hooks/useDebounce';
 import {supabase} from '@/lib/supabase';
+import {ShopFeature} from '@/types/shop';
 
 type GeocodeOption = {
   placeId: string;
@@ -19,6 +20,21 @@ interface ContributionFormProps {
   onRequestMapPick: () => void;
   manualCoordinates: [number, number] | null;
 }
+
+type RatingOption = {
+  label: '封神之作' | '强烈推荐' | '还行吧' | '建议避雷';
+  value: number;
+};
+
+const RATING_OPTIONS: RatingOption[] = [
+  {label: '封神之作', value: 5.0},
+  {label: '强烈推荐', value: 4.0},
+  {label: '还行吧', value: 3.0},
+  {label: '建议避雷', value: 1.5}
+];
+
+const SHOP_TYPE_OPTIONS = ['正餐', '快餐小吃', '饮品甜点', '服务'] as const;
+const FEATURE_OPTIONS: ShopFeature[] = ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'];
 
 export default function ContributionForm({
   onSuccess,
@@ -38,29 +54,23 @@ export default function ContributionForm({
 
   const [manualMode, setManualMode] = useState(false);
   const [manualShopName, setManualShopName] = useState('');
-  const [category, setCategory] = useState<string>('');
 
-  const deriveHierarchyFromCategory = (rawCategory: string) => {
-    const normalized = rawCategory.trim();
+  const [category, setCategory] = useState<'food' | 'drink' | 'vibe' | 'deal' | ''>('');
+  const [shopType, setShopType] = useState<(typeof SHOP_TYPE_OPTIONS)[number] | ''>('');
+  const [selectedRatingLabel, setSelectedRatingLabel] = useState<RatingOption['label']>('强烈推荐');
+  const [selectedFeatures, setSelectedFeatures] = useState<ShopFeature[]>([]);
 
-    if (['餐饮', '美食'].includes(normalized)) {
-      return {mainCategory: '美食', defaultSubTags: ['值得一试']};
-    }
-
-    if (['服务', '校园'].includes(normalized)) {
-      return {mainCategory: '氛围', defaultSubTags: ['中规中矩']};
-    }
-
-    return {mainCategory: '评价', defaultSubTags: ['中规中矩']};
-  };
-
-  const [initialRating, setInitialRating] = useState(4);
   const [reviewText, setReviewText] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [contributeMessage, setContributeMessage] = useState<string | null>(null);
   const [contributeError, setContributeError] = useState<string | null>(null);
+
+  const selectedRating = useMemo(
+    () => RATING_OPTIONS.find((item) => item.label === selectedRatingLabel) ?? RATING_OPTIONS[1],
+    [selectedRatingLabel]
+  );
 
   useEffect(() => {
     const runGeocode = async () => {
@@ -125,10 +135,7 @@ export default function ContributionForm({
             .filter((item): item is GeocodeOption => item !== null);
         };
 
-        const [macauOptions, zhuhaiOptions] = await Promise.all([
-          searchAmap(keyword, '澳门'),
-          searchAmap(keyword, '珠海')
-        ]);
+        const [macauOptions, zhuhaiOptions] = await Promise.all([searchAmap(keyword, '澳门'), searchAmap(keyword, '珠海')]);
 
         let options = [...macauOptions, ...zhuhaiOptions].filter(
           (item, index, arr) => arr.findIndex((x) => x.placeId === item.placeId) === index
@@ -209,8 +216,8 @@ export default function ContributionForm({
 
     if ((!canSubmitFromSearch && !canSubmitFromManual) || submitLoading) return;
 
-    if (!category) {
-      setContributeError('请为该店铺选择一个分类，以便同学们筛选');
+    if (!category || !shopType) {
+      setContributeError('请完整填写主分类和子类型');
       return;
     }
 
@@ -218,50 +225,44 @@ export default function ContributionForm({
     setContributeError(null);
     setContributeMessage(null);
 
-    const tags = tagsInput
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
+    const tags = Array.from(
+      new Set(
+        tagsInput
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    ).slice(0, 5);
 
-    const hierarchy = deriveHierarchyFromCategory(category);
-    const ratingSubTag = initialRating >= 4.7 ? '封神之作' : initialRating >= 4.2 ? '值得一试' : '中规中矩';
-    const explicitRatingTags = tags.filter((tag) => ['封神之作', '值得一试', '中规中矩', '建议避雷', '暂无评分'].includes(tag));
-
-    const subTags = Array.from(new Set([...hierarchy.defaultSubTags, ratingSubTag, ...explicitRatingTags]));
-    const mainCategory = hierarchy.mainCategory;
-
-    const safeRating = Number(initialRating.toFixed(1));
+    const payloadBase = {
+      tags,
+      features: selectedFeatures,
+      shop_type: shopType,
+      rating_label: selectedRating.label,
+      rating: selectedRating.value,
+      image_urls: imageUrls,
+      review_text: reviewText.trim() || null,
+      category,
+      status: 'pending',
+      total_sum: selectedRating.value,
+      rating_count: 1,
+      review_count: 1
+    };
 
     const payload = canSubmitFromSearch
       ? {
+          ...payloadBase,
           name: selectedPlace!.name,
           mapbox_id: selectedPlace!.placeId,
           longitude: selectedPlace!.coordinates[0],
-          latitude: selectedPlace!.coordinates[1],
-          tags,
-          main_category: mainCategory,
-          sub_tags: subTags,
-          image_urls: imageUrls,
-          review_text: reviewText.trim() || null,
-          category,
-          status: 'pending',
-          total_sum: safeRating,
-          rating_count: 1
+          latitude: selectedPlace!.coordinates[1]
         }
       : {
+          ...payloadBase,
           name: manualShopName.trim(),
           mapbox_id: null,
           longitude: manualCoordinates![0],
-          latitude: manualCoordinates![1],
-          tags,
-          main_category: mainCategory,
-          sub_tags: subTags,
-          image_urls: imageUrls,
-          review_text: reviewText.trim() || null,
-          category,
-          status: 'pending',
-          total_sum: safeRating,
-          rating_count: 1
+          latitude: manualCoordinates![1]
         };
 
     const {error} = await supabase.from('shops').insert(payload);
@@ -378,52 +379,108 @@ export default function ContributionForm({
 
       {((selectedPlace && !duplicateLoading) || (manualMode && manualCoordinates)) && (
         <form onSubmit={handleSubmitContribute} className="mt-4 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">店铺分类 (Shop Category)</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-              required
-            >
-              <option value="">请选择分类</option>
-              <option value="餐饮">餐饮 (Food)</option>
-              <option value="服务">服务 (Service)</option>
-              <option value="购物">购物 (Shopping)</option>
-              <option value="校园">校园 (Campus)</option>
-              <option value="其他">其他 (Others)</option>
-            </select>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">主分类</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as 'food' | 'drink' | 'vibe' | 'deal' | '')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                required
+              >
+                <option value="">请选择</option>
+                <option value="food">美食</option>
+                <option value="drink">饮品</option>
+                <option value="vibe">氛围</option>
+                <option value="deal">优惠</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">子类型</label>
+              <select
+                value={shopType}
+                onChange={(e) => setShopType(e.target.value as (typeof SHOP_TYPE_OPTIONS)[number] | '')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                required
+              >
+                <option value="">请选择</option>
+                {SHOP_TYPE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {manualMode && (
-            <>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">{tContribute('manualNameLabel')}</label>
-                <input
-                  type="text"
-                  value={manualShopName}
-                  onChange={(e) => setManualShopName(e.target.value)}
-                  placeholder={tContribute('manualNamePlaceholder')}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                  required
-                />
-              </div>
-
-            </>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">{tContribute('manualNameLabel')}</label>
+              <input
+                type="text"
+                value={manualShopName}
+                onChange={(e) => setManualShopName(e.target.value)}
+                placeholder={tContribute('manualNamePlaceholder')}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                required
+              />
+            </div>
           )}
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              {tContribute('initialRatingLabel')}: {initialRating.toFixed(1)}
-            </label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">评价标签</label>
+            <div className="flex flex-wrap gap-2">
+              {RATING_OPTIONS.map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  onClick={() => setSelectedRatingLabel(option.label)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                    selectedRatingLabel === option.label
+                      ? 'border-[#006633] bg-[#006633] text-white'
+                      : 'border-slate-200 bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">特色（可多选）</label>
+            <div className="flex flex-wrap gap-2">
+              {FEATURE_OPTIONS.map((feature) => {
+                const checked = selectedFeatures.includes(feature);
+                return (
+                  <button
+                    key={feature}
+                    type="button"
+                    onClick={() => {
+                      setSelectedFeatures((prev) =>
+                        checked ? prev.filter((item) => item !== feature) : [...prev, feature]
+                      );
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                      checked ? 'border-[#006633] bg-[#006633] text-white' : 'border-slate-200 bg-slate-50 text-slate-600'
+                    }`}
+                  >
+                    {feature}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">标签（逗号分隔，最多5个）</label>
             <input
-              type="range"
-              min={0}
-              max={5}
-              step={0.1}
-              value={initialRating}
-              onChange={(e) => setInitialRating(Number(e.target.value))}
-              className="w-full"
+              type="text"
+              value={tagsInput}
+              onChange={(e) => setTagsInput(e.target.value)}
+              placeholder={tContribute('tagsPlaceholder')}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
             />
           </div>
 
@@ -440,17 +497,6 @@ export default function ContributionForm({
               onChange={(e) => setReviewText(e.target.value)}
               rows={3}
               placeholder={tContribute('reviewPlaceholder')}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">{tContribute('tagsLabel')}</label>
-            <input
-              type="text"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder={tContribute('tagsPlaceholder')}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
             />
           </div>

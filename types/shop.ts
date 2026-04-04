@@ -8,15 +8,33 @@ export type ViewMode = 'list' | 'map';
 
 export type ShopStatus = 'pending' | 'verified' | 'rejected';
 
+export type ShopCategoryKey = 'all' | 'food' | 'drink' | 'vibe' | 'deal' | 'review';
+
+export type ShopRatingLabel = '封神之作' | '强烈推荐' | '还行吧' | '建议避雷' | '暂无评分';
+
+export type ShopDrawerType = '全部' | '正餐' | '快餐小吃' | '饮品甜点' | '服务';
+
+export type ShopFeature = '有折扣' | '学生价' | '深夜营业' | '适合拍照' | '外卖可达';
+
+export interface DrawerFiltersState {
+  shopType: ShopDrawerType;
+  ratingLabel: Exclude<ShopRatingLabel, '暂无评分'> | null;
+  features: ShopFeature[];
+}
+
 export interface Shop {
   id: string;
   name: string;
   address: string;
   imageUrls: string[];
   type: ShopType;
+  category: Exclude<ShopCategoryKey, 'all' | 'review'>;
   coordinates: [number, number];
   studentDiscount: string | null;
   tags: string[];
+  features: ShopFeature[];
+  shopType: ShopDrawerType;
+  ratingLabel: ShopRatingLabel;
   mainCategory?: string | null;
   subTags?: string[];
   rating: number;

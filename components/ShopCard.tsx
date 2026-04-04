@@ -55,7 +55,7 @@ export default function ShopCard({
   const isPendingAddress = address === '地址信息收录中 (Address pending)';
   const coverImageUrl = shop.imageUrls?.[0] ?? '';
   const hasValidImageUrl = typeof coverImageUrl === 'string' && coverImageUrl.trim().length > 0;
-  const ratingTag = getRatingTagFromData(shop.rating, shop.tags, shop.subTags ?? []);
+  const ratingTag = getRatingTagFromData(shop.rating, shop.tags, shop.subTags ?? [], shop.ratingLabel);
 
   return (
     <div className="group cursor-pointer rounded-2xl border border-slate-100/90 bg-white/95 p-4 shadow-md transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:shadow-xl">

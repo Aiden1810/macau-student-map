@@ -1,19 +1,19 @@
+import {ShopRatingLabel} from '@/types/shop';
+
 export type RatingTag = {
-  label: string;
+  label: ShopRatingLabel;
   bgClass: string;
   textClass: string;
   borderClass: string;
 };
 
-const RATING_LABELS = ['封神之作', '值得一试', '中规中矩', '建议避雷', '暂无评分'] as const;
+const RATING_LABELS: ShopRatingLabel[] = ['封神之作', '强烈推荐', '还行吧', '建议避雷', '暂无评分'];
 
-type RatingLabel = (typeof RATING_LABELS)[number];
-
-function isRatingLabel(value: string): value is RatingLabel {
+function isRatingLabel(value: string): value is ShopRatingLabel {
   return (RATING_LABELS as readonly string[]).includes(value);
 }
 
-function tagForLabel(label: RatingLabel): RatingTag {
+function tagForLabel(label: ShopRatingLabel): RatingTag {
   if (label === '封神之作') {
     return {
       label: '封神之作',
@@ -23,21 +23,21 @@ function tagForLabel(label: RatingLabel): RatingTag {
     };
   }
 
-  if (label === '值得一试') {
+  if (label === '强烈推荐') {
     return {
-      label: '值得一试',
+      label: '强烈推荐',
       bgClass: 'bg-green-100',
       textClass: 'text-green-700',
       borderClass: 'border-green-300'
     };
   }
 
-  if (label === '中规中矩') {
+  if (label === '还行吧') {
     return {
-      label: '中规中矩',
-      bgClass: 'bg-orange-100',
-      textClass: 'text-orange-700',
-      borderClass: 'border-orange-300'
+      label: '还行吧',
+      bgClass: 'bg-slate-100',
+      textClass: 'text-slate-700',
+      borderClass: 'border-slate-300'
     };
   }
 
@@ -66,26 +66,37 @@ export function getRatingTag(score: number): RatingTag {
   }
 
   if (safeScore >= 4) {
-    return tagForLabel('值得一试');
+    return tagForLabel('强烈推荐');
   }
 
   if (safeScore >= 3) {
-    return tagForLabel('中规中矩');
+    return tagForLabel('还行吧');
   }
 
-  if (safeScore >= 2) {
+  if (safeScore >= 1) {
     return tagForLabel('建议避雷');
   }
 
   return tagForLabel('暂无评分');
 }
 
-export function getRatingTagFromData(score: number, tags: string[] = [], subTags: string[] = []): RatingTag {
+export function getRatingTagFromData(
+  score: number,
+  tags: string[] = [],
+  subTags: string[] = [],
+  explicitRatingLabel?: string | null
+): RatingTag {
+  if (explicitRatingLabel && isRatingLabel(explicitRatingLabel)) {
+    if (!(explicitRatingLabel === '暂无评分' && Number.isFinite(score) && score > 0)) {
+      return tagForLabel(explicitRatingLabel);
+    }
+  }
+
   const mergedLabels = [...subTags, ...tags]
     .map((item) => item.trim())
-    .filter((item): item is RatingLabel => isRatingLabel(item));
+    .filter((item): item is ShopRatingLabel => isRatingLabel(item));
 
-  const explicitPriority: RatingLabel[] = ['封神之作', '值得一试', '中规中矩', '建议避雷', '暂无评分'];
+  const explicitPriority: ShopRatingLabel[] = ['封神之作', '强烈推荐', '还行吧', '建议避雷', '暂无评分'];
   const explicit = explicitPriority.find((label) => mergedLabels.includes(label));
 
   if (explicit && !(explicit === '暂无评分' && Number.isFinite(score) && score > 0)) {

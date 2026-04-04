@@ -2,12 +2,24 @@ import {Search} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
-import {FilterOption, Shop} from '@/types/shop';
+import {DrawerFiltersState, Shop, ShopDrawerType, ShopFeature, ShopRatingLabel} from '@/types/shop';
+
+const DRAWER_FILTERS = {
+  shopType: {
+    label: '类型',
+    options: ['全部', '正餐', '快餐小吃', '饮品甜点', '服务'] as ShopDrawerType[]
+  },
+  ratingLabel: {
+    label: '口碑',
+    options: ['封神之作', '强烈推荐', '建议避雷'] as Array<Exclude<ShopRatingLabel, '还行吧' | '暂无评分'>>
+  },
+  features: {
+    label: '特色',
+    options: ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'] as ShopFeature[]
+  }
+} as const;
 
 interface ShopListProps {
-  filters: FilterOption[];
-  activeFilter: FilterOption;
-  setActiveFilter: (filter: FilterOption) => void;
   filteredShops: Shop[];
   loading: boolean;
   searchQuery: string;
@@ -16,7 +28,6 @@ interface ShopListProps {
   onHoverShop?: (shopId: Shop['id'] | null) => void;
   mobileSearchPlaceholder: string;
   emptyText: string;
-  filterLabelMap: Record<FilterOption, string>;
   canApprove: boolean;
   approvingShopId: Shop['id'] | null;
   onApproveShop: (shopId: Shop['id']) => void;
@@ -24,12 +35,12 @@ interface ShopListProps {
   deletingShopId: Shop['id'] | null;
   onDeleteShop: (shopId: Shop['id']) => void;
   collapseMobileSheetSignal?: number;
+  drawerFilters: DrawerFiltersState;
+  onChangeDrawerFilters: (next: DrawerFiltersState) => void;
+  onResetDrawerFilters: () => void;
 }
 
 export default function ShopList({
-  filters,
-  activeFilter,
-  setActiveFilter,
   filteredShops,
   loading,
   searchQuery,
@@ -38,14 +49,16 @@ export default function ShopList({
   onHoverShop,
   mobileSearchPlaceholder,
   emptyText,
-  filterLabelMap,
   canApprove,
   approvingShopId,
   onApproveShop,
   canDelete,
   deletingShopId,
   onDeleteShop,
-  collapseMobileSheetSignal = 0
+  collapseMobileSheetSignal = 0,
+  drawerFilters,
+  onChangeDrawerFilters,
+  onResetDrawerFilters
 }: ShopListProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(0);
@@ -98,23 +111,89 @@ export default function ShopList({
         />
       </div>
 
-      <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-2">
-        {filters.map((filter) => (
-          <button
-            key={filter}
-            onClick={() => setActiveFilter(filter)}
-            className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-              activeFilter === filter
-                ? 'bg-[#006633] text-white shadow-sm'
-                : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            {filterLabelMap[filter]}
+      <div className="rounded-xl border border-slate-200 bg-white p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-sm font-semibold text-slate-700">筛选</p>
+          <button type="button" onClick={onResetDrawerFilters} className="text-xs font-medium text-slate-500 hover:text-slate-700">
+            重置
           </button>
-        ))}
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <p className="mb-1 text-xs font-semibold text-slate-500">{DRAWER_FILTERS.shopType.label}</p>
+            <div className="flex flex-wrap gap-2">
+              {DRAWER_FILTERS.shopType.options.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => onChangeDrawerFilters({...drawerFilters, shopType: option})}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                    drawerFilters.shopType === option
+                      ? 'border-[#006633] bg-[#006633] text-white'
+                      : 'border-slate-200 bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-1 text-xs font-semibold text-slate-500">{DRAWER_FILTERS.ratingLabel.label}</p>
+            <div className="flex flex-wrap gap-2">
+              {DRAWER_FILTERS.ratingLabel.options.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() =>
+                    onChangeDrawerFilters({
+                      ...drawerFilters,
+                      ratingLabel: drawerFilters.ratingLabel === option ? null : option
+                    })
+                  }
+                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                    drawerFilters.ratingLabel === option
+                      ? 'border-[#006633] bg-[#006633] text-white'
+                      : 'border-slate-200 bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-1 text-xs font-semibold text-slate-500">{DRAWER_FILTERS.features.label}</p>
+            <div className="flex flex-wrap gap-2">
+              {DRAWER_FILTERS.features.options.map((option) => {
+                const checked = drawerFilters.features.includes(option);
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => {
+                      const nextFeatures = checked
+                        ? drawerFilters.features.filter((f) => f !== option)
+                        : [...drawerFilters.features, option];
+                      onChangeDrawerFilters({...drawerFilters, features: nextFeatures});
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                      checked ? 'border-[#006633] bg-[#006633] text-white' : 'border-slate-200 bg-slate-50 text-slate-600'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto pb-1 pr-1">
+      <div className="mt-3 flex-1 space-y-4 overflow-y-auto pb-1 pr-1">
         {loading ? (
           Array.from({length: 6}).map((_, index) => <ShopCardSkeleton key={`skeleton-${index}`} />)
         ) : (
@@ -150,7 +229,7 @@ export default function ShopList({
       <div className="hidden w-full flex-col gap-4 md:flex">{listContent}</div>
 
       <div
-        className={`fixed inset-x-0 bottom-0 z-40 rounded-t-3xl border border-slate-200 bg-white/95 px-3 py-2 shadow-2xl backdrop-blur-md transition-[height] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden`}
+        className="fixed inset-x-0 bottom-0 z-40 rounded-t-3xl border border-slate-200 bg-white/95 px-3 py-2 shadow-2xl backdrop-blur-md transition-[height] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden"
         style={{height: mobileHeight > 0 ? `${mobileHeight}px` : mobileExpanded ? '84dvh' : '130px'}}
       >
         <button
