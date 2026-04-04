@@ -330,7 +330,7 @@ export default function Page() {
         )}
 
         <div className="grid grid-cols-1 gap-[1px] md:h-[calc(100dvh-11rem)] md:grid-cols-12 md:gap-6">
-          <div className="order-1 h-[62dvh] min-h-[390px] md:order-2 md:col-span-8 md:h-full lg:col-span-8">
+          <div className="order-1 h-[58dvh] min-h-[360px] md:order-2 md:col-span-8 md:h-full lg:col-span-8">
             <MapPlaceholder
               shops={mapVisibleShops}
               selectedShopId={selectedShopId}

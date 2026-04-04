@@ -1,5 +1,5 @@
 import {Search} from 'lucide-react';
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
 import {FilterOption, Shop} from '@/types/shop';
@@ -48,10 +48,42 @@ export default function ShopList({
   collapseMobileSheetSignal = 0
 }: ShopListProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [mobileHeight, setMobileHeight] = useState(0);
+  const dragStartYRef = useRef<number | null>(null);
+  const dragStartHeightRef = useRef<number>(0);
 
   useEffect(() => {
     setMobileExpanded(false);
+    setMobileHeight(0);
   }, [collapseMobileSheetSignal]);
+
+  const MIN_HEIGHT = 130;
+  const MAX_HEIGHT = 84;
+
+  const getExpandedHeightPx = () => window.innerHeight * (MAX_HEIGHT / 100);
+
+  const startDrag = (clientY: number) => {
+    dragStartYRef.current = clientY;
+    dragStartHeightRef.current = mobileExpanded ? getExpandedHeightPx() : MIN_HEIGHT;
+  };
+
+  const moveDrag = (clientY: number) => {
+    if (dragStartYRef.current === null) return;
+
+    const delta = dragStartYRef.current - clientY;
+    const next = Math.max(MIN_HEIGHT, Math.min(getExpandedHeightPx(), dragStartHeightRef.current + delta));
+    setMobileHeight(next);
+  };
+
+  const endDrag = () => {
+    if (dragStartYRef.current === null) return;
+
+    const threshold = window.innerHeight * 0.45;
+    const finalHeight = mobileHeight || (mobileExpanded ? getExpandedHeightPx() : MIN_HEIGHT);
+    setMobileExpanded(finalHeight >= threshold);
+    setMobileHeight(0);
+    dragStartYRef.current = null;
+  };
 
   const listContent = (
     <>
@@ -118,15 +150,21 @@ export default function ShopList({
       <div className="hidden w-full flex-col gap-4 md:flex">{listContent}</div>
 
       <div
-        className={`fixed inset-x-0 bottom-0 z-40 rounded-t-3xl border border-slate-200 bg-white/95 px-3 py-2 shadow-2xl backdrop-blur-md transition-[height] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden ${
-          mobileExpanded ? 'h-[78dvh]' : 'h-[112px]'
-        }`}
+        className={`fixed inset-x-0 bottom-0 z-40 rounded-t-3xl border border-slate-200 bg-white/95 px-3 py-2 shadow-2xl backdrop-blur-md transition-[height] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden`}
+        style={{height: mobileHeight > 0 ? `${mobileHeight}px` : mobileExpanded ? '84dvh' : '130px'}}
       >
         <button
           type="button"
           aria-label="展开店铺抽屉"
           onClick={() => setMobileExpanded((prev) => !prev)}
-          className="mx-auto mb-2 block h-1.5 w-12 rounded-full bg-slate-300"
+          onTouchStart={(e) => startDrag(e.touches[0].clientY)}
+          onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
+          onTouchEnd={endDrag}
+          onMouseDown={(e) => startDrag(e.clientY)}
+          onMouseMove={(e) => moveDrag(e.clientY)}
+          onMouseUp={endDrag}
+          onMouseLeave={endDrag}
+          className="mx-auto mb-2 block h-1.5 w-12 touch-none rounded-full bg-slate-300"
         />
 
         {!mobileExpanded ? (
