@@ -1,21 +1,21 @@
 import {Search} from 'lucide-react';
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
-import {DrawerFiltersState, Shop, ShopDrawerType, ShopFeature, ShopRatingLabel} from '@/types/shop';
+import {DrawerFiltersState, FILTERABLE_RATING_LABELS, Shop, SHOP_DRAWER_TYPES, SHOP_FEATURE_OPTIONS} from '@/types/shop';
 
 const DRAWER_FILTERS = {
   shopType: {
     label: '类型',
-    options: ['全部', '正餐', '快餐小吃', '饮品甜点', '服务'] as ShopDrawerType[]
+    options: SHOP_DRAWER_TYPES
   },
   ratingLabel: {
     label: '口碑',
-    options: ['封神之作', '强烈推荐', '建议避雷'] as Array<Exclude<ShopRatingLabel, '还行吧' | '暂无评分'>>
+    options: FILTERABLE_RATING_LABELS
   },
   features: {
     label: '特色',
-    options: ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'] as ShopFeature[]
+    options: SHOP_FEATURE_OPTIONS
   }
 } as const;
 
@@ -28,6 +28,11 @@ interface ShopListProps {
   onHoverShop?: (shopId: Shop['id'] | null) => void;
   mobileSearchPlaceholder: string;
   emptyText: string;
+  hasAnyShops: boolean;
+  hasActiveFilters: boolean;
+  activeFilterLabels: string[];
+  onClearSearch: () => void;
+  onClearAllFilters: () => void;
   canApprove: boolean;
   approvingShopId: Shop['id'] | null;
   onApproveShop: (shopId: Shop['id']) => void;
@@ -49,6 +54,11 @@ export default function ShopList({
   onHoverShop,
   mobileSearchPlaceholder,
   emptyText,
+  hasAnyShops,
+  hasActiveFilters,
+  activeFilterLabels,
+  onClearSearch,
+  onClearAllFilters,
   canApprove,
   approvingShopId,
   onApproveShop,
@@ -98,6 +108,33 @@ export default function ShopList({
     dragStartYRef.current = null;
   };
 
+  const emptyState = useMemo(() => {
+    if (!hasAnyShops) {
+      return {
+        title: '还没有店铺数据',
+        description: '你目前是空库状态，后续添加店铺后会在这里展示。可以先通过投稿或管理员后台新增第一批店铺。',
+        actionLabel: null as string | null,
+        action: null as (() => void) | null
+      };
+    }
+
+    if (hasActiveFilters || searchQuery.trim().length > 0) {
+      return {
+        title: '没有匹配结果',
+        description: '请尝试放宽筛选条件，或清除搜索关键词后重试。',
+        actionLabel: '清空搜索与筛选',
+        action: onClearAllFilters
+      };
+    }
+
+    return {
+      title: '暂无可展示店铺',
+      description: emptyText,
+      actionLabel: null as string | null,
+      action: null as (() => void) | null
+    };
+  }, [emptyText, hasActiveFilters, hasAnyShops, onClearAllFilters, searchQuery]);
+
   const listContent = (
     <>
       <div className="mb-2 relative md:hidden">
@@ -105,10 +142,19 @@ export default function ShopList({
         <input
           type="text"
           placeholder={mobileSearchPlaceholder}
-          className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm outline-none transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] focus:border-[#006633]"
+          className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-20 text-sm outline-none transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] focus:border-[#006633]"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
+        {searchQuery.trim().length > 0 && (
+          <button
+            type="button"
+            onClick={onClearSearch}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600"
+          >
+            清除
+          </button>
+        )}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -118,6 +164,19 @@ export default function ShopList({
             重置
           </button>
         </div>
+
+        {activeFilterLabels.length > 0 && (
+          <div className="mb-3 rounded-lg border border-emerald-100 bg-emerald-50/60 p-2">
+            <p className="mb-1 text-[11px] font-semibold text-emerald-800">当前条件</p>
+            <div className="flex flex-wrap gap-1.5">
+              {activeFilterLabels.map((label) => (
+                <span key={label} className="rounded-full border border-emerald-200 bg-white px-2 py-0.5 text-[11px] text-emerald-700">
+                  {label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-3">
           <div>
@@ -217,7 +276,21 @@ export default function ShopList({
                 />
               </div>
             ))}
-            {filteredShops.length === 0 && <div className="py-10 text-center text-slate-400">{emptyText}</div>}
+            {filteredShops.length === 0 && (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
+                <p className="text-sm font-semibold text-slate-700">{emptyState.title}</p>
+                <p className="mt-1 text-xs text-slate-500">{emptyState.description}</p>
+                {emptyState.actionLabel && emptyState.action && (
+                  <button
+                    type="button"
+                    onClick={emptyState.action}
+                    className="mt-3 rounded-lg border border-[#006633]/20 bg-[#006633] px-3 py-1.5 text-xs font-medium text-white"
+                  >
+                    {emptyState.actionLabel}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

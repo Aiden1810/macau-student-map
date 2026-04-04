@@ -56,6 +56,7 @@ export default function ShopCard({
   const coverImageUrl = shop.imageUrls?.[0] ?? '';
   const hasValidImageUrl = typeof coverImageUrl === 'string' && coverImageUrl.trim().length > 0;
   const ratingTag = getRatingTagFromData(shop.rating, shop.tags, shop.subTags ?? [], shop.ratingLabel);
+  const hasLowSampleSize = shop.reviews > 0 && shop.reviews < 3;
 
   return (
     <div className="group cursor-pointer rounded-2xl border border-slate-100/90 bg-white/95 p-4 shadow-md transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:shadow-xl">
@@ -120,6 +121,11 @@ export default function ShopCard({
         <div className="mb-2">
           <StarRating score={shop.rating} reviewCount={shop.reviews} />
         </div>
+        {hasLowSampleSize && (
+          <p className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
+            当前评分样本较少（少于3条评论），结果仅供参考。
+          </p>
+        )}
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {canApprove && isPending && (

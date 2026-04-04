@@ -50,6 +50,18 @@ type ShopFormValue = {
 type BusyActionType = 'approve' | 'reject' | 'delete';
 type BusyAction = {shopId: string; action: BusyActionType} | null;
 
+type HealthStats = {
+  total: number;
+  pending: number;
+  verified: number;
+  rejected: number;
+  missingCategory: number;
+  missingShopType: number;
+  missingRatingLabel: number;
+  newShops24h: number;
+  newComments24h: number;
+};
+
 const CATEGORY_OPTIONS: Array<{value: ShopCategory; label: string}> = [
   {value: 'food', label: '美食'},
   {value: 'drink', label: '饮品'},
@@ -301,27 +313,53 @@ export default function AdminModerationPage() {
   const [editingShop, setEditingShop] = useState<ShopRow | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [statusTab, setStatusTab] = useState<'pending' | 'verified'>('pending');
+  const [newComments24h, setNewComments24h] = useState(0);
+  const [backfilling, setBackfilling] = useState(false);
 
   const fetchAllShops = useCallback(async (opts?: {silent?: boolean}) => {
     const silent = opts?.silent ?? false;
-    if (silent) setRefreshing(true); else setLoading(true);
+    if (silent) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
-    const {data, error: fetchError} = await supabase
-      .from('shops')
-      .select('id,name,address,longitude,latitude,category,tags,features,shop_type,rating_label,image_urls,review_text,student_discount,status,created_at,sub_tags')
-      .or('status.in.(pending,verified,rejected),status.is.null')
-      .order('created_at', {ascending: false});
+    const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    if (fetchError) {
-      setError(fetchError.message);
+    const [shopsRes, commentsRes] = await Promise.all([
+      supabase
+        .from('shops')
+        .select('id,name,address,longitude,latitude,category,tags,features,shop_type,rating_label,image_urls,review_text,student_discount,status,created_at,sub_tags')
+        .or('status.in.(pending,verified,rejected),status.is.null')
+        .order('created_at', {ascending: false}),
+      supabase.from('comments').select('id', {count: 'exact', head: true}).gte('created_at', sinceIso)
+    ]);
+
+    if (shopsRes.error) {
+      setError(shopsRes.error.message);
       setShops([]);
-      if (silent) setRefreshing(false); else setLoading(false);
+      if (silent) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
       return;
     }
 
-    setShops((data ?? []).map((row) => ({...row, id: String(row.id)})) as ShopRow[]);
-    if (silent) setRefreshing(false); else setLoading(false);
+    if (commentsRes.error) {
+      console.warn('Failed to fetch comment health metrics:', commentsRes.error.message);
+      setNewComments24h(0);
+    } else {
+      setNewComments24h(commentsRes.count ?? 0);
+    }
+
+    setShops((shopsRes.data ?? []).map((row) => ({...row, id: String(row.id)})) as ShopRow[]);
+    if (silent) {
+      setRefreshing(false);
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const checkAdminRole = useCallback(async () => {
@@ -349,6 +387,37 @@ export default function AdminModerationPage() {
 
   const pendingCount = useMemo(() => shops.filter((item) => item.status === 'pending' || item.status === null).length, [shops]);
   const verifiedCount = useMemo(() => shops.filter((item) => item.status === 'verified').length, [shops]);
+
+  const healthStats = useMemo<HealthStats>(() => {
+    const total = shops.length;
+    const pending = shops.filter((item) => item.status === 'pending' || item.status === null).length;
+    const verified = shops.filter((item) => item.status === 'verified').length;
+    const rejected = shops.filter((item) => item.status === 'rejected').length;
+
+    const missingCategory = shops.filter((item) => !item.category).length;
+    const missingShopType = shops.filter((item) => !item.shop_type).length;
+    const missingRatingLabel = shops.filter((item) => !item.rating_label).length;
+
+    const nowMs = Date.now();
+    const windowMs = 24 * 60 * 60 * 1000;
+    const newShops24h = shops.filter((item) => {
+      if (!item.created_at) return false;
+      const created = new Date(item.created_at).getTime();
+      return Number.isFinite(created) && nowMs - created <= windowMs;
+    }).length;
+
+    return {
+      total,
+      pending,
+      verified,
+      rejected,
+      missingCategory,
+      missingShopType,
+      missingRatingLabel,
+      newShops24h,
+      newComments24h
+    };
+  }, [newComments24h, shops]);
 
   const visibleShops = useMemo(
     () => shops.filter((shop) => (statusTab === 'pending' ? shop.status === 'pending' || shop.status === null : shop.status === 'verified')),
@@ -422,6 +491,44 @@ export default function AdminModerationPage() {
     await fetchAllShops();
   };
 
+  const handleBackfillMissingFields = async () => {
+    if (backfilling) return;
+
+    const confirmed = window.confirm('将批量补全缺失的 category / shop_type / rating_label，确定继续吗？');
+    if (!confirmed) return;
+
+    setBackfilling(true);
+    setError(null);
+
+    const updates = shops
+      .filter((shop) => !shop.category || !shop.shop_type || !shop.rating_label)
+      .map((shop) => ({
+        id: shop.id,
+        category: shop.category ?? 'food',
+        shop_type: shop.shop_type ?? '服务',
+        rating_label: shop.rating_label ?? '暂无评分'
+      }));
+
+    if (updates.length === 0) {
+      toast.success('没有需要补全的店铺');
+      setBackfilling(false);
+      return;
+    }
+
+    const {error: upsertError} = await supabase.from('shops').upsert(updates, {onConflict: 'id'});
+
+    if (upsertError) {
+      setError(upsertError.message);
+      toast.error(`批量补全失败：${upsertError.message}`);
+      setBackfilling(false);
+      return;
+    }
+
+    toast.success(`已补全 ${updates.length} 家店铺的缺失字段`);
+    setBackfilling(false);
+    await fetchAllShops({silent: true});
+  };
+
   if (loading) {
     return <div className="min-h-screen bg-slate-50 px-4 py-10"><div className="mx-auto max-w-6xl rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500 shadow-sm">加载管理员数据中...</div></div>;
   }
@@ -455,6 +562,7 @@ export default function AdminModerationPage() {
               <button type="button" onClick={() => setStatusTab('pending')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'pending' ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-200' : 'bg-slate-100 text-slate-600'}`}>待审核：{pendingCount}</button>
               <button type="button" onClick={() => setStatusTab('verified')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'verified' ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' : 'bg-slate-100 text-slate-600'}`}>已审核通过：{verifiedCount}</button>
               <button type="button" onClick={() => fetchAllShops({silent: true})} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700">{refreshing ? '刷新中...' : '刷新列表'}</button>
+              <button type="button" onClick={handleBackfillMissingFields} disabled={backfilling} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 disabled:opacity-60">{backfilling ? '补全中...' : '补全缺失字段'}</button>
               <button type="button" onClick={() => setShowCreateModal(true)} className="rounded-lg bg-[#006633] px-4 py-2 text-sm font-semibold text-white">新增店铺</button>
               <Link href="/" className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700">返回首页</Link>
             </div>
@@ -462,6 +570,35 @@ export default function AdminModerationPage() {
         </div>
 
         {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
+
+        <section className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold text-slate-500">店铺总数</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.total}</p>
+            <p className="mt-1 text-xs text-slate-500">pending {healthStats.pending} / verified {healthStats.verified} / rejected {healthStats.rejected}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold text-slate-500">最近 24 小时</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">+{healthStats.newShops24h}</p>
+            <p className="mt-1 text-xs text-slate-500">新增店铺，新增评论 {healthStats.newComments24h} 条</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold text-slate-500">字段缺失（分类）</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.missingCategory}</p>
+            <p className="mt-1 text-xs text-slate-500">category 为空的店铺数</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold text-slate-500">字段缺失（类型/口碑）</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.missingShopType + healthStats.missingRatingLabel}</p>
+            <p className="mt-1 text-xs text-slate-500">shop_type {healthStats.missingShopType}，rating_label {healthStats.missingRatingLabel}</p>
+          </div>
+        </section>
+
+        {healthStats.total === 0 && (
+          <div className="mb-4 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600">
+            当前数据库暂无店铺，这属于正常空库阶段。你可以点击右上角“新增店铺”先录入基础样本，再做前台回归测试。
+          </div>
+        )}
 
         <div className="grid gap-4 md:grid-cols-2">
           {visibleShops.map((shop) => {

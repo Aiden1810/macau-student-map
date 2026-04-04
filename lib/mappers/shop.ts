@@ -1,5 +1,8 @@
 import {
+  FILTERABLE_RATING_LABELS,
   RecommendStatus,
+  SHOP_DRAWER_TYPES,
+  SHOP_FEATURE_OPTIONS,
   Shop,
   ShopCategoryKey,
   ShopDrawerType,
@@ -13,9 +16,9 @@ const VALID_SHOP_TYPES: ShopType[] = ['餐饮', '服务'];
 const VALID_RECOMMEND_STATUS: RecommendStatus[] = ['recommend', 'neutral', 'avoid'];
 const VALID_SHOP_STATUS: ShopStatus[] = ['pending', 'verified', 'rejected'];
 const VALID_CATEGORY_KEYS: Array<Exclude<ShopCategoryKey, 'all' | 'review'>> = ['food', 'drink', 'vibe', 'deal'];
-const VALID_SHOP_DRAWER_TYPES: ShopDrawerType[] = ['全部', '正餐', '快餐小吃', '饮品甜点', '服务'];
-const VALID_FEATURES: ShopFeature[] = ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'];
-const VALID_RATING_LABELS: ShopRatingLabel[] = ['封神之作', '强烈推荐', '还行吧', '建议避雷', '暂无评分'];
+const VALID_SHOP_DRAWER_TYPES: ShopDrawerType[] = [...SHOP_DRAWER_TYPES];
+const VALID_FEATURES: ShopFeature[] = [...SHOP_FEATURE_OPTIONS];
+const VALID_RATING_LABELS: ShopRatingLabel[] = [...FILTERABLE_RATING_LABELS, '暂无评分'];
 const MACAU_CENTER: [number, number] = [113.5439, 22.1911];
 const DEFAULT_SHOP_NAME = '未知店铺 (Unnamed Shop)';
 const DEFAULT_SHOP_ADDRESS = '地址信息收录中 (Address pending)';

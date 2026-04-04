@@ -18,6 +18,30 @@ const DEFAULT_DRAWER_FILTERS: DrawerFiltersState = {
   features: []
 };
 
+function hasDrawerFilters(filters: DrawerFiltersState): boolean {
+  return filters.shopType !== '全部' || filters.ratingLabel !== null || filters.features.length > 0;
+}
+
+const L1_LABELS: Record<ShopCategoryKey, string> = {
+  all: '全部',
+  food: '美食',
+  drink: '饮品',
+  vibe: '氛围',
+  deal: '优惠',
+  review: '口碑'
+};
+
+const SCENARIO_SHORTCUTS: Array<{
+  key: 'late-night' | 'student-deal' | 'photo' | 'top-rated';
+  label: string;
+  helper: string;
+}> = [
+  {key: 'late-night', label: '夜宵', helper: '深夜营业'},
+  {key: 'student-deal', label: '学生党优惠', helper: '学生价 / 有折扣'},
+  {key: 'photo', label: '适合拍照', helper: '出片氛围'},
+  {key: 'top-rated', label: '高分口碑', helper: '封神 / 强推'}
+];
+
 function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
   if (tabKey === 'all') return shops;
 
@@ -64,6 +88,7 @@ export default function Page() {
   const [activeL1, setActiveL1] = useState<ShopCategoryKey>('all');
   const [activeL2, setActiveL2] = useState<string | null>(null);
   const [drawerFilters, setDrawerFilters] = useState<DrawerFiltersState>(DEFAULT_DRAWER_FILTERS);
+  const [activeScenario, setActiveScenario] = useState<null | 'late-night' | 'student-deal' | 'photo' | 'top-rated'>(null);
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
   const [hoveredShopId, setHoveredShopId] = useState<Shop['id'] | null>(null);
   const [collapseMobileSheetSignal, setCollapseMobileSheetSignal] = useState(0);
@@ -171,9 +196,69 @@ export default function Page() {
 
     const l1Filtered = filterByL1(activeL1, searched);
     const l2Filtered = activeL2 ? filterByL2(activeL2, l1Filtered) : l1Filtered;
+    const drawerFiltered = applyDrawerFilters(l2Filtered, drawerFilters);
 
-    return applyDrawerFilters(l2Filtered, drawerFilters);
-  }, [activeL1, activeL2, drawerFilters, searchQuery, visibleShops]);
+    if (!activeScenario) {
+      return drawerFiltered;
+    }
+
+    if (activeScenario === 'late-night') {
+      return drawerFiltered.filter((shop) => shop.features.includes('深夜营业'));
+    }
+
+    if (activeScenario === 'student-deal') {
+      return drawerFiltered.filter((shop) => shop.features.includes('学生价') || shop.features.includes('有折扣'));
+    }
+
+    if (activeScenario === 'photo') {
+      return drawerFiltered.filter((shop) => shop.features.includes('适合拍照'));
+    }
+
+    return drawerFiltered.filter((shop) => ['封神之作', '强烈推荐'].includes(shop.ratingLabel));
+  }, [activeL1, activeL2, activeScenario, drawerFilters, searchQuery, visibleShops]);
+
+  const hasActiveTopFilters = activeL1 !== 'all' || activeL2 !== null;
+  const hasActiveDrawerFilters = hasDrawerFilters(drawerFilters);
+  const hasActiveSearch = searchQuery.trim().length > 0;
+  const hasActiveScenarioFilter = activeScenario !== null;
+  const hasActiveFilters = hasActiveTopFilters || hasActiveDrawerFilters || hasActiveSearch || hasActiveScenarioFilter;
+
+  const activeFilterLabels = useMemo(() => {
+    const labels: string[] = [];
+
+    if (activeL1 !== 'all') {
+      labels.push(`频道: ${L1_LABELS[activeL1]}`);
+    }
+
+    if (activeL2) {
+      labels.push(`二级: ${activeL2}`);
+    }
+
+    if (drawerFilters.shopType !== '全部') {
+      labels.push(`类型: ${drawerFilters.shopType}`);
+    }
+
+    if (drawerFilters.ratingLabel) {
+      labels.push(`口碑: ${drawerFilters.ratingLabel}`);
+    }
+
+    if (drawerFilters.features.length > 0) {
+      labels.push(...drawerFilters.features.map((feature) => `特色: ${feature}`));
+    }
+
+    if (hasActiveSearch) {
+      labels.push(`搜索: ${searchQuery.trim()}`);
+    }
+
+    if (activeScenario) {
+      const scenario = SCENARIO_SHORTCUTS.find((item) => item.key === activeScenario);
+      if (scenario) {
+        labels.push(`场景: ${scenario.label}`);
+      }
+    }
+
+    return labels;
+  }, [activeL1, activeL2, activeScenario, drawerFilters, hasActiveSearch, searchQuery]);
 
   useEffect(() => {
     if (displayedShops.length === 0) {
@@ -197,6 +282,14 @@ export default function Page() {
 
     setActiveL1(l1);
     setActiveL2(l2);
+  };
+
+  const resetAllFiltersAndSearch = () => {
+    setActiveL1('all');
+    setActiveL2(null);
+    setActiveScenario(null);
+    setDrawerFilters(DEFAULT_DRAWER_FILTERS);
+    setSearchQuery('');
   };
 
   const handleLocateShop = (shopId: Shop['id']) => {
@@ -291,6 +384,41 @@ export default function Page() {
           <FilterBar activeL1={activeL1} activeL2={activeL2} onChange={handleTopFilterChange} />
         </div>
 
+        <section className="mt-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-sm font-semibold text-slate-700">场景快捷筛选</p>
+            {activeScenario && (
+              <button
+                type="button"
+                onClick={() => setActiveScenario(null)}
+                className="text-xs font-medium text-slate-500 hover:text-slate-700"
+              >
+                清除场景
+              </button>
+            )}
+          </div>
+          <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
+            {SCENARIO_SHORTCUTS.map((scenario) => {
+              const active = activeScenario === scenario.key;
+              return (
+                <button
+                  key={scenario.key}
+                  type="button"
+                  onClick={() => setActiveScenario(active ? null : scenario.key)}
+                  className={`shrink-0 rounded-xl border px-3 py-2 text-left transition ${
+                    active
+                      ? 'border-[#006633] bg-[#006633]/5 text-[#006633]'
+                      : 'border-slate-200 bg-slate-50 text-slate-700'
+                  }`}
+                >
+                  <p className="text-xs font-semibold">{scenario.label}</p>
+                  <p className="text-[11px] opacity-80">{scenario.helper}</p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         {isContributeOpen && (
           <ContributionForm
             manualCoordinates={manualCoordinates}
@@ -346,6 +474,11 @@ export default function Page() {
               onHoverShop={setHoveredShopId}
               mobileSearchPlaceholder={t('mobileSearchPlaceholder')}
               emptyText={t('emptyResult')}
+              hasAnyShops={visibleShops.length > 0}
+              hasActiveFilters={hasActiveFilters}
+              activeFilterLabels={activeFilterLabels}
+              onClearSearch={() => setSearchQuery('')}
+              onClearAllFilters={resetAllFiltersAndSearch}
               canApprove={isAdmin}
               approvingShopId={approvingShopId}
               onApproveShop={handleApproveShop}

@@ -12,13 +12,17 @@ export type ShopCategoryKey = 'all' | 'food' | 'drink' | 'vibe' | 'deal' | 'revi
 
 export type ShopRatingLabel = '封神之作' | '强烈推荐' | '还行吧' | '建议避雷' | '暂无评分';
 
-export type ShopDrawerType = '全部' | '正餐' | '快餐小吃' | '饮品甜点' | '服务';
+export const SHOP_DRAWER_TYPES = ['全部', '正餐', '快餐小吃', '饮品甜点', '服务'] as const;
+export type ShopDrawerType = (typeof SHOP_DRAWER_TYPES)[number];
 
-export type ShopFeature = '有折扣' | '学生价' | '深夜营业' | '适合拍照' | '外卖可达';
+export const SHOP_FEATURE_OPTIONS = ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'] as const;
+export type ShopFeature = (typeof SHOP_FEATURE_OPTIONS)[number];
+
+export const FILTERABLE_RATING_LABELS = ['封神之作', '强烈推荐', '还行吧', '建议避雷'] as const;
 
 export interface DrawerFiltersState {
   shopType: ShopDrawerType;
-  ratingLabel: Exclude<ShopRatingLabel, '暂无评分'> | null;
+  ratingLabel: (typeof FILTERABLE_RATING_LABELS)[number] | null;
   features: ShopFeature[];
 }
 
