@@ -182,7 +182,33 @@ from (
 where s.id = src.shop_id;
 
 -- =========================================================
--- 5) Validation queries (read-only)
+-- 5) Backfill shop_type/features from legacy tags/sub_tags
+-- =========================================================
+update public.shops s
+set shop_type = case
+  when shop_type in ('正餐', '快餐小吃', '饮品甜点', '服务') then shop_type
+  when exists (select 1 from unnest(coalesce(s.tags, '{}')) t(v) where v in ('正餐', '粤菜', '葡国菜', '日料', '火锅', '西餐')) then '正餐'
+  when exists (select 1 from unnest(coalesce(s.tags, '{}')) t(v) where v in ('快餐小吃', '炸鸡', '汉堡', '肠粉', '煎饼', '三文治')) then '快餐小吃'
+  when exists (select 1 from unnest(coalesce(s.tags, '{}')) t(v) where v in ('饮品甜点', '奶茶', '咖啡', '果汁', '手打柠檬茶', '蛋糕', '甜品')) then '饮品甜点'
+  when exists (select 1 from unnest(coalesce(s.tags, '{}')) t(v) where v in ('服务')) then '服务'
+  when exists (select 1 from unnest(coalesce(s.sub_tags, '{}')) t(v) where v in ('正餐', '粤菜', '葡国菜', '日料', '火锅', '西餐')) then '正餐'
+  when exists (select 1 from unnest(coalesce(s.sub_tags, '{}')) t(v) where v in ('快餐小吃', '炸鸡', '汉堡', '肠粉', '煎饼', '三文治')) then '快餐小吃'
+  when exists (select 1 from unnest(coalesce(s.sub_tags, '{}')) t(v) where v in ('饮品甜点', '奶茶', '咖啡', '果汁', '手打柠檬茶', '蛋糕', '甜品')) then '饮品甜点'
+  when exists (select 1 from unnest(coalesce(s.sub_tags, '{}')) t(v) where v in ('服务')) then '服务'
+  else shop_type
+end;
+
+update public.shops s
+set features = (
+  select array(select distinct f from unnest(
+    coalesce(s.features, '{}') ||
+    (case when coalesce(s.student_discount, '') <> '' then array['有折扣','学生价'] else array[]::text[] end) ||
+    (case when exists (select 1 from unnest(coalesce(s.tags, '{}')) t(v) where v in ('适合拍照','拍照出片')) then array['适合拍照'] else array[]::text[] end)
+  ) as f where f in ('有折扣','学生价','深夜营业','适合拍照','外卖可达'))
+);
+
+-- =========================================================
+-- 6) Validation queries (read-only)
 -- =========================================================
 -- Expect 0 rows:
 -- select id, name, category from public.shops

@@ -162,7 +162,7 @@ function normalizeCategoryKey(value: unknown): Exclude<ShopCategoryKey, 'all' | 
   return 'food';
 }
 
-function normalizeShopDrawerType(value: unknown): ShopDrawerType {
+function normalizeShopDrawerType(value: unknown, tags: string[] = [], subTags: string[] = []): ShopDrawerType {
   if (typeof value === 'string' && VALID_SHOP_DRAWER_TYPES.includes(value as ShopDrawerType)) {
     return value as ShopDrawerType;
   }
@@ -172,6 +172,24 @@ function normalizeShopDrawerType(value: unknown): ShopDrawerType {
     if (trimmed === '餐饮') {
       return '正餐';
     }
+  }
+
+  const merged = [...tags, ...subTags].map((item) => item.trim());
+
+  if (merged.includes('正餐')) {
+    return '正餐';
+  }
+
+  if (merged.includes('快餐小吃')) {
+    return '快餐小吃';
+  }
+
+  if (merged.includes('饮品甜点') || merged.includes('奶茶') || merged.includes('咖啡') || merged.includes('甜品')) {
+    return '饮品甜点';
+  }
+
+  if (merged.includes('服务')) {
+    return '服务';
   }
 
   return '全部';
@@ -452,7 +470,7 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
     studentDiscount: typeof rawDiscount === 'string' ? rawDiscount : null,
     tags: mergedTags,
     features: normalizeFeatures(rawFeatures),
-    shopType: normalizeShopDrawerType(rawShopType),
+    shopType: normalizeShopDrawerType(rawShopType, mergedTags, normalizedSubTags),
     ratingLabel: normalizeRatingLabel(row?.rating_label, reviewMetrics.rating),
     mainCategory: normalizedMainCategory,
     subTags: normalizedSubTags,
