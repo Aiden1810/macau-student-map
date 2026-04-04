@@ -30,7 +30,7 @@ const RATING_OPTIONS: RatingOption[] = [
   {label: '封神之作', value: 5.0},
   {label: '强烈推荐', value: 4.0},
   {label: '还行吧', value: 3.0},
-  {label: '建议避雷', value: 1.5}
+  {label: '建议避雷', value: 1.0}
 ];
 
 const SHOP_TYPE_OPTIONS = ['正餐', '快餐小吃', '饮品甜点', '服务'] as const;
