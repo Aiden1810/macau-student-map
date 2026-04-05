@@ -426,12 +426,11 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
   const rawType = row?.type ?? row?.category ?? row?.shop_type;
   const lngCandidate = row?.longitude ?? row?.lng ?? row?.lon;
   const latCandidate = row?.latitude ?? row?.lat;
-  const rawCoordinates =
-    row?.coordinates ??
-    row?.location ??
-    row?.coord ??
-    row?.latlng ??
-    (lngCandidate !== undefined && latCandidate !== undefined ? [lngCandidate, latCandidate] : undefined);
+
+  const hasExplicitLngLat = parseMaybeNumber(lngCandidate) !== null && parseMaybeNumber(latCandidate) !== null;
+  const rawCoordinates = hasExplicitLngLat
+    ? [lngCandidate, latCandidate]
+    : row?.coordinates ?? row?.location ?? row?.coord ?? row?.latlng;
   const rawTags = row?.tags;
   const rawMainCategory = row?.main_category;
   const rawSubTags = row?.sub_tags;

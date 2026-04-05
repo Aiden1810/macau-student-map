@@ -9,6 +9,7 @@ import {Shop} from '@/types/shop';
 interface ShopCardProps {
   shop: Shop;
   onLocate?: (shopId: Shop['id']) => void;
+  isLocateHighlighted?: boolean;
   canApprove?: boolean;
   approving?: boolean;
   onApprove?: (shopId: Shop['id']) => void;
@@ -41,6 +42,7 @@ function ShopPlaceholder() {
 export default function ShopCard({
   shop,
   onLocate,
+  isLocateHighlighted = false,
   canApprove = false,
   approving = false,
   onApprove,
@@ -59,7 +61,13 @@ export default function ShopCard({
   const hasLowSampleSize = shop.reviews > 0 && shop.reviews < 3;
 
   return (
-    <div className="group cursor-pointer rounded-2xl border border-slate-100/90 bg-white/95 p-4 shadow-md transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:shadow-xl">
+    <div
+      className={`group cursor-pointer rounded-2xl border bg-white/95 p-4 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:shadow-xl ${
+        isLocateHighlighted
+          ? 'border-[#006633]/45 shadow-[0_0_0_2px_rgba(0,102,51,0.16),0_12px_26px_rgba(2,30,18,0.16)]'
+          : 'border-slate-100/90 shadow-md'
+      }`}
+    >
       <div className="mb-3 overflow-hidden rounded-xl border border-slate-100">
         {hasValidImageUrl ? (
           <Image src={coverImageUrl} alt={shop.name} width={640} height={360} className="h-40 w-full object-cover" />

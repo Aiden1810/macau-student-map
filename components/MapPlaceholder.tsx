@@ -86,34 +86,38 @@ export default function MapPlaceholder({
     [shops]
   );
 
+  const flyToLocation = (longitude: number, latitude: number) => {
+    if (!mapRef.current) {
+      return;
+    }
+
+    const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+
+    mapRef.current.flyTo({
+      center: [longitude, latitude],
+      zoom: isMobile ? 15.4 : 16,
+      duration: isMobile ? 620 : 800,
+      curve: isMobile ? 1.25 : 1.42,
+      essential: true
+    });
+  };
+
   useEffect(() => {
-    if (!selectedShop || !mapRef.current) {
+    if (!selectedShop) {
       return;
     }
 
     const [longitude, latitude] = selectedShop.coordinates;
-
-    mapRef.current.flyTo({
-      center: [longitude, latitude],
-      zoom: 16,
-      duration: 800,
-      essential: true
-    });
-
+    flyToLocation(longitude, latitude);
     setPopupShop(selectedShop);
   }, [selectedShop]);
 
   useEffect(() => {
-    if (!highlightedLocation || !mapRef.current) {
+    if (!highlightedLocation) {
       return;
     }
 
-    mapRef.current.flyTo({
-      center: [highlightedLocation.longitude, highlightedLocation.latitude],
-      zoom: 16,
-      duration: 800,
-      essential: true
-    });
+    flyToLocation(highlightedLocation.longitude, highlightedLocation.latitude);
   }, [highlightedLocation]);
 
   useEffect(() => {
@@ -225,17 +229,38 @@ export default function MapPlaceholder({
             type="circle"
             filter={['!', ['has', 'point_count']]}
             paint={{
-              'circle-color': '#FFD94A',
+              'circle-color': '#0f7a43',
               'circle-radius': [
                 'case',
-                ['==', ['get', 'id'], selectedShopId ?? -1],
-                10,
-                ['==', ['get', 'id'], hoveredShopId ?? -1],
-                10,
-                7
+                ['==', ['get', 'id'], selectedShopId ?? '__none__'],
+                13,
+                ['==', ['get', 'id'], hoveredShopId ?? '__none__'],
+                13,
+                10
               ],
               'circle-stroke-color': '#ffffff',
-              'circle-stroke-width': 2
+              'circle-stroke-width': 2.2
+            }}
+          />
+          <Layer
+            id="unclustered-point-icon"
+            type="symbol"
+            filter={['!', ['has', 'point_count']]}
+            layout={{
+              'text-field': '⌂',
+              'text-size': [
+                'case',
+                ['==', ['get', 'id'], selectedShopId ?? '__none__'],
+                14,
+                ['==', ['get', 'id'], hoveredShopId ?? '__none__'],
+                14,
+                12
+              ],
+              'text-allow-overlap': true,
+              'text-ignore-placement': true
+            }}
+            paint={{
+              'text-color': '#facc15'
             }}
           />
         </Source>
