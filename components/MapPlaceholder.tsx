@@ -166,6 +166,9 @@ export default function MapPlaceholder({
   const [popupShop, setPopupShop] = useState<Shop | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
   const lastLocateSignalRef = useRef(0);
+  const lastSelectedShopIdRef = useRef<Shop['id'] | null>(null);
+  const contributionPickModeRef = useRef(contributionPickMode);
+  const onPickCoordinatesRef = useRef(onPickCoordinates);
 
   const selectedShop = useMemo(
     () => shops.find((shop) => shop.id === selectedShopId && shop.hasCoordinates) ?? null,
@@ -226,6 +229,14 @@ export default function MapPlaceholder({
   };
 
   useEffect(() => {
+    contributionPickModeRef.current = contributionPickMode;
+  }, [contributionPickMode]);
+
+  useEffect(() => {
+    onPickCoordinatesRef.current = onPickCoordinates;
+  }, [onPickCoordinates]);
+
+  useEffect(() => {
     const amapKey = process.env.NEXT_PUBLIC_AMAP_WEB_KEY;
 
     if (!containerRef.current || !amapKey) {
@@ -258,12 +269,11 @@ export default function MapPlaceholder({
         map.addControl(new AMap.Scale());
         map.addControl(new AMap.ToolBar({position: {right: '16px', top: '16px'}}));
 
-        if (contributionPickMode && onPickCoordinates) {
-          map.on('click', (event) => {
-            const lnglat = event.lnglat;
-            onPickCoordinates([lnglat.getLng(), lnglat.getLat()]);
-          });
-        }
+        map.on('click', (event) => {
+          if (!contributionPickModeRef.current || !onPickCoordinatesRef.current) return;
+          const lnglat = event.lnglat;
+          onPickCoordinatesRef.current([lnglat.getLng(), lnglat.getLat()]);
+        });
 
         mapRef.current = map;
         setMapReady(true);
@@ -285,7 +295,7 @@ export default function MapPlaceholder({
       selectedPinRef.current = null;
       selectedShopPinRef.current = null;
     };
-  }, [contributionPickMode, onPickCoordinates]);
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -365,6 +375,9 @@ export default function MapPlaceholder({
     const shouldRefocus = locateSignal !== lastLocateSignalRef.current;
     lastLocateSignalRef.current = locateSignal;
 
+    const selectionChanged = selectedShop?.id !== lastSelectedShopIdRef.current;
+    lastSelectedShopIdRef.current = selectedShop?.id ?? null;
+
     if (!selectedShop) {
       if (selectedShopPinRef.current) {
         selectedShopPinRef.current.setMap(null);
@@ -388,12 +401,12 @@ export default function MapPlaceholder({
     marker.setMap(map);
     selectedShopPinRef.current = marker;
 
-    if (shouldRefocus || popupShop?.id !== selectedShop.id) {
+    if (shouldRefocus || selectionChanged) {
       flyToLocation(selectedShop.coordinates[0], selectedShop.coordinates[1]);
     }
 
     setPopupShop(selectedShop);
-  }, [selectedShop, locateSignal, popupShop?.id]);
+  }, [selectedShop, locateSignal]);
 
   useEffect(() => {
     const map = mapRef.current;
