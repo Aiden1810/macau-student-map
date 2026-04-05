@@ -253,32 +253,20 @@ function warnInvalidCoordinates(rawValue: unknown): [number, number] {
   return MACAU_CENTER;
 }
 
-function hasAnyCoordinatePayload(input: unknown): boolean {
-  if (Array.isArray(input)) {
-    return input.length >= 2;
-  }
-
-  if (typeof input === 'string') {
-    return input.trim().length > 0;
-  }
-
-  if (isObject(input)) {
-    return ['lng', 'lon', 'longitude', 'lat', 'latitude'].some((key) => input[key] !== undefined && input[key] !== null);
-  }
-
-  return false;
+function isLikelyRegionalCoordinate(lng: number, lat: number): boolean {
+  return lng >= 113 && lng <= 114.2 && lat >= 21.8 && lat <= 22.6;
 }
 
-function parseCoordinates(input: unknown): [number, number] {
+function tryParseCoordinates(input: unknown): [number, number] | null {
   if (Array.isArray(input) && input.length >= 2) {
     const lng = parseMaybeNumber(input[0]);
     const lat = parseMaybeNumber(input[1]);
 
-    if (lng !== null && lat !== null) {
+    if (lng !== null && lat !== null && isLikelyRegionalCoordinate(lng, lat)) {
       return [lng, lat];
     }
 
-    return warnInvalidCoordinates(input);
+    return null;
   }
 
   if (typeof input === 'string') {
@@ -289,18 +277,18 @@ function parseCoordinates(input: unknown): [number, number] {
       const lng = parseMaybeNumber(lngRaw);
       const lat = parseMaybeNumber(latRaw);
 
-      if (lng !== null && lat !== null) {
+      if (lng !== null && lat !== null && isLikelyRegionalCoordinate(lng, lat)) {
         return [lng, lat];
       }
 
-      return warnInvalidCoordinates(input);
+      return null;
     }
 
     try {
       const parsed = JSON.parse(trimmed) as unknown;
-      return parseCoordinates(parsed);
+      return tryParseCoordinates(parsed);
     } catch {
-      return warnInvalidCoordinates(input);
+      return null;
     }
   }
 
@@ -308,14 +296,18 @@ function parseCoordinates(input: unknown): [number, number] {
     const lng = parseMaybeNumber(input?.lng ?? input?.lon ?? input?.longitude);
     const lat = parseMaybeNumber(input?.lat ?? input?.latitude);
 
-    if (lng !== null && lat !== null) {
+    if (lng !== null && lat !== null && isLikelyRegionalCoordinate(lng, lat)) {
       return [lng, lat];
     }
 
-    return warnInvalidCoordinates(input);
+    return null;
   }
 
-  return warnInvalidCoordinates(input);
+  return null;
+}
+
+function parseCoordinates(input: unknown): [number, number] {
+  return tryParseCoordinates(input) ?? warnInvalidCoordinates(input);
 }
 
 function normalizeReviewMetrics(
@@ -443,10 +435,11 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
   const lngCandidate = row?.longitude ?? row?.lng ?? row?.lon;
   const latCandidate = row?.latitude ?? row?.lat;
 
-  const hasExplicitLngLat = parseMaybeNumber(lngCandidate) !== null && parseMaybeNumber(latCandidate) !== null;
+  const explicitCoordinates = tryParseCoordinates([lngCandidate, latCandidate]);
   const fallbackCoordinatePayload = row?.coordinates ?? row?.location ?? row?.coord ?? row?.latlng;
-  const rawCoordinates = hasExplicitLngLat ? [lngCandidate, latCandidate] : fallbackCoordinatePayload;
-  const hasCoordinates = hasExplicitLngLat || hasAnyCoordinatePayload(fallbackCoordinatePayload);
+  const fallbackCoordinates = tryParseCoordinates(fallbackCoordinatePayload);
+  const normalizedCoordinates = explicitCoordinates ?? fallbackCoordinates;
+  const hasCoordinates = normalizedCoordinates !== null;
   const rawTags = row?.tags;
   const rawMainCategory = row?.main_category;
   const rawSubTags = row?.sub_tags;
@@ -484,7 +477,7 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
     imageUrls: rawImageUrls,
     type: mapCategoryToShopType(rawType),
     category: normalizedCategory,
-    coordinates: parseCoordinates(rawCoordinates),
+    coordinates: normalizedCoordinates ?? MACAU_CENTER,
     hasCoordinates,
     studentDiscount: typeof rawDiscount === 'string' ? rawDiscount : null,
     tags: mergedTags,
