@@ -170,13 +170,24 @@ export default function ContributionForm({
     setContributeMessage(null);
     setDuplicateLoading(true);
 
-    const {data, error} = await supabase.from('shops').select('id').eq('mapbox_id', option.placeId).limit(1);
+    let data: {id: string}[] | null = null;
+    let queryError: {message: string} | null = null;
+
+    const primaryResult = await supabase.from('shops').select('id').eq('amap_poi_id', option.placeId).limit(1);
+
+    if (primaryResult.error) {
+      const fallbackResult = await supabase.from('shops').select('id').eq('mapbox_id', option.placeId).limit(1);
+      data = fallbackResult.data as {id: string}[] | null;
+      queryError = fallbackResult.error ? {message: fallbackResult.error.message} : null;
+    } else {
+      data = primaryResult.data as {id: string}[] | null;
+    }
 
     setDuplicateLoading(false);
 
-    if (error) {
+    if (queryError) {
       setIsDuplicate(false);
-      setContributeError(error.message);
+      setContributeError(queryError.message);
       return;
     }
 
@@ -253,14 +264,14 @@ export default function ContributionForm({
       ? {
           ...payloadBase,
           name: selectedPlace!.name,
-          mapbox_id: selectedPlace!.placeId,
+          amap_poi_id: selectedPlace!.placeId,
           longitude: selectedPlace!.coordinates[0],
           latitude: selectedPlace!.coordinates[1]
         }
       : {
           ...payloadBase,
           name: manualShopName.trim(),
-          mapbox_id: null,
+          amap_poi_id: null,
           longitude: manualCoordinates![0],
           latitude: manualCoordinates![1]
         };

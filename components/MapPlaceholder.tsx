@@ -1,8 +1,7 @@
 'use client';
 
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {useLocale, useTranslations} from 'next-intl';
-import {Layer, Map, Marker, Popup, Source, type MapRef} from 'react-map-gl/mapbox';
+import {useTranslations} from 'next-intl';
 import StarRating from '@/components/StarRating';
 import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {Shop} from '@/types/shop';
@@ -21,32 +20,120 @@ interface MapPlaceholderProps {
   } | null;
 }
 
-const MACAU_CENTER = {
-  longitude: 113.5439,
-  latitude: 22.1896,
-  zoom: 14
-} as const;
+type AMapLngLat = {
+  getLng: () => number;
+  getLat: () => number;
+};
 
-const CLUSTER_SOURCE_ID = 'shops-clusters';
+type AMapMarker = {
+  on: (event: string, handler: () => void) => void;
+  setMap: (map: AMapMapInstance | null) => void;
+  setContent?: (content: HTMLElement | string) => void;
+};
 
-function mapLocaleToNameField(locale: string) {
-  if (locale === 'zh-CN') return 'name_zh-Hans';
-  if (['zh-MO', 'zh-HK', 'zh-TW'].includes(locale)) return 'name_zh-Hant';
-  return 'name_en';
+type AMapMapInstance = {
+  addControl: (control: unknown) => void;
+  on: (event: string, handler: (event: {lnglat: AMapLngLat}) => void) => void;
+  destroy: () => void;
+  setZoomAndCenter: (zoom: number, center: [number, number], immediately?: boolean, options?: {duration?: number}) => void;
+};
+
+type AMapGeolocation = {
+  getCurrentPosition: (
+    callback: (status: string, result: {position?: {lng?: number; lat?: number}}) => void
+  ) => void;
+};
+
+type AMapNamespace = {
+  Map: new (
+    container: HTMLElement,
+    options: {center: [number, number]; zoom: number; mapStyle: string; viewMode: '2D' | '3D'}
+  ) => AMapMapInstance;
+  Scale: new () => unknown;
+  ToolBar: new (options: {position: {right: string; top: string}}) => unknown;
+  Marker: new (options: {
+    position: [number, number];
+    offset?: unknown;
+    content?: string;
+    extData?: {shopId: string};
+  }) => AMapMarker;
+  Pixel: new (x: number, y: number) => unknown;
+  MarkerCluster: new (
+    map: AMapMapInstance,
+    markers: AMapMarker[],
+    options: {gridSize: number; renderClusterMarker: (context: {count: number; marker: {setContent: (content: HTMLElement) => void}}) => void}
+  ) => {setMap: (map: AMapMapInstance | null) => void};
+  Geolocation: new (options: {
+    enableHighAccuracy: boolean;
+    timeout: number;
+    showMarker: boolean;
+    showCircle: boolean;
+    zoomToAccuracy: boolean;
+  }) => AMapGeolocation;
+  plugin: (name: string, callback: () => void) => void;
+};
+
+type AMapWindow = Window & {
+  AMap?: AMapNamespace;
+  __amapLoadingPromise?: Promise<AMapNamespace>;
+};
+
+type MarkerStore = {
+  marker: AMapMarker;
+  shop: Shop;
+};
+
+const MACAU_CENTER: [number, number] = [113.5439, 22.1896];
+
+function getAMapFromWindow(): AMapNamespace | undefined {
+  return (window as AMapWindow).AMap;
 }
 
-function applyMapLabelLanguage(map: mapboxgl.Map, locale: string) {
-  const targetNameField = mapLocaleToNameField(locale);
-  const style = map.getStyle();
-
-  for (const layer of style.layers ?? []) {
-    if (layer.type !== 'symbol') continue;
-
-    const currentTextField = map.getLayoutProperty(layer.id, 'text-field');
-    if (!currentTextField) continue;
-
-    map.setLayoutProperty(layer.id, 'text-field', ['coalesce', ['get', targetNameField], ['get', 'name']]);
+function loadAmapScript(key: string): Promise<AMapNamespace> {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('AMap only works in browser'));
   }
+
+  const w = window as AMapWindow;
+
+  if (w.AMap) {
+    return Promise.resolve(w.AMap);
+  }
+
+  if (w.__amapLoadingPromise) {
+    return w.__amapLoadingPromise;
+  }
+
+  w.__amapLoadingPromise = new Promise((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-amap="true"]');
+
+    if (existingScript) {
+      existingScript.addEventListener('load', () => {
+        if (w.AMap) resolve(w.AMap);
+      });
+      existingScript.addEventListener('error', () => reject(new Error('Failed to load AMap script')));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.Scale,AMap.ToolBar,AMap.Geolocation,AMap.MarkerCluster`;
+    script.async = true;
+    script.defer = true;
+    script.dataset.amap = 'true';
+
+    script.onload = () => {
+      if (w.AMap) {
+        resolve(w.AMap);
+      } else {
+        reject(new Error('AMap script loaded but AMap is unavailable'));
+      }
+    };
+    script.onerror = () => reject(new Error('Failed to load AMap script'));
+
+    document.head.appendChild(script);
+  });
+
+  return w.__amapLoadingPromise;
 }
 
 export default function MapPlaceholder({
@@ -58,51 +145,162 @@ export default function MapPlaceholder({
   onPickCoordinates,
   highlightedLocation = null
 }: MapPlaceholderProps) {
-  const locale = useLocale();
   const t = useTranslations('Map');
-  const mapRef = useRef<MapRef | null>(null);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<AMapMapInstance | null>(null);
+  const markersRef = useRef<Map<string, MarkerStore>>(new Map());
+  const clusterRef = useRef<{setMap: (map: AMapMapInstance | null) => void} | null>(null);
+  const selectedPinRef = useRef<AMapMarker | null>(null);
+
+  const [mapReady, setMapReady] = useState(false);
   const [popupShop, setPopupShop] = useState<Shop | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
 
   const selectedShop = useMemo(
     () => shops.find((shop) => shop.id === selectedShopId && shop.hasCoordinates) ?? null,
     [shops, selectedShopId]
   );
 
-  const shopsGeoJson = useMemo(
-    () => ({
-      type: 'FeatureCollection' as const,
-      features: shops
-        .filter((shop) => shop.hasCoordinates)
-        .map((shop) => ({
-          type: 'Feature' as const,
-          properties: {
-            id: shop.id,
-            name: shop.name
-          },
-          geometry: {
-            type: 'Point' as const,
-            coordinates: shop.coordinates
-          }
-        }))
-    }),
-    [shops]
-  );
+  const buildMarkerHtml = (isActive: boolean, isHovered: boolean) => {
+    const outer = isActive || isHovered ? 30 : 24;
+    const inner = isActive || isHovered ? 14 : 12;
+    const iconSize = isActive || isHovered ? 14 : 12;
+
+    return `<div style="width:${outer}px;height:${outer}px;border-radius:9999px;background:#0f7a43;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.22);transform:translate(-50%,-100%);">
+      <div style="width:${inner}px;height:${inner}px;border-radius:9999px;background:#fff;display:flex;align-items:center;justify-content:center;">
+        <span style="font-size:${iconSize}px;line-height:1;color:#facc15;">🏠</span>
+      </div>
+    </div>`;
+  };
 
   const flyToLocation = (longitude: number, latitude: number) => {
-    if (!mapRef.current) {
-      return;
-    }
+    const map = mapRef.current;
+    if (!map) return;
 
     const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
 
-    mapRef.current.flyTo({
-      center: [longitude, latitude],
-      zoom: isMobile ? 15.4 : 16,
-      duration: isMobile ? 620 : 800,
-      curve: isMobile ? 1.25 : 1.42,
-      essential: true
+    map.setZoomAndCenter(isMobile ? 15.4 : 16, [longitude, latitude], true, {
+      duration: isMobile ? 620 : 800
     });
   };
+
+  useEffect(() => {
+    const amapKey = process.env.NEXT_PUBLIC_AMAP_WEB_KEY;
+
+    if (!containerRef.current || !amapKey) {
+      return;
+    }
+
+    let cancelled = false;
+    const markers = markersRef.current;
+
+    const initMap = async () => {
+      try {
+        const AMap = await loadAmapScript(amapKey);
+        if (cancelled || !containerRef.current || mapRef.current) return;
+
+        const map = new AMap.Map(containerRef.current, {
+          center: MACAU_CENTER,
+          zoom: 14,
+          mapStyle: 'amap://styles/normal',
+          viewMode: '2D'
+        });
+
+        map.addControl(new AMap.Scale());
+        map.addControl(new AMap.ToolBar({position: {right: '16px', top: '16px'}}));
+
+        if (contributionPickMode && onPickCoordinates) {
+          map.on('click', (event) => {
+            const lnglat = event.lnglat;
+            onPickCoordinates([lnglat.getLng(), lnglat.getLat()]);
+          });
+        }
+
+        mapRef.current = map;
+        setMapReady(true);
+      } catch {
+        setMapReady(false);
+      }
+    };
+
+    initMap();
+
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        mapRef.current.destroy();
+        mapRef.current = null;
+      }
+      markers.clear();
+      clusterRef.current = null;
+      selectedPinRef.current = null;
+    };
+  }, [contributionPickMode, onPickCoordinates]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+
+    const AMap = getAMapFromWindow();
+    if (!AMap) return;
+
+    if (clusterRef.current) {
+      clusterRef.current.setMap(null);
+      clusterRef.current = null;
+    }
+
+    for (const item of markersRef.current.values()) {
+      item.marker.setMap(null);
+    }
+    markersRef.current.clear();
+
+    const validShops = shops.filter((shop) => shop.hasCoordinates);
+
+    const markers = validShops.map((shop) => {
+      const isActive = shop.id === selectedShopId;
+      const isHovered = shop.id === hoveredShopId;
+
+      const marker = new AMap.Marker({
+        position: shop.coordinates,
+        offset: new AMap.Pixel(0, 0),
+        content: buildMarkerHtml(isActive, isHovered),
+        extData: {shopId: shop.id}
+      });
+
+      marker.on('click', () => {
+        onSelectShop(shop.id);
+        setPopupShop(shop);
+      });
+
+      markersRef.current.set(shop.id, {marker, shop});
+      return marker;
+    });
+
+    if (markers.length === 0) return;
+
+    clusterRef.current = new AMap.MarkerCluster(map, markers, {
+      gridSize: 60,
+      renderClusterMarker: (context) => {
+        const count = context.count;
+        const div = document.createElement('div');
+        div.style.width = '36px';
+        div.style.height = '36px';
+        div.style.borderRadius = '9999px';
+        div.style.background = '#006633';
+        div.style.border = '2px solid #fff';
+        div.style.color = '#fff';
+        div.style.fontSize = '12px';
+        div.style.fontWeight = '700';
+        div.style.display = 'flex';
+        div.style.alignItems = 'center';
+        div.style.justifyContent = 'center';
+        div.style.boxShadow = '0 2px 10px rgba(0,0,0,.25)';
+        div.textContent = String(count);
+        context.marker.setContent(div);
+      }
+    });
+  }, [shops, selectedShopId, hoveredShopId, mapReady, onSelectShop]);
 
   useEffect(() => {
     if (!selectedShop) {
@@ -110,234 +308,115 @@ export default function MapPlaceholder({
       return;
     }
 
-    const [longitude, latitude] = selectedShop.coordinates;
-    flyToLocation(longitude, latitude);
+    flyToLocation(selectedShop.coordinates[0], selectedShop.coordinates[1]);
     setPopupShop(selectedShop);
   }, [selectedShop]);
 
   useEffect(() => {
-    if (!highlightedLocation) {
-      return;
+    const map = mapRef.current;
+    const AMap = getAMapFromWindow();
+
+    if (!map || !AMap || !highlightedLocation) return;
+
+    if (selectedPinRef.current) {
+      selectedPinRef.current.setMap(null);
+      selectedPinRef.current = null;
     }
+
+    const marker = new AMap.Marker({
+      position: [highlightedLocation.longitude, highlightedLocation.latitude],
+      content:
+        '<div style="width:16px;height:16px;border-radius:9999px;background:#ef4444;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.2);transform:translate(-50%,-100%);"></div>'
+    });
+
+    marker.setMap(map);
+    selectedPinRef.current = marker;
 
     flyToLocation(highlightedLocation.longitude, highlightedLocation.latitude);
   }, [highlightedLocation]);
 
-  useEffect(() => {
-    const map = mapRef.current?.getMap();
-    if (!map?.isStyleLoaded()) return;
+  const handleLocateMe = () => {
+    const map = mapRef.current;
+    const AMap = getAMapFromWindow();
+    if (!map || !AMap || geoLoading) return;
 
-    applyMapLabelLanguage(map, locale);
-  }, [locale]);
+    setGeoLoading(true);
 
-  const handleMapLoad = () => {
-    const map = mapRef.current?.getMap();
-    if (!map) return;
+    AMap.plugin('AMap.Geolocation', () => {
+      const geolocation = new AMap.Geolocation({
+        enableHighAccuracy: true,
+        timeout: 10000,
+        showMarker: true,
+        showCircle: true,
+        zoomToAccuracy: true
+      });
 
-    applyMapLabelLanguage(map, locale);
+      geolocation.getCurrentPosition((status, result) => {
+        setGeoLoading(false);
+
+        if (status !== 'complete') {
+          return;
+        }
+
+        const lng = result.position?.lng;
+        const lat = result.position?.lat;
+        if (typeof lng === 'number' && typeof lat === 'number') {
+          flyToLocation(lng, lat);
+        }
+      });
+    });
   };
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_10px_28px_rgba(2,30,18,0.08)] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]">
-      <Map
-        ref={mapRef}
-        initialViewState={MACAU_CENTER}
-        mapStyle="mapbox://styles/mapbox/streets-v12"
-        mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
-        style={{width: '100%', height: '100%'}}
-        onLoad={handleMapLoad}
-        interactiveLayerIds={['clusters', 'unclustered-point', 'unclustered-point-icon']}
-        onClick={(event) => {
-          const map = mapRef.current?.getMap();
-          if (!map) return;
+      <div ref={containerRef} className="h-full w-full" />
 
-          const clickedFeature = event.features?.[0];
-          if (clickedFeature) {
-            const layerId = clickedFeature.layer?.id;
-
-            if (layerId === 'clusters') {
-              const clusterId = clickedFeature.properties?.cluster_id;
-              if (typeof clusterId === 'number') {
-                const source = map.getSource(CLUSTER_SOURCE_ID) as mapboxgl.GeoJSONSource;
-                source.getClusterExpansionZoom(clusterId, (err, zoom) => {
-                  if (err || typeof zoom !== 'number') return;
-                  const coordinates = (clickedFeature.geometry as GeoJSON.Point).coordinates as [number, number];
-                  map.easeTo({center: coordinates, zoom, duration: 500});
-                });
-              }
-              return;
-            }
-
-            if (layerId === 'unclustered-point' || layerId === 'unclustered-point-icon') {
-              const clickedId = String(clickedFeature.properties?.id ?? '');
-              if (clickedId.length > 0) {
-                const shop = shops.find((item) => String(item.id) === clickedId && item.hasCoordinates);
-                if (shop) {
-                  onSelectShop(shop.id);
-                  setPopupShop(shop);
-                }
-              }
-              return;
-            }
-          }
-
-          if (!contributionPickMode || !onPickCoordinates) return;
-          const {lng, lat} = event.lngLat;
-          onPickCoordinates([lng, lat]);
-        }}
-      >
-        {highlightedLocation && (
-          <Marker
-            longitude={highlightedLocation.longitude}
-            latitude={highlightedLocation.latitude}
-            anchor="bottom"
-          >
-            <div className="h-4 w-4 rounded-full bg-red-500 border-2 border-white shadow" title={highlightedLocation.name ?? 'Search result'} />
-          </Marker>
-        )}
-
-        <Source
-          id={CLUSTER_SOURCE_ID}
-          type="geojson"
-          data={shopsGeoJson}
-          cluster
-          clusterMaxZoom={15}
-          clusterRadius={45}
+      <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={handleLocateMe}
+          className="pointer-events-auto rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs font-semibold text-slate-700 shadow hover:bg-white"
         >
-          <Layer
-            id="clusters"
-            type="circle"
-            filter={['has', 'point_count']}
-            paint={{
-              'circle-color': '#006633',
-              'circle-radius': ['step', ['get', 'point_count'], 18, 10, 22, 25, 28],
-              'circle-stroke-color': '#ffffff',
-              'circle-stroke-width': 2
-            }}
-          />
-          <Layer
-            id="cluster-count"
-            type="symbol"
-            filter={['has', 'point_count']}
-            layout={{
-              'text-field': ['get', 'point_count_abbreviated'],
-              'text-size': 12
-            }}
-            paint={{
-              'text-color': '#ffffff'
-            }}
-          />
-          <Layer
-            id="unclustered-point"
-            type="circle"
-            filter={['!', ['has', 'point_count']]}
-            paint={{
-              'circle-color': '#0f7a43',
-              'circle-radius': [
-                'case',
-                ['==', ['get', 'id'], selectedShopId ?? '__none__'],
-                13,
-                ['==', ['get', 'id'], hoveredShopId ?? '__none__'],
-                13,
-                10
-              ],
-              'circle-stroke-color': '#ffffff',
-              'circle-stroke-width': 2.2
-            }}
-          />
-          <Layer
-            id="unclustered-point-inner-ring"
-            type="circle"
-            filter={['!', ['has', 'point_count']]}
-            paint={{
-              'circle-color': '#ffffff',
-              'circle-radius': [
-                'case',
-                ['==', ['get', 'id'], selectedShopId ?? '__none__'],
-                6.2,
-                ['==', ['get', 'id'], hoveredShopId ?? '__none__'],
-                6.2,
-                5.2
-              ]
-            }}
-          />
-          <Layer
-            id="unclustered-point-icon"
-            type="symbol"
-            filter={['!', ['has', 'point_count']]}
-            layout={{
-              'text-field': '🏠',
-              'text-font': ['Arial Unicode MS Regular'],
-              'text-size': [
-                'case',
-                ['==', ['get', 'id'], selectedShopId ?? '__none__'],
-                12,
-                ['==', ['get', 'id'], hoveredShopId ?? '__none__'],
-                12,
-                10
-              ],
-              'text-allow-overlap': true,
-              'text-ignore-placement': true
-            }}
-            paint={{
-              'text-color': '#facc15',
-              'text-halo-color': '#d97706',
-              'text-halo-width': 0.6
-            }}
-          />
-        </Source>
+          {geoLoading ? '定位中...' : '定位到我'}
+        </button>
+      </div>
 
-        {popupShop && (
-          <Popup
-            longitude={popupShop.coordinates[0]}
-            latitude={popupShop.coordinates[1]}
-            anchor="top"
-            closeOnClick={false}
-            onClose={() => setPopupShop(null)}
-            offset={18}
-          >
-            <div className="min-w-52 max-w-64 rounded-xl p-1 text-slate-800">
-              <h3 className="text-base font-bold leading-tight">{popupShop.name}</h3>
+      {popupShop && (
+        <div className="absolute bottom-3 left-3 right-3 z-10 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur-sm md:left-auto md:right-3 md:w-72">
+          <h3 className="text-base font-bold leading-tight text-slate-900">{popupShop.name}</h3>
 
-              <div className="mt-2 flex items-center gap-2">
-                {(() => {
-                  const popupRatingTag = getRatingTagFromData(popupShop.rating, popupShop.tags, popupShop.subTags ?? []);
+          <div className="mt-2 flex items-center gap-2">
+            {(() => {
+              const popupRatingTag = getRatingTagFromData(popupShop.rating, popupShop.tags, popupShop.subTags ?? []);
 
-                  return (
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-xs font-semibold ${popupRatingTag.bgClass} ${popupRatingTag.textClass}`}
-                    >
-                      {popupRatingTag.label}
-                    </span>
-                  );
-                })()}
-              </div>
+              return (
+                <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${popupRatingTag.bgClass} ${popupRatingTag.textClass}`}>
+                  {popupRatingTag.label}
+                </span>
+              );
+            })()}
+          </div>
 
-              <div className="mt-2">
-                <StarRating score={popupShop.rating} reviewCount={popupShop.reviews} />
-              </div>
+          <div className="mt-2">
+            <StarRating score={popupShop.rating} reviewCount={popupShop.reviews} />
+          </div>
 
-              <div className="mt-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('tagsLabel')}</p>
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {popupShop.tags.length > 0 ? (
-                    popupShop.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
-                      >
-                        {tag}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs text-slate-400">{t('noTags')}</span>
-                  )}
-                </div>
-              </div>
+          <div className="mt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('tagsLabel')}</p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {popupShop.tags.length > 0 ? (
+                popupShop.tags.map((tag) => (
+                  <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                    {tag}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-400">{t('noTags')}</span>
+              )}
             </div>
-          </Popup>
-        )}
-      </Map>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -248,11 +248,6 @@ function parseMaybeNumber(value: unknown): number | null {
   return null;
 }
 
-function warnInvalidCoordinates(rawValue: unknown): [number, number] {
-  console.warn('Invalid coordinate payload from AMap or source data. Falling back to Macau center.', rawValue);
-  return MACAU_CENTER;
-}
-
 function isLikelyRegionalCoordinate(lng: number, lat: number): boolean {
   return lng >= 113 && lng <= 114.2 && lat >= 21.8 && lat <= 22.6;
 }
@@ -304,10 +299,6 @@ function tryParseCoordinates(input: unknown): [number, number] | null {
   }
 
   return null;
-}
-
-function parseCoordinates(input: unknown): [number, number] {
-  return tryParseCoordinates(input) ?? warnInvalidCoordinates(input);
 }
 
 function normalizeReviewMetrics(

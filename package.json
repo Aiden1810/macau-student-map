@@ -14,13 +14,11 @@
     "browser-image-compression": "^2.0.2",
     "gcoord": "^1.0.7",
     "lucide-react": "^0.539.0",
-    "mapbox-gl": "^3.20.0",
     "next": "^15.5.2",
     "next-intl": "^4.9.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-hot-toast": "^2.6.0",
-    "react-map-gl": "^8.1.0"
+    "react-hot-toast": "^2.6.0"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
