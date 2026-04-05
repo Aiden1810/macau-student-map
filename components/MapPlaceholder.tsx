@@ -184,7 +184,13 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
   const roundedRating = Math.max(0, Math.min(5, Number.isFinite(shop.rating) ? shop.rating : 0));
   const score = roundedRating.toFixed(1);
   const reviewText = escapeHtml(`(${shop.reviews} 条评论)`);
-  const stars = '★★★★★';
+  const fullStars = Math.floor(roundedRating);
+  const hasHalfStar = roundedRating - fullStars >= 0.5;
+  const emptyStars = Math.max(0, 5 - fullStars - (hasHalfStar ? 1 : 0));
+  const fullStarHtml = '<span style="color:#f59e0b;">★</span>'.repeat(fullStars);
+  const halfStarHtml = hasHalfStar ? '<span style="color:#f59e0b;opacity:.55;">★</span>' : '';
+  const emptyStarHtml = '<span style="color:#cbd5e1;">☆</span>'.repeat(emptyStars);
+  const starsHtml = `${fullStarHtml}${halfStarHtml}${emptyStarHtml}`;
   const primaryTag = escapeHtml(shop.tags[0] ?? '暂无标签');
 
   return `<div style="position:relative;width:248px;height:54px;transform:translate(-50%,-100%);display:flex;justify-content:center;overflow:visible;pointer-events:none;">
@@ -193,7 +199,7 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
       <div style="font-size:14px;font-weight:700;line-height:1.3;color:#166534;word-break:break-word;">${name}</div>
       <div style="margin-top:5px;display:inline-flex;align-items:center;border-radius:9999px;background:rgba(245,158,11,0.14);color:#f59e0b;font-size:11px;font-weight:700;line-height:1;padding:4px 8px;">${ratingLabel}</div>
       <div style="margin-top:7px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.2;">
-        <span style="color:#f59e0b;letter-spacing:0.5px;">${stars}</span>
+        <span style="color:#f59e0b;letter-spacing:0.5px;">${starsHtml}</span>
         <span style="color:#111827;font-weight:600;">${score}</span>
         <span style="color:#6b7280;">${reviewText}</span>
       </div>
