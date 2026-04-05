@@ -76,6 +76,7 @@ type AMapNamespace = {
 type AMapWindow = Window & {
   AMap?: AMapNamespace;
   __amapLoadingPromise?: Promise<AMapNamespace>;
+  _AMapSecurityConfig?: {securityJsCode?: string};
 };
 
 type MarkerStore = {
@@ -95,6 +96,11 @@ function loadAmapScript(key: string): Promise<AMapNamespace> {
   }
 
   const w = window as AMapWindow;
+  const securityCode = process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE;
+
+  if (securityCode && !w._AMapSecurityConfig) {
+    w._AMapSecurityConfig = {securityJsCode: securityCode};
+  }
 
   if (w.AMap) {
     return Promise.resolve(w.AMap);
@@ -190,6 +196,14 @@ export default function MapPlaceholder({
 
     if (!containerRef.current || !amapKey) {
       return;
+    }
+
+    if (typeof window !== 'undefined') {
+      const w = window as AMapWindow;
+      const securityCode = process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE;
+      if (securityCode && !w._AMapSecurityConfig) {
+        w._AMapSecurityConfig = {securityJsCode: securityCode};
+      }
     }
 
     let cancelled = false;
