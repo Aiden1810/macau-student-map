@@ -37,6 +37,7 @@ type AMapMapInstance = {
   on: (event: string, handler: (event: {lnglat: AMapLngLat}) => void) => void;
   destroy: () => void;
   setZoomAndCenter: (zoom: number, center: [number, number], immediately?: boolean, options?: {duration?: number}) => void;
+  setFitView?: (overlays?: unknown[], immediately?: boolean, avoid?: number[], maxZoom?: number) => void;
 };
 
 type AMapGeolocation = {
@@ -163,7 +164,6 @@ export default function MapPlaceholder({
   const selectedShopPinRef = useRef<AMapMarker | null>(null);
 
   const [mapReady, setMapReady] = useState(false);
-  const [popupShop, setPopupShop] = useState<Shop | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
   const lastLocateSignalRef = useRef(0);
   const lastSelectedShopIdRef = useRef<Shop['id'] | null>(null);
@@ -188,16 +188,23 @@ export default function MapPlaceholder({
   };
 
   const buildRestaurantPinHtml = () => {
-    return `<div style="width:40px;height:40px;border-radius:9999px;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(15,122,67,.28);transform:translate(-50%,-100%);">
-      <div style="width:30px;height:30px;border-radius:9999px;background:#0f7a43;display:flex;align-items:center;justify-content:center;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M5 3V9C5 10.6569 6.34315 12 8 12V21" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M8 3V12" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
-          <path d="M11 3V9" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
-          <path d="M15 6.5C15 4.567 16.567 3 18.5 3V21" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M15 6.5H18.5" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </div>
+    return `<div style="width:44px;height:52px;transform:translate(-50%,-100%);display:flex;align-items:flex-start;justify-content:center;">
+      <svg width="44" height="52" viewBox="0 0 44 52" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <filter id="restaurantPinShadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="2" stdDeviation="2.2" flood-color="rgba(15,122,67,.28)"/>
+          </filter>
+        </defs>
+        <g filter="url(#restaurantPinShadow)">
+          <path d="M22 50C22 50 7 36.5 7 24C7 14.6 14.6 7 24 7C33.4 7 41 14.6 41 24C41 36.5 22 50 22 50Z" fill="#ffffff"/>
+          <circle cx="24" cy="24" r="12" fill="#0f7a43"/>
+          <path d="M18.4 18.3V21.8C18.4 23 19.35 23.95 20.55 23.95V29.9" stroke="#facc15" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M20.55 18.3V23.95" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
+          <path d="M22.75 18.3V21.8" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
+          <path d="M25.9 20.2C25.9 18.84 27.01 17.75 28.35 17.75V29.9" stroke="#facc15" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M25.9 20.2H28.35" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
+        </g>
+      </svg>
     </div>`;
   };
 
@@ -329,7 +336,6 @@ export default function MapPlaceholder({
 
       marker.on('click', () => {
         onSelectShop(shop.id);
-        setPopupShop(shop);
       });
 
       markersRef.current.set(shop.id, {marker, shop});
@@ -366,9 +372,6 @@ export default function MapPlaceholder({
     const AMap = getAMapFromWindow();
 
     if (!map || !AMap) {
-      if (!selectedShop) {
-        setPopupShop(null);
-      }
       return;
     }
 
@@ -383,7 +386,6 @@ export default function MapPlaceholder({
         selectedShopPinRef.current.setMap(null);
         selectedShopPinRef.current = null;
       }
-      setPopupShop(null);
       return;
     }
 
@@ -404,8 +406,6 @@ export default function MapPlaceholder({
     if (shouldRefocus || selectionChanged) {
       flyToLocation(selectedShop.coordinates[0], selectedShop.coordinates[1]);
     }
-
-    setPopupShop(selectedShop);
   }, [selectedShop, locateSignal]);
 
   useEffect(() => {
@@ -477,13 +477,13 @@ export default function MapPlaceholder({
         </button>
       </div>
 
-      {popupShop && (
+      {selectedShop && (
         <div className="absolute bottom-3 left-3 right-3 z-10 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur-sm md:left-auto md:right-3 md:w-72">
-          <h3 className="text-base font-bold leading-tight text-slate-900">{popupShop.name}</h3>
+          <h3 className="text-base font-bold leading-tight text-slate-900">{selectedShop.name}</h3>
 
           <div className="mt-2 flex items-center gap-2">
             {(() => {
-              const popupRatingTag = getRatingTagFromData(popupShop.rating, popupShop.tags, popupShop.subTags ?? []);
+              const popupRatingTag = getRatingTagFromData(selectedShop.rating, selectedShop.tags, selectedShop.subTags ?? []);
 
               return (
                 <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${popupRatingTag.bgClass} ${popupRatingTag.textClass}`}>
@@ -494,14 +494,14 @@ export default function MapPlaceholder({
           </div>
 
           <div className="mt-2">
-            <StarRating score={popupShop.rating} reviewCount={popupShop.reviews} />
+            <StarRating score={selectedShop.rating} reviewCount={selectedShop.reviews} />
           </div>
 
           <div className="mt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('tagsLabel')}</p>
             <div className="mt-1 flex flex-wrap gap-1.5">
-              {popupShop.tags.length > 0 ? (
-                popupShop.tags.map((tag) => (
+              {selectedShop.tags.length > 0 ? (
+                selectedShop.tags.map((tag) => (
                   <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
                     {tag}
                   </span>
