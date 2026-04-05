@@ -185,13 +185,34 @@ function escapeHtml(raw: string): string {
 function buildSelectedShopMarkerHtml(shop: Shop): string {
   const pinHtml = shop.type === '服务' ? buildServicePinHtml() : buildRestaurantPinHtml();
   const name = escapeHtml(shop.name);
-  const topTags = shop.tags.slice(0, 3).map((tag) => `<span style="padding:2px 8px;border-radius:9999px;background:#f1f5f9;color:#334155;font-size:11px;font-weight:600;line-height:1.4;">${escapeHtml(tag)}</span>`).join('');
+  const ratingLabel = escapeHtml(shop.ratingLabel);
+  const roundedRating = Math.max(0, Math.min(5, Number.isFinite(shop.rating) ? shop.rating : 0));
+  const filledStars = Math.round(roundedRating);
+  const stars = `${'★'.repeat(filledStars)}${'☆'.repeat(5 - filledStars)}`;
+  const score = roundedRating.toFixed(1);
+  const reviewText = `(${shop.reviews} 条评论)`;
+  const safeReviewText = escapeHtml(reviewText);
+  const tags = shop.tags.length > 0 ? shop.tags : ['暂无标签'];
+  const tagsHtml = tags
+    .slice(0, 3)
+    .map(
+      (tag) =>
+        `<span style="display:inline-flex;padding:4px 10px;border-radius:9999px;background:#ffffff;border:1px solid #e2e8f0;color:#334155;font-size:12px;font-weight:600;line-height:1.25;">${escapeHtml(tag)}</span>`
+    )
+    .join('');
 
-  return `<div style="position:relative;width:260px;height:52px;transform:translate(-50%,-100%);display:flex;justify-content:center;overflow:visible;pointer-events:none;">
+  return `<div style="position:relative;width:340px;height:52px;transform:translate(-50%,-100%);display:flex;justify-content:center;overflow:visible;pointer-events:none;">
     <div style="pointer-events:auto;">${pinHtml}</div>
-    <div style="position:absolute;top:56px;left:50%;transform:translateX(-50%);width:220px;background:rgba(255,255,255,.96);border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 24px rgba(2,30,18,.18);padding:10px 10px 9px;backdrop-filter:blur(2px);pointer-events:none;">
-      <div style="font-size:14px;font-weight:700;line-height:1.35;color:#0f172a;word-break:break-word;">${name}</div>
-      ${topTags ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">${topTags}</div>` : ''}
+    <div style="position:absolute;top:56px;left:50%;transform:translateX(-50%);width:300px;background:rgba(248,250,252,0.98);border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 12px 28px rgba(15,23,42,.14);padding:14px 14px 12px;backdrop-filter:blur(2px);pointer-events:none;">
+      <div style="font-size:20px;font-weight:800;line-height:1.25;color:#0f172a;word-break:break-word;">${name}</div>
+      <div style="margin-top:6px;font-size:14px;font-weight:700;line-height:1.3;color:#111827;">${ratingLabel}</div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:20px;letter-spacing:1px;line-height:1;color:#f59e0b;">${stars}</span>
+        <span style="font-size:34px;font-weight:800;color:#111827;line-height:1;">${score}</span>
+        <span style="font-size:14px;font-weight:500;color:#6b7280;line-height:1.2;">${safeReviewText}</span>
+      </div>
+      <div style="margin-top:10px;font-size:14px;font-weight:700;color:#334155;line-height:1.2;">标签</div>
+      <div style="margin-top:7px;display:flex;gap:8px;flex-wrap:wrap;">${tagsHtml}</div>
     </div>
   </div>`;
 }
