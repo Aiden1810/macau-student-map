@@ -140,36 +140,30 @@ function loadAmapScript(key: string): Promise<AMapNamespace> {
   return w.__amapLoadingPromise;
 }
 
-function buildRestaurantPinHtml(): string {
-  return `<div style="width:44px;height:52px;display:flex;align-items:flex-start;justify-content:center;">
-    <svg width="44" height="52" viewBox="0 0 44 52" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+function buildShopPinHtml(size: 'default' | 'selected' = 'default'): string {
+  const width = size === 'selected' ? 44 : 36;
+  const height = size === 'selected' ? 54 : 46;
+  const iconScale = size === 'selected' ? 1 : 0.9;
+
+  return `<div style="width:${width}px;height:${height}px;transform:translate(-50%,-100%);display:flex;align-items:flex-start;justify-content:center;">
+    <svg width="${width}" height="${height}" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
-        <filter id="restaurantPinShadow" x="-50%" y="-50%" width="200%" height="200%">
-          <feDropShadow dx="0" dy="2" stdDeviation="2.2" flood-color="rgba(15,122,67,.28)"/>
+        <filter id="shopPinShadow" x="-60%" y="-50%" width="220%" height="220%">
+          <feDropShadow dx="0" dy="3" stdDeviation="2.4" flood-color="rgba(22,101,52,0.28)"/>
         </filter>
       </defs>
-      <g filter="url(#restaurantPinShadow)">
-        <path d="M22 50C22 50 7 36.5 7 24C7 14.6 14.6 7 24 7C33.4 7 41 14.6 41 24C41 36.5 22 50 22 50Z" fill="#ffffff"/>
-        <circle cx="24" cy="24" r="12" fill="#0f7a43"/>
-        <path d="M18.4 18.3V21.8C18.4 23 19.35 23.95 20.55 23.95V29.9" stroke="#facc15" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M20.55 18.3V23.95" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
-        <path d="M22.75 18.3V21.8" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
-        <path d="M25.9 20.2C25.9 18.84 27.01 17.75 28.35 17.75V29.9" stroke="#facc15" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M25.9 20.2H28.35" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
+      <g filter="url(#shopPinShadow)">
+        <path d="M22 52C22 52 7 38.2 7 24.6C7 15.3 13.7 8 22 8C30.3 8 37 15.3 37 24.6C37 38.2 22 52 22 52Z" fill="#ffffff"/>
+        <circle cx="22" cy="24" r="11.4" fill="#166534"/>
+        <g transform="translate(${22 - 6.5 * iconScale} ${24 - 6.5 * iconScale}) scale(${iconScale})" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <path d="M2.4 1.5V5.2C2.4 6.3 3.25 7.15 4.35 7.15V12.5"/>
+          <path d="M4.35 1.5V7.15"/>
+          <path d="M6.3 1.5V5.2"/>
+          <path d="M8.95 3.2C8.95 1.95 9.95 0.95 11.2 0.95V12.5"/>
+          <path d="M8.95 3.2H11.2"/>
+        </g>
       </g>
     </svg>
-  </div>`;
-}
-
-function buildServicePinHtml(): string {
-  return `<div style="width:40px;height:40px;border-radius:9999px;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(15,122,67,.28);">
-    <div style="width:30px;height:30px;border-radius:9999px;background:#0f7a43;display:flex;align-items:center;justify-content:center;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <rect x="4" y="4" width="16" height="16" rx="3" stroke="#facc15" stroke-width="2"/>
-        <path d="M8 8L16 16" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
-        <path d="M16 8L8 16" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-    </div>
   </div>`;
 }
 
@@ -183,36 +177,26 @@ function escapeHtml(raw: string): string {
 }
 
 function buildSelectedShopMarkerHtml(shop: Shop): string {
-  const pinHtml = shop.type === '服务' ? buildServicePinHtml() : buildRestaurantPinHtml();
+  const pinHtml = buildShopPinHtml('selected');
   const name = escapeHtml(shop.name);
   const ratingLabel = escapeHtml(shop.ratingLabel);
   const roundedRating = Math.max(0, Math.min(5, Number.isFinite(shop.rating) ? shop.rating : 0));
-  const filledStars = Math.round(roundedRating);
-  const stars = `${'★'.repeat(filledStars)}${'☆'.repeat(5 - filledStars)}`;
   const score = roundedRating.toFixed(1);
-  const reviewText = `(${shop.reviews} 条评论)`;
-  const safeReviewText = escapeHtml(reviewText);
-  const tags = shop.tags.length > 0 ? shop.tags : ['暂无标签'];
-  const tagsHtml = tags
-    .slice(0, 3)
-    .map(
-      (tag) =>
-        `<span style="display:inline-flex;padding:4px 10px;border-radius:9999px;background:#ffffff;border:1px solid #e2e8f0;color:#334155;font-size:12px;font-weight:600;line-height:1.25;">${escapeHtml(tag)}</span>`
-    )
-    .join('');
+  const reviewText = escapeHtml(`(${shop.reviews} 条评论)`);
+  const stars = '★★★★★';
+  const primaryTag = escapeHtml(shop.tags[0] ?? '暂无标签');
 
-  return `<div style="position:relative;width:340px;height:52px;transform:translate(-50%,-100%);display:flex;justify-content:center;overflow:visible;pointer-events:none;">
-    <div style="pointer-events:auto;">${pinHtml}</div>
-    <div style="position:absolute;top:56px;left:50%;transform:translateX(-50%);width:300px;background:rgba(248,250,252,0.98);border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 12px 28px rgba(15,23,42,.14);padding:14px 14px 12px;backdrop-filter:blur(2px);pointer-events:none;">
-      <div style="font-size:20px;font-weight:800;line-height:1.25;color:#0f172a;word-break:break-word;">${name}</div>
-      <div style="margin-top:6px;font-size:14px;font-weight:700;line-height:1.3;color:#111827;">${ratingLabel}</div>
-      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:20px;letter-spacing:1px;line-height:1;color:#f59e0b;">${stars}</span>
-        <span style="font-size:34px;font-weight:800;color:#111827;line-height:1;">${score}</span>
-        <span style="font-size:14px;font-weight:500;color:#6b7280;line-height:1.2;">${safeReviewText}</span>
+  return `<div style="position:relative;width:248px;height:54px;transform:translate(-50%,-100%);display:flex;justify-content:center;overflow:visible;pointer-events:none;">
+    <div>${pinHtml}</div>
+    <div style="position:absolute;bottom:58px;left:50%;transform:translateX(-50%);width:228px;background:#ffffff;border:1px solid rgba(22,101,52,0.18);border-radius:12px;box-shadow:0 10px 22px rgba(15,23,42,0.12);padding:10px 11px;pointer-events:none;">
+      <div style="font-size:14px;font-weight:700;line-height:1.3;color:#166534;word-break:break-word;">${name}</div>
+      <div style="margin-top:5px;display:inline-flex;align-items:center;border-radius:9999px;background:rgba(245,158,11,0.14);color:#f59e0b;font-size:11px;font-weight:700;line-height:1;padding:4px 8px;">${ratingLabel}</div>
+      <div style="margin-top:7px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.2;">
+        <span style="color:#f59e0b;letter-spacing:0.5px;">${stars}</span>
+        <span style="color:#111827;font-weight:600;">${score}</span>
+        <span style="color:#6b7280;">${reviewText}</span>
       </div>
-      <div style="margin-top:10px;font-size:14px;font-weight:700;color:#334155;line-height:1.2;">标签</div>
-      <div style="margin-top:7px;display:flex;gap:8px;flex-wrap:wrap;">${tagsHtml}</div>
+      <div style="margin-top:7px;display:inline-flex;align-items:center;border-radius:9999px;background:#f8fafc;border:1px solid #e2e8f0;color:#334155;font-size:11px;font-weight:600;line-height:1;padding:4px 8px;">${primaryTag}</div>
     </div>
   </div>`;
 }
@@ -246,15 +230,11 @@ export default function MapPlaceholder({
   );
 
   const buildMarkerHtml = (isActive: boolean, isHovered: boolean) => {
-    const outer = isActive || isHovered ? 30 : 24;
-    const inner = isActive || isHovered ? 14 : 12;
-    const iconSize = isActive || isHovered ? 14 : 12;
+    if (isActive || isHovered) {
+      return buildShopPinHtml('selected');
+    }
 
-    return `<div style="width:${outer}px;height:${outer}px;border-radius:9999px;background:#0f7a43;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.22);transform:translate(-50%,-100%);">
-      <div style="width:${inner}px;height:${inner}px;border-radius:9999px;background:#fff;display:flex;align-items:center;justify-content:center;">
-        <span style="font-size:${iconSize}px;line-height:1;color:#facc15;">🏠</span>
-      </div>
-    </div>`;
+    return buildShopPinHtml('default');
   };
 
 
