@@ -1,9 +1,6 @@
 'use client';
 
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {useTranslations} from 'next-intl';
-import StarRating from '@/components/StarRating';
-import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {Shop} from '@/types/shop';
 
 interface MapPlaceholderProps {
@@ -57,6 +54,7 @@ type AMapNamespace = {
     position: [number, number];
     offset?: unknown;
     content?: string;
+    zIndex?: number;
     extData?: {shopId: string};
   }) => AMapMarker;
   Pixel: new (x: number, y: number) => unknown;
@@ -154,8 +152,6 @@ export default function MapPlaceholder({
   onPickCoordinates,
   highlightedLocation = null
 }: MapPlaceholderProps) {
-  const t = useTranslations('Map');
-
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<AMapMapInstance | null>(null);
   const markersRef = useRef<Map<string, MarkerStore>>(new Map());
@@ -397,6 +393,7 @@ export default function MapPlaceholder({
     const marker = new AMap.Marker({
       position: selectedShop.coordinates,
       offset: new AMap.Pixel(0, 0),
+      zIndex: 300,
       content: buildSelectedShopPinHtml(selectedShop)
     });
 
