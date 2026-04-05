@@ -1,6 +1,9 @@
 'use client';
 
 import {useEffect, useMemo, useRef, useState} from 'react';
+import {useTranslations} from 'next-intl';
+import StarRating from '@/components/StarRating';
+import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {Shop} from '@/types/shop';
 
 interface MapPlaceholderProps {
@@ -142,6 +145,43 @@ function loadAmapScript(key: string): Promise<AMapNamespace> {
   return w.__amapLoadingPromise;
 }
 
+function buildRestaurantPinHtml(): string {
+  return `<div style="width:44px;height:52px;transform:translate(-50%,-100%);display:flex;align-items:flex-start;justify-content:center;">
+    <svg width="44" height="52" viewBox="0 0 44 52" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <filter id="restaurantPinShadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2.2" flood-color="rgba(15,122,67,.28)"/>
+        </filter>
+      </defs>
+      <g filter="url(#restaurantPinShadow)">
+        <path d="M22 50C22 50 7 36.5 7 24C7 14.6 14.6 7 24 7C33.4 7 41 14.6 41 24C41 36.5 22 50 22 50Z" fill="#ffffff"/>
+        <circle cx="24" cy="24" r="12" fill="#0f7a43"/>
+        <path d="M18.4 18.3V21.8C18.4 23 19.35 23.95 20.55 23.95V29.9" stroke="#facc15" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M20.55 18.3V23.95" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
+        <path d="M22.75 18.3V21.8" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
+        <path d="M25.9 20.2C25.9 18.84 27.01 17.75 28.35 17.75V29.9" stroke="#facc15" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M25.9 20.2H28.35" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </div>`;
+}
+
+function buildServicePinHtml(): string {
+  return `<div style="width:40px;height:40px;border-radius:9999px;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(15,122,67,.28);transform:translate(-50%,-100%);">
+    <div style="width:30px;height:30px;border-radius:9999px;background:#0f7a43;display:flex;align-items:center;justify-content:center;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="4" y="4" width="16" height="16" rx="3" stroke="#facc15" stroke-width="2"/>
+        <path d="M8 8L16 16" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
+        <path d="M16 8L8 16" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>`;
+}
+
+function buildSelectedShopPinHtml(shop: Shop): string {
+  return shop.type === '服务' ? buildServicePinHtml() : buildRestaurantPinHtml();
+}
+
 export default function MapPlaceholder({
   shops,
   selectedShopId,
@@ -152,6 +192,7 @@ export default function MapPlaceholder({
   onPickCoordinates,
   highlightedLocation = null
 }: MapPlaceholderProps) {
+  const t = useTranslations('Map');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<AMapMapInstance | null>(null);
   const markersRef = useRef<Map<string, MarkerStore>>(new Map());
@@ -181,43 +222,6 @@ export default function MapPlaceholder({
         <span style="font-size:${iconSize}px;line-height:1;color:#facc15;">🏠</span>
       </div>
     </div>`;
-  };
-
-  const buildRestaurantPinHtml = () => {
-    return `<div style="width:44px;height:52px;transform:translate(-50%,-100%);display:flex;align-items:flex-start;justify-content:center;">
-      <svg width="44" height="52" viewBox="0 0 44 52" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <defs>
-          <filter id="restaurantPinShadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="2" stdDeviation="2.2" flood-color="rgba(15,122,67,.28)"/>
-          </filter>
-        </defs>
-        <g filter="url(#restaurantPinShadow)">
-          <path d="M22 50C22 50 7 36.5 7 24C7 14.6 14.6 7 24 7C33.4 7 41 14.6 41 24C41 36.5 22 50 22 50Z" fill="#ffffff"/>
-          <circle cx="24" cy="24" r="12" fill="#0f7a43"/>
-          <path d="M18.4 18.3V21.8C18.4 23 19.35 23.95 20.55 23.95V29.9" stroke="#facc15" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M20.55 18.3V23.95" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
-          <path d="M22.75 18.3V21.8" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
-          <path d="M25.9 20.2C25.9 18.84 27.01 17.75 28.35 17.75V29.9" stroke="#facc15" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M25.9 20.2H28.35" stroke="#facc15" stroke-width="1.9" stroke-linecap="round"/>
-        </g>
-      </svg>
-    </div>`;
-  };
-
-  const buildServicePinHtml = () => {
-    return `<div style="width:40px;height:40px;border-radius:9999px;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(15,122,67,.28);transform:translate(-50%,-100%);">
-      <div style="width:30px;height:30px;border-radius:9999px;background:#0f7a43;display:flex;align-items:center;justify-content:center;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect x="4" y="4" width="16" height="16" rx="3" stroke="#facc15" stroke-width="2"/>
-          <path d="M8 8L16 16" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
-          <path d="M16 8L8 16" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </div>
-    </div>`;
-  };
-
-  const buildSelectedShopPinHtml = (shop: Shop) => {
-    return shop.type === '服务' ? buildServicePinHtml() : buildRestaurantPinHtml();
   };
 
   const flyToLocation = (longitude: number, latitude: number) => {
