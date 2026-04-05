@@ -140,12 +140,13 @@ function loadAmapScript(key: string): Promise<AMapNamespace> {
   return w.__amapLoadingPromise;
 }
 
-function buildShopPinHtml(size: 'default' | 'selected' = 'default'): string {
+function buildShopPinHtml(size: 'default' | 'selected' = 'default', anchored = true): string {
   const width = size === 'selected' ? 44 : 36;
   const height = size === 'selected' ? 54 : 46;
   const iconScale = size === 'selected' ? 1 : 0.9;
+  const anchorTransform = anchored ? 'transform:translate(-50%,-100%);' : '';
 
-  return `<div style="width:${width}px;height:${height}px;transform:translate(-50%,-100%);display:flex;align-items:flex-start;justify-content:center;">
+  return `<div style="width:${width}px;height:${height}px;${anchorTransform}display:flex;align-items:flex-start;justify-content:center;">
     <svg width="${width}" height="${height}" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
         <filter id="shopPinShadow" x="-60%" y="-50%" width="220%" height="220%">
@@ -177,7 +178,7 @@ function escapeHtml(raw: string): string {
 }
 
 function buildSelectedShopMarkerHtml(shop: Shop): string {
-  const pinHtml = buildShopPinHtml('selected');
+  const pinHtml = buildShopPinHtml('selected', false);
   const name = escapeHtml(shop.name);
   const ratingLabel = escapeHtml(shop.ratingLabel);
   const roundedRating = Math.max(0, Math.min(5, Number.isFinite(shop.rating) ? shop.rating : 0));
