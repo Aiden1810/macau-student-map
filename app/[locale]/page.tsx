@@ -92,6 +92,7 @@ export default function Page() {
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
   const [hoveredShopId, setHoveredShopId] = useState<Shop['id'] | null>(null);
   const [collapseMobileSheetSignal, setCollapseMobileSheetSignal] = useState(0);
+  const [locateSignal, setLocateSignal] = useState(0);
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -303,6 +304,7 @@ export default function Page() {
     setSelectedShopId(shopId);
     setViewMode('map');
     setCollapseMobileSheetSignal((prev) => prev + 1);
+    setLocateSignal((prev) => prev + 1);
     return true;
   };
 
@@ -463,6 +465,7 @@ export default function Page() {
               shops={displayedShops}
               selectedShopId={selectedShopId}
               hoveredShopId={hoveredShopId}
+              locateSignal={locateSignal}
               onSelectShop={setSelectedShopId}
               contributionPickMode={mapPickMode}
               onPickCoordinates={(coords) => {

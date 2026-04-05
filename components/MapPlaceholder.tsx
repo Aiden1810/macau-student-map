@@ -10,6 +10,7 @@ interface MapPlaceholderProps {
   shops: Shop[];
   selectedShopId: Shop['id'] | null;
   hoveredShopId?: Shop['id'] | null;
+  locateSignal?: number;
   onSelectShop: (shopId: Shop['id']) => void;
   contributionPickMode?: boolean;
   onPickCoordinates?: (coords: [number, number]) => void;
@@ -146,6 +147,7 @@ export default function MapPlaceholder({
   shops,
   selectedShopId,
   hoveredShopId = null,
+  locateSignal = 0,
   onSelectShop,
   contributionPickMode = false,
   onPickCoordinates,
@@ -158,10 +160,12 @@ export default function MapPlaceholder({
   const markersRef = useRef<Map<string, MarkerStore>>(new Map());
   const clusterRef = useRef<{setMap: (map: AMapMapInstance | null) => void} | null>(null);
   const selectedPinRef = useRef<AMapMarker | null>(null);
+  const selectedShopPinRef = useRef<AMapMarker | null>(null);
 
   const [mapReady, setMapReady] = useState(false);
   const [popupShop, setPopupShop] = useState<Shop | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
+  const lastLocateSignalRef = useRef(0);
 
   const selectedShop = useMemo(
     () => shops.find((shop) => shop.id === selectedShopId && shop.hasCoordinates) ?? null,
@@ -178,6 +182,36 @@ export default function MapPlaceholder({
         <span style="font-size:${iconSize}px;line-height:1;color:#facc15;">🏠</span>
       </div>
     </div>`;
+  };
+
+  const buildRestaurantPinHtml = () => {
+    return `<div style="width:40px;height:40px;border-radius:9999px;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(15,122,67,.28);transform:translate(-50%,-100%);">
+      <div style="width:30px;height:30px;border-radius:9999px;background:#0f7a43;display:flex;align-items:center;justify-content:center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M5 3V9C5 10.6569 6.34315 12 8 12V21" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M8 3V12" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
+          <path d="M11 3V9" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
+          <path d="M15 6.5C15 4.567 16.567 3 18.5 3V21" stroke="#facc15" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M15 6.5H18.5" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>`;
+  };
+
+  const buildServicePinHtml = () => {
+    return `<div style="width:40px;height:40px;border-radius:9999px;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(15,122,67,.28);transform:translate(-50%,-100%);">
+      <div style="width:30px;height:30px;border-radius:9999px;background:#0f7a43;display:flex;align-items:center;justify-content:center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="4" y="4" width="16" height="16" rx="3" stroke="#facc15" stroke-width="2"/>
+          <path d="M8 8L16 16" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
+          <path d="M16 8L8 16" stroke="#facc15" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+    </div>`;
+  };
+
+  const buildSelectedShopPinHtml = (shop: Shop) => {
+    return shop.type === '服务' ? buildServicePinHtml() : buildRestaurantPinHtml();
   };
 
   const flyToLocation = (longitude: number, latitude: number) => {
@@ -249,6 +283,7 @@ export default function MapPlaceholder({
       markers.clear();
       clusterRef.current = null;
       selectedPinRef.current = null;
+      selectedShopPinRef.current = null;
     };
   }, [contributionPickMode, onPickCoordinates]);
 
@@ -317,14 +352,48 @@ export default function MapPlaceholder({
   }, [shops, selectedShopId, hoveredShopId, mapReady, onSelectShop]);
 
   useEffect(() => {
+    const map = mapRef.current;
+    const AMap = getAMapFromWindow();
+
+    if (!map || !AMap) {
+      if (!selectedShop) {
+        setPopupShop(null);
+      }
+      return;
+    }
+
+    const shouldRefocus = locateSignal !== lastLocateSignalRef.current;
+    lastLocateSignalRef.current = locateSignal;
+
     if (!selectedShop) {
+      if (selectedShopPinRef.current) {
+        selectedShopPinRef.current.setMap(null);
+        selectedShopPinRef.current = null;
+      }
       setPopupShop(null);
       return;
     }
 
-    flyToLocation(selectedShop.coordinates[0], selectedShop.coordinates[1]);
+    if (selectedShopPinRef.current) {
+      selectedShopPinRef.current.setMap(null);
+      selectedShopPinRef.current = null;
+    }
+
+    const marker = new AMap.Marker({
+      position: selectedShop.coordinates,
+      offset: new AMap.Pixel(0, 0),
+      content: buildSelectedShopPinHtml(selectedShop)
+    });
+
+    marker.setMap(map);
+    selectedShopPinRef.current = marker;
+
+    if (shouldRefocus || popupShop?.id !== selectedShop.id) {
+      flyToLocation(selectedShop.coordinates[0], selectedShop.coordinates[1]);
+    }
+
     setPopupShop(selectedShop);
-  }, [selectedShop]);
+  }, [selectedShop, locateSignal, popupShop?.id]);
 
   useEffect(() => {
     const map = mapRef.current;
