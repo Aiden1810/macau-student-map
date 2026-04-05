@@ -141,7 +141,7 @@ function loadAmapScript(key: string): Promise<AMapNamespace> {
 }
 
 function buildRestaurantPinHtml(): string {
-  return `<div style="width:44px;height:52px;transform:translate(-50%,-100%);display:flex;align-items:flex-start;justify-content:center;">
+  return `<div style="width:44px;height:52px;display:flex;align-items:flex-start;justify-content:center;">
     <svg width="44" height="52" viewBox="0 0 44 52" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
         <filter id="restaurantPinShadow" x="-50%" y="-50%" width="200%" height="200%">
@@ -162,7 +162,7 @@ function buildRestaurantPinHtml(): string {
 }
 
 function buildServicePinHtml(): string {
-  return `<div style="width:40px;height:40px;border-radius:9999px;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(15,122,67,.28);transform:translate(-50%,-100%);">
+  return `<div style="width:40px;height:40px;border-radius:9999px;background:#ffffff;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(15,122,67,.28);">
     <div style="width:30px;height:30px;border-radius:9999px;background:#0f7a43;display:flex;align-items:center;justify-content:center;">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <rect x="4" y="4" width="16" height="16" rx="3" stroke="#facc15" stroke-width="2"/>
@@ -173,8 +173,27 @@ function buildServicePinHtml(): string {
   </div>`;
 }
 
-function buildSelectedShopPinHtml(shop: Shop): string {
-  return shop.type === '服务' ? buildServicePinHtml() : buildRestaurantPinHtml();
+function escapeHtml(raw: string): string {
+  return raw
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function buildSelectedShopMarkerHtml(shop: Shop): string {
+  const pinHtml = shop.type === '服务' ? buildServicePinHtml() : buildRestaurantPinHtml();
+  const name = escapeHtml(shop.name);
+  const topTags = shop.tags.slice(0, 3).map((tag) => `<span style="padding:2px 8px;border-radius:9999px;background:#f1f5f9;color:#334155;font-size:11px;font-weight:600;line-height:1.4;">${escapeHtml(tag)}</span>`).join('');
+
+  return `<div style="position:relative;width:260px;height:52px;transform:translate(-50%,-100%);display:flex;justify-content:center;overflow:visible;pointer-events:none;">
+    <div style="pointer-events:auto;">${pinHtml}</div>
+    <div style="position:absolute;top:56px;left:50%;transform:translateX(-50%);width:220px;background:rgba(255,255,255,.96);border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 10px 24px rgba(2,30,18,.18);padding:10px 10px 9px;backdrop-filter:blur(2px);pointer-events:none;">
+      <div style="font-size:14px;font-weight:700;line-height:1.35;color:#0f172a;word-break:break-word;">${name}</div>
+      ${topTags ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">${topTags}</div>` : ''}
+    </div>
+  </div>`;
 }
 
 export default function MapPlaceholder({
@@ -389,8 +408,8 @@ export default function MapPlaceholder({
     const marker = new AMap.Marker({
       position: selectedShop.coordinates,
       offset: new AMap.Pixel(0, 0),
-      zIndex: 300,
-      content: buildSelectedShopPinHtml(selectedShop)
+      zIndex: 320,
+      content: buildSelectedShopMarkerHtml(selectedShop)
     });
 
     marker.setMap(map);
@@ -469,8 +488,6 @@ export default function MapPlaceholder({
           {geoLoading ? '定位中...' : '定位到我'}
         </button>
       </div>
-
-
     </div>
   );
 }
