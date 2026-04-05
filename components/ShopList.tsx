@@ -24,7 +24,7 @@ interface ShopListProps {
   loading: boolean;
   searchQuery: string;
   setSearchQuery: (value: string) => void;
-  onLocateShop: (shopId: Shop['id']) => void;
+  onLocateShop: (shopId: Shop['id']) => boolean;
   onHoverShop?: (shopId: Shop['id'] | null) => void;
   mobileSearchPlaceholder: string;
   emptyText: string;
@@ -152,7 +152,11 @@ export default function ShopList({
   }, [activeFilterLabels, searchQuery]);
 
   const handleLocateWithHighlight = (shopId: Shop['id']) => {
-    onLocateShop(shopId);
+    const located = onLocateShop(shopId);
+    if (!located) {
+      return;
+    }
+
     setRecentlyLocatedShopId(shopId);
 
     if (locateHighlightTimerRef.current) {

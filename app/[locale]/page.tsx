@@ -292,10 +292,18 @@ export default function Page() {
     setSearchQuery('');
   };
 
-  const handleLocateShop = (shopId: Shop['id']) => {
+  const handleLocateShop = (shopId: Shop['id']): boolean => {
+    const targetShop = displayedShops.find((shop) => shop.id === shopId);
+
+    if (!targetShop?.hasCoordinates) {
+      toast.error('该店铺暂无坐标，请先补充地址/经纬度');
+      return false;
+    }
+
     setSelectedShopId(shopId);
     setViewMode('map');
     setCollapseMobileSheetSignal((prev) => prev + 1);
+    return true;
   };
 
   const handleApproveShop = async (shopId: Shop['id']) => {

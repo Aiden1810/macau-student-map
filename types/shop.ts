@@ -34,6 +34,7 @@ export interface Shop {
   type: ShopType;
   category: Exclude<ShopCategoryKey, 'all' | 'review'>;
   coordinates: [number, number];
+  hasCoordinates: boolean;
   studentDiscount: string | null;
   tags: string[];
   features: ShopFeature[];

@@ -64,24 +64,26 @@ export default function MapPlaceholder({
   const [popupShop, setPopupShop] = useState<Shop | null>(null);
 
   const selectedShop = useMemo(
-    () => shops.find((shop) => shop.id === selectedShopId) ?? null,
+    () => shops.find((shop) => shop.id === selectedShopId && shop.hasCoordinates) ?? null,
     [shops, selectedShopId]
   );
 
   const shopsGeoJson = useMemo(
     () => ({
       type: 'FeatureCollection' as const,
-      features: shops.map((shop) => ({
-        type: 'Feature' as const,
-        properties: {
-          id: shop.id,
-          name: shop.name
-        },
-        geometry: {
-          type: 'Point' as const,
-          coordinates: shop.coordinates
-        }
-      }))
+      features: shops
+        .filter((shop) => shop.hasCoordinates)
+        .map((shop) => ({
+          type: 'Feature' as const,
+          properties: {
+            id: shop.id,
+            name: shop.name
+          },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: shop.coordinates
+          }
+        }))
     }),
     [shops]
   );
@@ -104,6 +106,7 @@ export default function MapPlaceholder({
 
   useEffect(() => {
     if (!selectedShop) {
+      setPopupShop(null);
       return;
     }
 
@@ -143,7 +146,7 @@ export default function MapPlaceholder({
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
         style={{width: '100%', height: '100%'}}
         onLoad={handleMapLoad}
-        interactiveLayerIds={['clusters', 'unclustered-point']}
+        interactiveLayerIds={['clusters', 'unclustered-point', 'unclustered-point-icon']}
         onClick={(event) => {
           const map = mapRef.current?.getMap();
           if (!map) return;
@@ -165,10 +168,10 @@ export default function MapPlaceholder({
               return;
             }
 
-            if (layerId === 'unclustered-point') {
+            if (layerId === 'unclustered-point' || layerId === 'unclustered-point-icon') {
               const clickedId = String(clickedFeature.properties?.id ?? '');
               if (clickedId.length > 0) {
-                const shop = shops.find((item) => String(item.id) === clickedId);
+                const shop = shops.find((item) => String(item.id) === clickedId && item.hasCoordinates);
                 if (shop) {
                   onSelectShop(shop.id);
                   setPopupShop(shop);
@@ -243,24 +246,43 @@ export default function MapPlaceholder({
             }}
           />
           <Layer
+            id="unclustered-point-inner-ring"
+            type="circle"
+            filter={['!', ['has', 'point_count']]}
+            paint={{
+              'circle-color': '#ffffff',
+              'circle-radius': [
+                'case',
+                ['==', ['get', 'id'], selectedShopId ?? '__none__'],
+                6.2,
+                ['==', ['get', 'id'], hoveredShopId ?? '__none__'],
+                6.2,
+                5.2
+              ]
+            }}
+          />
+          <Layer
             id="unclustered-point-icon"
             type="symbol"
             filter={['!', ['has', 'point_count']]}
             layout={{
-              'text-field': '⌂',
+              'text-field': '🏠',
+              'text-font': ['Arial Unicode MS Regular'],
               'text-size': [
                 'case',
                 ['==', ['get', 'id'], selectedShopId ?? '__none__'],
-                14,
+                12,
                 ['==', ['get', 'id'], hoveredShopId ?? '__none__'],
-                14,
-                12
+                12,
+                10
               ],
               'text-allow-overlap': true,
               'text-ignore-placement': true
             }}
             paint={{
-              'text-color': '#facc15'
+              'text-color': '#facc15',
+              'text-halo-color': '#d97706',
+              'text-halo-width': 0.6
             }}
           />
         </Source>

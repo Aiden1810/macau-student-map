@@ -253,6 +253,22 @@ function warnInvalidCoordinates(rawValue: unknown): [number, number] {
   return MACAU_CENTER;
 }
 
+function hasAnyCoordinatePayload(input: unknown): boolean {
+  if (Array.isArray(input)) {
+    return input.length >= 2;
+  }
+
+  if (typeof input === 'string') {
+    return input.trim().length > 0;
+  }
+
+  if (isObject(input)) {
+    return ['lng', 'lon', 'longitude', 'lat', 'latitude'].some((key) => input[key] !== undefined && input[key] !== null);
+  }
+
+  return false;
+}
+
 function parseCoordinates(input: unknown): [number, number] {
   if (Array.isArray(input) && input.length >= 2) {
     const lng = parseMaybeNumber(input[0]);
@@ -428,9 +444,9 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
   const latCandidate = row?.latitude ?? row?.lat;
 
   const hasExplicitLngLat = parseMaybeNumber(lngCandidate) !== null && parseMaybeNumber(latCandidate) !== null;
-  const rawCoordinates = hasExplicitLngLat
-    ? [lngCandidate, latCandidate]
-    : row?.coordinates ?? row?.location ?? row?.coord ?? row?.latlng;
+  const fallbackCoordinatePayload = row?.coordinates ?? row?.location ?? row?.coord ?? row?.latlng;
+  const rawCoordinates = hasExplicitLngLat ? [lngCandidate, latCandidate] : fallbackCoordinatePayload;
+  const hasCoordinates = hasExplicitLngLat || hasAnyCoordinatePayload(fallbackCoordinatePayload);
   const rawTags = row?.tags;
   const rawMainCategory = row?.main_category;
   const rawSubTags = row?.sub_tags;
@@ -469,6 +485,7 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
     type: mapCategoryToShopType(rawType),
     category: normalizedCategory,
     coordinates: parseCoordinates(rawCoordinates),
+    hasCoordinates,
     studentDiscount: typeof rawDiscount === 'string' ? rawDiscount : null,
     tags: mergedTags,
     features: normalizeFeatures(rawFeatures),
