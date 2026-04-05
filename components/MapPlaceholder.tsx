@@ -1,15 +1,11 @@
 'use client';
 
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {useTranslations} from 'next-intl';
-import StarRating from '@/components/StarRating';
-import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {Shop} from '@/types/shop';
 
 interface MapPlaceholderProps {
   shops: Shop[];
   selectedShopId: Shop['id'] | null;
-  hoveredShopId?: Shop['id'] | null;
   locateSignal?: number;
   onSelectShop: (shopId: Shop['id']) => void;
   contributionPickMode?: boolean;
@@ -84,7 +80,6 @@ type AMapWindow = Window & {
 
 type MarkerStore = {
   marker: AMapMarker;
-  shop: Shop;
 };
 
 const MACAU_CENTER: [number, number] = [113.5439, 22.1896];
@@ -185,14 +180,12 @@ function buildSelectedShopPinHtml(shop: Shop): string {
 export default function MapPlaceholder({
   shops,
   selectedShopId,
-  hoveredShopId = null,
   locateSignal = 0,
   onSelectShop,
   contributionPickMode = false,
   onPickCoordinates,
   highlightedLocation = null
 }: MapPlaceholderProps) {
-  const t = useTranslations('Map');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<AMapMapInstance | null>(null);
   const markersRef = useRef<Map<string, MarkerStore>>(new Map());
@@ -223,6 +216,8 @@ export default function MapPlaceholder({
       </div>
     </div>`;
   };
+
+
 
   const flyToLocation = (longitude: number, latitude: number) => {
     const map = mapRef.current;
@@ -324,13 +319,10 @@ export default function MapPlaceholder({
     const validShops = shops.filter((shop) => shop.hasCoordinates);
 
     const markers = validShops.map((shop) => {
-      const isActive = shop.id === selectedShopId;
-      const isHovered = shop.id === hoveredShopId;
-
       const marker = new AMap.Marker({
         position: shop.coordinates,
         offset: new AMap.Pixel(0, 0),
-        content: buildMarkerHtml(isActive, isHovered),
+        content: buildMarkerHtml(false, false),
         extData: {shopId: shop.id}
       });
 
@@ -338,7 +330,7 @@ export default function MapPlaceholder({
         onSelectShop(shop.id);
       });
 
-      markersRef.current.set(shop.id, {marker, shop});
+      markersRef.current.set(shop.id, {marker});
       return marker;
     });
 
@@ -365,7 +357,7 @@ export default function MapPlaceholder({
         context.marker.setContent(div);
       }
     });
-  }, [shops, selectedShopId, hoveredShopId, mapReady, onSelectShop]);
+  }, [shops, mapReady, onSelectShop]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -478,42 +470,7 @@ export default function MapPlaceholder({
         </button>
       </div>
 
-      {selectedShop && (
-        <div className="absolute bottom-3 left-3 right-3 z-10 rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur-sm md:left-auto md:right-3 md:w-72">
-          <h3 className="text-base font-bold leading-tight text-slate-900">{selectedShop.name}</h3>
 
-          <div className="mt-2 flex items-center gap-2">
-            {(() => {
-              const popupRatingTag = getRatingTagFromData(selectedShop.rating, selectedShop.tags, selectedShop.subTags ?? []);
-
-              return (
-                <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${popupRatingTag.bgClass} ${popupRatingTag.textClass}`}>
-                  {popupRatingTag.label}
-                </span>
-              );
-            })()}
-          </div>
-
-          <div className="mt-2">
-            <StarRating score={selectedShop.rating} reviewCount={selectedShop.reviews} />
-          </div>
-
-          <div className="mt-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{t('tagsLabel')}</p>
-            <div className="mt-1 flex flex-wrap gap-1.5">
-              {selectedShop.tags.length > 0 ? (
-                selectedShop.tags.map((tag) => (
-                  <span key={tag} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                    {tag}
-                  </span>
-                ))
-              ) : (
-                <span className="text-xs text-slate-400">{t('noTags')}</span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

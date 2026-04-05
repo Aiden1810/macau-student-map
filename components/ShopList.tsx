@@ -25,7 +25,6 @@ interface ShopListProps {
   searchQuery: string;
   setSearchQuery: (value: string) => void;
   onLocateShop: (shopId: Shop['id']) => boolean;
-  onHoverShop?: (shopId: Shop['id'] | null) => void;
   mobileSearchPlaceholder: string;
   emptyText: string;
   hasAnyShops: boolean;
@@ -51,7 +50,6 @@ export default function ShopList({
   searchQuery,
   setSearchQuery,
   onLocateShop,
-  onHoverShop,
   mobileSearchPlaceholder,
   emptyText,
   hasAnyShops,
@@ -301,12 +299,7 @@ export default function ShopList({
         ) : (
           <div className="space-y-4">
             {filteredShops.map((shop) => (
-              <div
-                key={shop.id}
-                onMouseEnter={() => onHoverShop?.(shop.id)}
-                onMouseLeave={() => onHoverShop?.(null)}
-                onClick={() => onHoverShop?.(shop.id)}
-              >
+              <div key={shop.id}>
                 <ShopCard
                   shop={shop}
                   onLocate={handleLocateWithHighlight}

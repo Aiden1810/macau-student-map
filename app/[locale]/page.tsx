@@ -90,7 +90,6 @@ export default function Page() {
   const [drawerFilters, setDrawerFilters] = useState<DrawerFiltersState>(DEFAULT_DRAWER_FILTERS);
   const [activeScenario, setActiveScenario] = useState<null | 'late-night' | 'student-deal' | 'photo' | 'top-rated'>(null);
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
-  const [hoveredShopId, setHoveredShopId] = useState<Shop['id'] | null>(null);
   const [collapseMobileSheetSignal, setCollapseMobileSheetSignal] = useState(0);
   const [locateSignal, setLocateSignal] = useState(0);
   const [shops, setShops] = useState<Shop[]>([]);
@@ -464,7 +463,6 @@ export default function Page() {
             <MapPlaceholder
               shops={displayedShops}
               selectedShopId={selectedShopId}
-              hoveredShopId={hoveredShopId}
               locateSignal={locateSignal}
               onSelectShop={setSelectedShopId}
               contributionPickMode={mapPickMode}
@@ -482,7 +480,6 @@ export default function Page() {
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               onLocateShop={handleLocateShop}
-              onHoverShop={setHoveredShopId}
               mobileSearchPlaceholder={t('mobileSearchPlaceholder')}
               emptyText={t('emptyResult')}
               hasAnyShops={visibleShops.length > 0}
