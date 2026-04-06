@@ -148,15 +148,17 @@ function buildShopPinHtml(size: 'default' | 'selected' = 'default', anchored = t
   const height = size === 'selected' ? 54 : 46;
   const iconScale = size === 'selected' ? 1 : 0.9;
   const anchorTransform = anchored ? 'transform:translate(-50%,-100%);' : '';
+  const randId = Math.random().toString(36).slice(2, 9);
+  const filterId = `shopPinShadow-${randId}`;
 
   return `<div style="width:${width}px;height:${height}px;${anchorTransform}display:flex;align-items:flex-start;justify-content:center;">
     <svg width="${width}" height="${height}" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
-        <filter id="shopPinShadow" x="-60%" y="-50%" width="220%" height="220%">
+        <filter id="${filterId}" x="-60%" y="-50%" width="220%" height="220%">
           <feDropShadow dx="0" dy="3" stdDeviation="2.4" flood-color="rgba(22,101,52,0.28)"/>
         </filter>
       </defs>
-      <g filter="url(#shopPinShadow)">
+      <g filter="url(#${filterId})">
         <path d="M22 52C22 52 7 38.2 7 24.6C7 15.3 13.7 8 22 8C30.3 8 37 15.3 37 24.6C37 38.2 22 52 22 52Z" fill="#ffffff"/>
         <circle cx="22" cy="24" r="11.4" fill="#166534"/>
         <g transform="translate(${22 - 6.5 * iconScale} ${24 - 6.5 * iconScale}) scale(${iconScale})" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">
@@ -196,8 +198,8 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
   const starsHtml = `${fullStarHtml}${halfStarHtml}${emptyStarHtml}`;
   const primaryTag = escapeHtml(shop.tags[0] ?? '暂无标签');
 
-  return `<div style="position:relative;width:248px;height:200px;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;overflow:visible;pointer-events:none;">
-    <div style="position:absolute;bottom:58px;left:50%;transform:translateX(-50%);width:228px;background:#ffffff;border:1px solid rgba(22,101,52,0.18);border-radius:12px;box-shadow:0 10px 22px rgba(15,23,42,0.12);padding:10px 11px;pointer-events:none;">
+  return `<div style="position:relative;width:248px;height:120px;transform:translate(-50%,-100%);pointer-events:none;z-index:999;">
+    <div style="position:absolute;bottom:54px;left:50%;transform:translateX(-50%);width:228px;background:#ffffff;border:1px solid rgba(22,101,52,0.18);border-radius:12px;box-shadow:0 10px 22px rgba(15,23,42,0.12);padding:10px 11px;pointer-events:none;">
       <div style="font-size:14px;font-weight:700;line-height:1.3;color:#166534;word-break:break-word;">${name}</div>
       <div style="margin-top:5px;display:inline-flex;align-items:center;border-radius:9999px;background:rgba(245,158,11,0.14);color:#f59e0b;font-size:11px;font-weight:700;line-height:1;padding:4px 8px;">${ratingLabel}</div>
       <div style="margin-top:7px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.2;">
@@ -207,7 +209,9 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
       </div>
       <div style="margin-top:7px;display:inline-flex;align-items:center;border-radius:9999px;background:#f8fafc;border:1px solid #e2e8f0;color:#334155;font-size:11px;font-weight:600;line-height:1;padding:4px 8px;">${primaryTag}</div>
     </div>
-    <div>${pinHtml}</div>
+    <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:44px;height:54px;display:flex;justify-content:center;">
+      ${pinHtml}
+    </div>
   </div>`;
 }
 
