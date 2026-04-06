@@ -42,13 +42,6 @@ interface FilterBarProps {
   onChange: (l1: ShopCategoryKey, l2: string | null) => void;
 }
 
-const MOBILE_GLASS_STYLE = {
-  background: 'rgba(255, 255, 255, 0.18)',
-  backdropFilter: 'blur(28px) saturate(2.2)',
-  WebkitBackdropFilter: 'blur(28px) saturate(2.2)',
-  border: '0.5px solid rgba(255, 255, 255, 0.65)',
-  boxShadow: '0 3px 18px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.55)'
-} as const;
 
 export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps) {
   const groupedL2Tags = useMemo(() => {
@@ -60,7 +53,7 @@ export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps
   }, [activeL1]);
 
   return (
-    <section className="rounded-2xl px-2 py-2 md:rounded-2xl md:border md:border-slate-200/80 md:bg-white/95 md:px-4 md:py-3 md:shadow-sm md:backdrop-blur" style={MOBILE_GLASS_STYLE}>
+    <section className="bg-transparent p-0 md:rounded-2xl md:border md:border-slate-200/80 md:bg-white/95 md:px-4 md:py-3 md:shadow-sm md:backdrop-blur">
       <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
         {L1_TABS.map((tab) => {
           const isReview = tab.key === 'review';
@@ -69,7 +62,7 @@ export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps
               key={tab.key}
               type="button"
               onClick={() => onChange(tab.key, null)}
-              className={`min-h-10 shrink-0 rounded-2xl border px-4 text-sm font-semibold transition ${isReview ? 'hidden md:inline-flex' : 'inline-flex'} ${
+              className={`h-8 shrink-0 items-center justify-center rounded-2xl border px-4 text-sm font-semibold leading-none transition md:min-h-10 md:h-auto ${isReview ? 'hidden md:inline-flex' : 'inline-flex'} ${
                 activeL1 === tab.key
                   ? 'border-[rgba(60,160,80,0.25)] bg-[rgba(22,80,38,0.82)] text-[rgba(210,255,225,0.95)]'
                   : 'border-white/45 bg-white/5 text-[#0d2918] md:border-slate-200 md:bg-slate-50 md:text-slate-700'

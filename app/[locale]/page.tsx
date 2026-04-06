@@ -371,7 +371,7 @@ export default function Page() {
   return (
     <div className="min-h-[100dvh] text-slate-800 md:bg-slate-50">
       <div className="relative md:hidden">
-        <div className="h-[100dvh] w-full">
+        <div className="fixed inset-0 z-0 m-0 h-[100dvh] w-full p-0">
           <MapPlaceholder
             shops={displayedShops}
             selectedShopId={selectedShopId}
@@ -385,7 +385,7 @@ export default function Page() {
           />
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-40 px-[14px] pt-[56px]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-40 px-[14px] pt-[52px]">
           <Header
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
