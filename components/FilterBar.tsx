@@ -54,7 +54,7 @@ export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps
 
   return (
     <section className="bg-transparent p-0">
-      <div className="hide-scrollbar relative z-40 flex items-center gap-2 overflow-x-auto rounded-[20px] border border-[rgba(255,255,255,0.35)] bg-[rgba(255,255,255,0.15)] p-[4px_6px] pb-1 backdrop-blur-[20px] [backdrop-filter:blur(20px)_saturate(1.8)]">
+      <div className="hide-scrollbar relative z-40 flex items-center gap-2 overflow-x-auto pb-1">
         {L1_TABS.map((tab) => {
           const isReview = tab.key === 'review';
           return (

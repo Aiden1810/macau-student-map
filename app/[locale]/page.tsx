@@ -385,7 +385,7 @@ export default function Page() {
           />
         </div>
 
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] px-[14px] pt-[max(env(safe-area-inset-top),44px)]">
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] px-[14px] pt-[max(env(safe-area-inset-top),6px)]">
           <Header
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
@@ -404,7 +404,7 @@ export default function Page() {
             contributeLabel={tContribute('button')}
           />
 
-          <div className="pointer-events-auto mt-3">
+          <div className="pointer-events-auto mt-1.5">
             <FilterBar activeL1={activeL1} activeL2={activeL2} onChange={handleTopFilterChange} />
           </div>
         </div>
