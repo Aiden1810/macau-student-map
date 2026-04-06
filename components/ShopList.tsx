@@ -380,7 +380,7 @@ export default function ShopList({
           <input
             type="text"
             placeholder="搜索店铺、美食、地点…"
-            className="h-[37px] w-full rounded-[13px] border border-white/80 bg-[rgba(255,255,255,0.45)] py-2 pl-10 pr-16 text-sm text-[#0d2918] placeholder:text-[#1A5C2E]/60 outline-none backdrop-blur-[16px]"
+            className="h-[37px] w-full rounded-[13px] border-0 bg-[rgba(255,255,255,0.55)] py-2 pl-10 pr-16 text-sm text-[#0d2918] placeholder:text-[#1A5C2E]/60 outline-none backdrop-blur-[16px] ring-0"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -408,10 +408,10 @@ export default function ShopList({
                 key={scenario.key}
                 type="button"
                 onClick={() => onChangeActiveScenario?.(active ? null : scenario.key)}
-                className={`min-w-[94px] rounded-[13px] border px-3 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-[16px] [backdrop-filter:blur(16px)_saturate(1.6)] ${
+                className={`min-w-[94px] rounded-[13px] px-3 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-[16px] [backdrop-filter:blur(16px)_saturate(1.6)] ${
                   active
-                    ? 'border-[rgba(26,92,46,0.35)] bg-[rgba(22,80,38,0.12)] text-[#0d2918]'
-                    : 'border-[rgba(255,255,255,0.75)] bg-[rgba(255,255,255,0.40)] text-[#0d2918]'
+                    ? 'bg-[rgba(22,80,38,0.14)] text-[#0d2918] ring-1 ring-[rgba(26,92,46,0.25)]'
+                    : 'bg-[rgba(255,255,255,0.45)] text-[#0d2918]'
                 }`}
               >
                 <p className="text-xs font-semibold">{scenario.label}</p>
@@ -425,7 +425,7 @@ export default function ShopList({
           <button
             type="button"
             onClick={() => setMobileExpanded(true)}
-            className="w-full rounded-2xl border border-white/50 bg-white/32 px-3 py-2 text-left"
+            className="w-full rounded-2xl bg-white/25 px-3 py-2 text-left"
           >
             <p className="text-sm font-semibold text-[#0d2918]">上拉查看附近店铺列表</p>
             <p className="mt-0.5 text-xs text-[#1A5C2E]/80">当前共 {filteredShops.length} 家</p>
@@ -458,11 +458,11 @@ export default function ShopList({
                   return (
                     <div
                       key={shop.id}
-                      className="w-full rounded-2xl border border-white/55 bg-white/40 px-3 py-2.5"
+                      className="w-full rounded-2xl bg-white/40 px-3 py-2.5"
                     >
                       <div className="flex items-start gap-2.5">
                         {/* Thumbnail */}
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/60">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl">
                           {hasImage ? (
                             <Image
                               src={coverUrl}

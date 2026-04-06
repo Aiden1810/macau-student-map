@@ -78,7 +78,7 @@ export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps
       </div>
 
       {activeL1 !== 'all' && (
-        <div className="mt-2 hidden space-y-2 md:block">
+        <div className="mt-2 space-y-2">
           {Object.entries(groupedL2Tags).map(([group, tags]) => (
             <div key={group} className="space-y-1">
               <p className="px-1 text-xs font-semibold text-slate-500">{group}</p>
