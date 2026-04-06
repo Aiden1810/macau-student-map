@@ -214,109 +214,66 @@ export default function ShopList({
         )}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-3">
-        <div className="mb-2 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setIsMobileFilterExpanded((prev) => !prev)}
-            className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 md:pointer-events-none"
-          >
-            <SlidersHorizontal className="h-4 w-4 text-slate-500 md:hidden" />
-            筛选
-            <ChevronDown
-              className={`h-4 w-4 text-slate-500 transition-transform md:hidden ${isMobileFilterExpanded ? 'rotate-180' : ''}`}
-            />
-          </button>
-          <button type="button" onClick={onResetDrawerFilters} className="text-xs font-medium text-slate-500 hover:text-slate-700">
-            重置
-          </button>
-        </div>
-
-        <div className={`space-y-3 ${isMobileFilterExpanded ? 'block' : 'hidden md:block'}`}>
-          {activeFilterLabels.length > 0 && (
-            <div className="mb-3 rounded-lg border border-emerald-100 bg-emerald-50/60 p-2">
-              <p className="mb-1 text-[11px] font-semibold text-emerald-800">当前条件</p>
-              <div className="flex flex-wrap gap-1.5">
-                {activeFilterLabels.map((label) => (
-                  <span key={label} className="rounded-full border border-emerald-200 bg-white px-2 py-0.5 text-[11px] text-emerald-700">
-                    {label}
-                  </span>
-                ))}
+      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-[#1A5C2E]" />
+            <span className="text-sm font-semibold text-[#0d2918]">高级过滤</span>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <label className="flex cursor-pointer items-center gap-2">
+              <span className="text-xs font-semibold text-slate-600">外卖可达</span>
+              <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-200 transition-colors duration-200 ease-in-out has-[:checked]:bg-[#006633]">
+                <input
+                  type="checkbox"
+                  className="peer sr-only"
+                  checked={drawerFilters.features.includes('外卖可达')}
+                  onChange={(e) => {
+                    const next = e.target.checked 
+                      ? [...drawerFilters.features, '外卖可达']
+                      : drawerFilters.features.filter(f => f !== '外卖可达');
+                    onChangeDrawerFilters({...drawerFilters, features: next as any});
+                  }}
+                />
+                <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
               </div>
-            </div>
-          )}
-
-          <div>
-            <p className="mb-1 text-xs font-semibold text-slate-500">{DRAWER_FILTERS.shopType.label}</p>
-            <div className="flex flex-wrap gap-2">
-              {DRAWER_FILTERS.shopType.options.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => onChangeDrawerFilters({...drawerFilters, shopType: option})}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                    drawerFilters.shopType === option
-                      ? 'border-[#006633] bg-[#006633] text-white'
-                      : 'border-slate-200 bg-slate-50 text-slate-600'
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-1 text-xs font-semibold text-slate-500">{DRAWER_FILTERS.ratingLabel.label}</p>
-            <div className="flex flex-wrap gap-2">
-              {DRAWER_FILTERS.ratingLabel.options.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() =>
-                    onChangeDrawerFilters({
-                      ...drawerFilters,
-                      ratingLabel: drawerFilters.ratingLabel === option ? null : option
-                    })
-                  }
-                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                    drawerFilters.ratingLabel === option
-                      ? 'border-[#006633] bg-[#006633] text-white'
-                      : 'border-slate-200 bg-slate-50 text-slate-600'
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="mb-1 text-xs font-semibold text-slate-500">{DRAWER_FILTERS.features.label}</p>
-            <div className="flex flex-wrap gap-2">
-              {DRAWER_FILTERS.features.options.map((option) => {
-                const checked = drawerFilters.features.includes(option);
-                return (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => {
-                      const nextFeatures = checked
-                        ? drawerFilters.features.filter((f) => f !== option)
-                        : [...drawerFilters.features, option];
-                      onChangeDrawerFilters({...drawerFilters, features: nextFeatures});
-                    }}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                      checked ? 'border-[#006633] bg-[#006633] text-white' : 'border-slate-200 bg-slate-50 text-slate-600'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                );
-              })}
-            </div>
+            </label>
+            
+            <label className="flex cursor-pointer items-center gap-2">
+              <span className="text-xs font-semibold text-slate-600">深夜营业</span>
+              <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-200 transition-colors duration-200 ease-in-out has-[:checked]:bg-[#006633]">
+                <input
+                  type="checkbox"
+                  className="peer sr-only"
+                  checked={drawerFilters.features.includes('深夜营业')}
+                  onChange={(e) => {
+                    const next = e.target.checked 
+                      ? [...drawerFilters.features, '深夜营业']
+                      : drawerFilters.features.filter(f => f !== '深夜营业');
+                    onChangeDrawerFilters({...drawerFilters, features: next as any});
+                  }}
+                />
+                <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
+              </div>
+            </label>
           </div>
         </div>
+        
+        {activeFilterLabels.length > 0 && (
+          <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/60 p-2 flex items-center justify-between">
+            <div className="flex flex-wrap gap-1.5 flex-1">
+              {activeFilterLabels.map((label) => (
+                <span key={label} className="rounded-full border border-emerald-200 bg-white px-2 py-0.5 text-[11px] text-emerald-700">
+                  {label}
+                </span>
+              ))}
+            </div>
+            <button type="button" onClick={onResetDrawerFilters} className="ml-2 whitespace-nowrap text-[11px] font-medium text-emerald-700 hover:underline">
+              重置
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="mt-3 flex-1 space-y-4 overflow-y-auto pb-1 pr-1">
