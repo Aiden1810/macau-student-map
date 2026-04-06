@@ -36,17 +36,48 @@ const RATING_OPTIONS: RatingOption[] = [
 const SHOP_TYPE_OPTIONS = ['正餐', '快餐小吃', '饮品甜点', '服务'] as const;
 const FEATURE_OPTIONS: ShopFeature[] = ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'];
 
+type AMapPlaceSearchPoi = {
+  id?: string;
+  name?: string;
+  address?: string;
+  pname?: string;
+  cityname?: string;
+  adname?: string;
+  location?: {
+    lng?: number;
+    lat?: number;
+  };
+};
+
+type AMapPlaceSearchResult = {
+  info?: string;
+  poiList?: {
+    pois?: AMapPlaceSearchPoi[];
+  };
+};
+
+type AMapPlaceSearchInstance = {
+  search: (keyword: string, callback: (status: string, result: AMapPlaceSearchResult) => void) => void;
+};
+
+type AMapNamespace = {
+  plugin: (name: string, callback: () => void) => void;
+  PlaceSearch: new (options: {
+    city: string;
+    citylimit: boolean;
+    pageSize: number;
+    pageIndex: number;
+    extensions: 'base' | 'all';
+  }) => AMapPlaceSearchInstance;
+};
+
 type AMapWindow = Window & {
-  AMap?: any;
-  __amapPlaceLoadingPromise?: Promise<any>;
+  AMap?: AMapNamespace;
+  __amapPlaceLoadingPromise?: Promise<AMapNamespace>;
   _AMapSecurityConfig?: {securityJsCode?: string};
 };
 
-function getAmapFromWindow(): any | undefined {
-  return (window as AMapWindow).AMap;
-}
-
-function loadAmapPlaceSdk(key: string): Promise<any> {
+function loadAmapPlaceSdk(key: string): Promise<AMapNamespace> {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('AMap only works in browser'));
   }
@@ -163,7 +194,7 @@ export default function ContributionForm({
                 extensions: 'base'
               });
 
-              placeSearch.search(searchKeyword, (status: string, result: any) => {
+              placeSearch.search(searchKeyword, (status: string, result: AMapPlaceSearchResult) => {
                 if (status !== 'complete' || !result?.poiList?.pois) {
                   if (result?.info && result.info !== 'OK') {
                     reject(new Error(result.info));
@@ -173,7 +204,7 @@ export default function ContributionForm({
                   return;
                 }
 
-                const options = (result.poiList.pois as any[])
+                const options = result.poiList.pois
                   .map((poi) => {
                     const lng = Number(poi?.location?.lng);
                     const lat = Number(poi?.location?.lat);
