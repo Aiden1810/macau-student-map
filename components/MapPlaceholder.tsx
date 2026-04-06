@@ -514,15 +514,16 @@ export default function MapPlaceholder({
     <div className="relative h-full w-full overflow-hidden rounded-none border-0 bg-transparent shadow-none md:rounded-2xl md:border md:border-slate-200/90 md:bg-white md:shadow-[0_10px_28px_rgba(2,30,18,0.08)] md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)]">
       <div ref={containerRef} className="h-full w-full" />
 
-      <div className="pointer-events-none absolute right-3 top-1/2 z-20 flex -translate-y-1/2 flex-col md:hidden">
+      <div className="pointer-events-none absolute right-3 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-[3px] md:hidden">
         <button
           type="button"
           onClick={handleZoomIn}
-          className="pointer-events-auto h-10 w-10 rounded-t-[11px] rounded-b-[4px] border border-white/60 bg-white/18 text-base font-bold text-[#0d2918]"
+          className="pointer-events-auto h-10 w-10 rounded-t-[13px] rounded-b-[6px] border border-white/30 text-base font-bold text-white"
           style={{
-            backdropFilter: 'blur(28px) saturate(2.2)',
-            WebkitBackdropFilter: 'blur(28px) saturate(2.2)',
-            boxShadow: '0 3px 18px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.55)'
+            background: 'rgba(52,152,180,0.82)',
+            backdropFilter: 'blur(20px) saturate(2)',
+            WebkitBackdropFilter: 'blur(20px) saturate(2)',
+            boxShadow: '0 4px 16px rgba(0,100,140,0.22), inset 0 1px 0 rgba(255,255,255,0.35)'
           }}
         >
           +
@@ -530,11 +531,12 @@ export default function MapPlaceholder({
         <button
           type="button"
           onClick={handleZoomOut}
-          className="pointer-events-auto mt-[1px] h-10 w-10 rounded-t-[4px] rounded-b-[11px] border border-white/60 bg-white/18 text-base font-bold text-[#0d2918]"
+          className="pointer-events-auto mt-[1px] h-10 w-10 rounded-t-[6px] rounded-b-[13px] border border-white/30 text-base font-bold text-white"
           style={{
-            backdropFilter: 'blur(28px) saturate(2.2)',
-            WebkitBackdropFilter: 'blur(28px) saturate(2.2)',
-            boxShadow: '0 3px 18px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.55)'
+            background: 'rgba(52,152,180,0.82)',
+            backdropFilter: 'blur(20px) saturate(2)',
+            WebkitBackdropFilter: 'blur(20px) saturate(2)',
+            boxShadow: '0 4px 16px rgba(0,100,140,0.22), inset 0 1px 0 rgba(255,255,255,0.35)'
           }}
         >
           −
@@ -543,14 +545,29 @@ export default function MapPlaceholder({
         <button
           type="button"
           onClick={handleLocateMe}
-          className="pointer-events-auto mt-2 h-10 w-10 rounded-[11px] border border-white/60 bg-white/18 text-[11px] font-semibold text-[#0d2918]"
+          className="pointer-events-auto mt-2 flex h-10 w-10 items-center justify-center rounded-full border border-white/30"
           style={{
-            backdropFilter: 'blur(28px) saturate(2.2)',
-            WebkitBackdropFilter: 'blur(28px) saturate(2.2)',
-            boxShadow: '0 3px 18px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.55)'
+            background: geoLoading ? 'rgba(52,152,180,0.55)' : 'rgba(52,152,180,0.82)',
+            backdropFilter: 'blur(20px) saturate(2)',
+            WebkitBackdropFilter: 'blur(20px) saturate(2)',
+            boxShadow: '0 4px 16px rgba(0,100,140,0.22), inset 0 1px 0 rgba(255,255,255,0.35)'
           }}
         >
-          {geoLoading ? '...' : '定位'}
+          {geoLoading ? (
+            <svg className="h-5 w-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+              <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+            </svg>
+          ) : (
+            <svg className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <circle cx="12" cy="12" r="8" strokeOpacity="0.5"/>
+              <line x1="12" y1="2" x2="12" y2="6" />
+              <line x1="12" y1="18" x2="12" y2="22" />
+              <line x1="2" y1="12" x2="6" y2="12" />
+              <line x1="18" y1="12" x2="22" y2="12" />
+            </svg>
+          )}
         </button>
       </div>
     </div>

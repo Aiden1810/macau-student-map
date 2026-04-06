@@ -1,4 +1,4 @@
-import {LogIn, LogOut, Search, ShieldCheck} from 'lucide-react';
+import {LogOut, Search, ShieldCheck} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import {type CSSProperties, useEffect, useState} from 'react';
 import {Link} from '@/i18n/navigation';
@@ -66,9 +66,8 @@ export default function Header({
 
             <Link
               href={isAdmin ? '/admin' : loginHref}
-              className="inline-flex items-center gap-1 rounded-2xl border border-[rgba(255,255,255,0.55)] bg-[rgba(255,255,255,0.20)] px-3 py-1.5 text-xs font-semibold text-[#0d2918] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] backdrop-blur-[20px] transition hover:bg-[rgba(255,255,255,0.26)]"
+              className="inline-flex items-center rounded-2xl bg-[#1A5C2E] px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-110 sm:text-sm"
             >
-              <LogIn className="h-3.5 w-3.5" />
               管理员
             </Link>
           </div>
