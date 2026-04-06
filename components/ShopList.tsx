@@ -57,11 +57,11 @@ const SHEET_COLLAPSED_HEIGHT = 215;
 const SHEET_EXPANDED_VH = 85;
 
 const MOBILE_GLASS_STYLE: React.CSSProperties = {
-  background: 'rgba(240, 246, 240, 0.62)',
-  backdropFilter: 'blur(32px) saturate(2.2) brightness(1.06)',
-  WebkitBackdropFilter: 'blur(32px) saturate(2.2) brightness(1.06)',
-  borderTop: '0.5px solid rgba(255, 255, 255, 0.80)',
-  boxShadow: '0 -2px 40px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.7)'
+  background: 'rgba(235, 245, 236, 0.75)',
+  backdropFilter: 'blur(32px) saturate(2) brightness(1.05)',
+  WebkitBackdropFilter: 'blur(32px) saturate(2) brightness(1.05)',
+  borderTop: '0.5px solid rgba(255, 255, 255, 0.85)',
+  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)'
 };
 
 export default function ShopList({
@@ -377,7 +377,7 @@ export default function ShopList({
           <input
             type="text"
             placeholder="搜索店铺、美食、地点…"
-            className="h-[37px] w-full rounded-2xl border border-white/55 bg-white/35 py-2 pl-10 pr-16 text-sm text-[#0d2918] placeholder:text-[#1A5C2E]/60 outline-none"
+            className="h-[37px] w-full rounded-[13px] border border-white/80 bg-[rgba(255,255,255,0.45)] py-2 pl-10 pr-16 text-sm text-[#0d2918] placeholder:text-[#1A5C2E]/60 outline-none backdrop-blur-[16px]"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -405,10 +405,10 @@ export default function ShopList({
                 key={scenario.key}
                 type="button"
                 onClick={() => onChangeActiveScenario?.(active ? null : scenario.key)}
-                className={`min-w-[94px] rounded-[13px] border px-3 py-2 text-left ${
+                className={`min-w-[94px] rounded-[13px] border px-3 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-[16px] [backdrop-filter:blur(16px)_saturate(1.6)] ${
                   active
-                    ? 'border-[rgba(60,160,80,0.25)] bg-[rgba(22,80,38,0.82)] text-[rgba(210,255,225,0.95)]'
-                    : 'border-white/55 bg-white/24 text-[#0d2918]'
+                    ? 'border-[rgba(26,92,46,0.35)] bg-[rgba(22,80,38,0.12)] text-[#0d2918]'
+                    : 'border-[rgba(255,255,255,0.75)] bg-[rgba(255,255,255,0.40)] text-[#0d2918]'
                 }`}
               >
                 <p className="text-xs font-semibold">{scenario.label}</p>

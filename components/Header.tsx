@@ -16,11 +16,11 @@ interface HeaderProps {
 }
 
 const GLASS_STYLE: CSSProperties = {
-  background: 'rgba(255, 255, 255, 0.18)',
-  backdropFilter: 'blur(28px) saturate(2.2)',
-  WebkitBackdropFilter: 'blur(28px) saturate(2.2)',
-  border: '0.5px solid rgba(255, 255, 255, 0.65)',
-  boxShadow: '0 3px 18px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.55)'
+  background: 'transparent',
+  backdropFilter: 'none',
+  WebkitBackdropFilter: 'none',
+  border: 'none',
+  boxShadow: 'none'
 };
 
 export default function Header({
@@ -66,7 +66,7 @@ export default function Header({
 
             <Link
               href={isAdmin ? '/admin' : loginHref}
-              className="inline-flex items-center gap-1 rounded-2xl border border-[#FFCC00]/80 bg-[#FFCC00] px-3 py-1.5 text-xs font-semibold text-[#0f3d26] transition hover:brightness-95"
+              className="inline-flex items-center gap-1 rounded-2xl border border-[rgba(255,255,255,0.55)] bg-[rgba(255,255,255,0.20)] px-3 py-1.5 text-xs font-semibold text-[#0d2918] shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] backdrop-blur-[20px] transition hover:bg-[rgba(255,255,255,0.26)]"
             >
               <LogIn className="h-3.5 w-3.5" />
               管理员

@@ -385,7 +385,7 @@ export default function Page() {
           />
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-40 px-[14px] pt-[52px]">
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] px-[14px] pt-[max(env(safe-area-inset-top),44px)]">
           <Header
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
