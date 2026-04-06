@@ -1,7 +1,8 @@
 'use client';
 
-import {FormEvent, useEffect, useMemo, useState} from 'react';
+import {FormEvent, useEffect, useState} from 'react';
 import {useTranslations} from 'next-intl';
+import {Star} from 'lucide-react';
 import ImageUpload from '@/components/ImageUpload';
 import {useDebounce} from '@/lib/hooks/useDebounce';
 import {supabase} from '@/lib/supabase';
@@ -150,7 +151,7 @@ export default function ContributionForm({
 
   const [category, setCategory] = useState<'food' | 'drink' | 'vibe' | 'deal' | ''>('');
   const [shopType, setShopType] = useState<(typeof SHOP_TYPE_OPTIONS)[number] | ''>('');
-  const [selectedRatingLabel, setSelectedRatingLabel] = useState<RatingOption['label']>('强烈推荐');
+  const [ratingScore, setRatingScore] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
   const [selectedFeatures, setSelectedFeatures] = useState<ShopFeature[]>([]);
 
   const [reviewText, setReviewText] = useState('');
@@ -159,11 +160,6 @@ export default function ContributionForm({
   const [submitLoading, setSubmitLoading] = useState(false);
   const [contributeMessage, setContributeMessage] = useState<string | null>(null);
   const [contributeError, setContributeError] = useState<string | null>(null);
-
-  const selectedRating = useMemo(
-    () => RATING_OPTIONS.find((item) => item.label === selectedRatingLabel) ?? RATING_OPTIONS[1],
-    [selectedRatingLabel]
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -340,6 +336,11 @@ export default function ContributionForm({
       return;
     }
 
+    if (ratingScore === 0) {
+      setContributeError('请先点击星星进行评分');
+      return;
+    }
+
     setSubmitLoading(true);
     setContributeError(null);
     setContributeMessage(null);
@@ -357,13 +358,13 @@ export default function ContributionForm({
       tags,
       features: selectedFeatures,
       shop_type: shopType,
-      rating_label: selectedRating.label,
-      rating: selectedRating.value,
+      rating_label: ratingScore === 5 ? '封神之作' : ratingScore === 4 ? '强烈推荐' : ratingScore >= 2 ? '还行吧' : '建议避雷',
+      rating: ratingScore,
       image_urls: imageUrls,
       review_text: reviewText.trim() || null,
       category,
       status: 'pending',
-      total_sum: selectedRating.value,
+      total_sum: ratingScore,
       rating_count: 1,
       review_count: 1
     };
@@ -548,20 +549,22 @@ export default function ContributionForm({
           )}
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">评价标签</label>
-            <div className="flex flex-wrap gap-2">
-              {RATING_OPTIONS.map((option) => (
+            <label className="mb-1 block text-sm font-medium text-slate-700">评价打分</label>
+            <div className="mt-2 flex items-center gap-1">
+              {([1, 2, 3, 4, 5] as const).map((star) => (
                 <button
-                  key={option.label}
+                  key={star}
                   type="button"
-                  onClick={() => setSelectedRatingLabel(option.label)}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                    selectedRatingLabel === option.label
-                      ? 'border-[#006633] bg-[#006633] text-white'
-                      : 'border-slate-200 bg-slate-50 text-slate-600'
-                  }`}
+                  onClick={() => setRatingScore(star)}
+                  className="p-1 transition-transform hover:scale-110 active:scale-95 outline-none"
                 >
-                  {option.label}
+                  <Star
+                    className={`h-7 w-7 transition-colors ${
+                      star <= ratingScore
+                        ? 'fill-amber-400 text-amber-400'
+                        : 'text-slate-300'
+                    }`}
+                  />
                 </button>
               ))}
             </div>
