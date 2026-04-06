@@ -354,7 +354,9 @@ export default function ContributionForm({
 
     let derivedShopType: '正餐' | '快餐小吃' | '饮品甜点' | '服务' = '服务';
     if (category === 'food') {
-      const isSnack = Array.from(tags).some((t) => L2_TAGS.food['快餐小吃'].some((snackTag) => snackTag === t));
+      const isSnack = Array.from(tags).some((t) => 
+        [...L2_TAGS.food['日常简餐'], ...L2_TAGS.food['街头小吃']].some((snackTag) => snackTag === t)
+      );
       derivedShopType = isSnack ? '快餐小吃' : '正餐';
     } else if (category === 'drink') {
       derivedShopType = '饮品甜点';
