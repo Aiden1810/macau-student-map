@@ -355,7 +355,7 @@ export default function ShopList({
       <div className="hidden w-full flex-col gap-4 md:flex">{desktopListContent}</div>
 
       <div
-        className="fixed inset-x-0 bottom-0 z-40 rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-2xl transition-[height] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] transition-[height] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden"
         style={{height: mobileHeight > 0 ? `${mobileHeight}px` : mobileExpanded ? `${SHEET_EXPANDED_VH}dvh` : `${SHEET_COLLAPSED_HEIGHT}px`, ...MOBILE_GLASS_STYLE}}
       >
         <button
