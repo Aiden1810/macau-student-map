@@ -7,7 +7,7 @@ import {L2_TAGS} from '@/components/FilterBar';
 import ImageUpload from '@/components/ImageUpload';
 import {useDebounce} from '@/lib/hooks/useDebounce';
 import {supabase} from '@/lib/supabase';
-import {ShopCategoryKey, ShopFeature} from '@/types/shop';
+import {ShopFeature} from '@/types/shop';
 
 type GeocodeOption = {
   placeId: string;
@@ -23,19 +23,6 @@ interface ContributionFormProps {
   manualCoordinates: [number, number] | null;
 }
 
-type RatingOption = {
-  label: '封神之作' | '强烈推荐' | '还行吧' | '建议避雷';
-  value: number;
-};
-
-const RATING_OPTIONS: RatingOption[] = [
-  {label: '封神之作', value: 5.0},
-  {label: '强烈推荐', value: 4.0},
-  {label: '还行吧', value: 3.0},
-  {label: '建议避雷', value: 1.0}
-];
-
-const SHOP_TYPE_OPTIONS = ['正餐', '快餐小吃', '饮品甜点', '服务'] as const;
 const FEATURE_OPTIONS: ShopFeature[] = ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'];
 
 type AMapPlaceSearchPoi = {
@@ -365,9 +352,9 @@ export default function ContributionForm({
       ])
     ).slice(0, 5);
 
-    let derivedShopType: (typeof SHOP_TYPE_OPTIONS)[number] = '服务';
+    let derivedShopType: '正餐' | '快餐小吃' | '饮品甜点' | '服务' = '服务';
     if (category === 'food') {
-      const isSnack = Array.from(tags).some(t => L2_TAGS.food['快餐小吃'].includes(t as any));
+      const isSnack = Array.from(tags).some((t) => L2_TAGS.food['快餐小吃'].some((snackTag) => snackTag === t));
       derivedShopType = isSnack ? '快餐小吃' : '正餐';
     } else if (category === 'drink') {
       derivedShopType = '饮品甜点';
@@ -532,7 +519,7 @@ export default function ContributionForm({
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setCategory(opt.value as any)}
+                  onClick={() => setCategory(opt.value as 'food' | 'drink' | 'vibe' | 'deal')}
                   className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
                     category === opt.value
                       ? 'border-[#006633] bg-[#006633] text-white'

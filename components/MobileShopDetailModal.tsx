@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import {ImagePlus, MessageCircle, Navigation, Star, StarHalf, X} from 'lucide-react';
+import {MessageCircle, Navigation, Star, StarHalf, X} from 'lucide-react';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import ImageUpload from '@/components/ImageUpload';
 import MobileImageSlider from '@/components/MobileImageSlider';
