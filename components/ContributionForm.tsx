@@ -151,7 +151,6 @@ export default function ContributionForm({
   const [manualShopName, setManualShopName] = useState('');
 
   const [category, setCategory] = useState<'food' | 'drink' | 'vibe' | 'deal' | ''>('');
-  const [shopType, setShopType] = useState<(typeof SHOP_TYPE_OPTIONS)[number] | ''>('');
   const [ratingScore, setRatingScore] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
   const [selectedFeatures, setSelectedFeatures] = useState<ShopFeature[]>([]);
   const [selectedPresetTags, setSelectedPresetTags] = useState<string[]>([]);
@@ -163,11 +162,14 @@ export default function ContributionForm({
   const [contributeMessage, setContributeMessage] = useState<string | null>(null);
   const [contributeError, setContributeError] = useState<string | null>(null);
 
-  const availableL2Tags = useMemo(() => {
-    if (!category) return [];
-    const groupMap = (L2_TAGS as Partial<Record<Exclude<ShopCategoryKey, 'all' | 'review'>, Record<string, readonly string[]>>>)[category as Exclude<ShopCategoryKey, 'all' | 'review'>] ?? {};
-    return Object.values(groupMap).flat();
-  }, [category]);
+  const allL2Groups = useMemo(() => {
+    return [
+      { id: 'food', title: '🍔 美食标签', tags: Object.values(L2_TAGS.food).flat() },
+      { id: 'drink', title: '☕ 饮品标签', tags: Object.values(L2_TAGS.drink).flat() },
+      { id: 'vibe', title: '✨ 氛围标签', tags: Object.values(L2_TAGS.vibe).flat() },
+      { id: 'deal', title: '💰 优惠标签', tags: Object.values(L2_TAGS.deal).flat() }
+    ];
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -339,8 +341,8 @@ export default function ContributionForm({
 
     if ((!canSubmitFromSearch && !canSubmitFromManual) || submitLoading) return;
 
-    if (!category || !shopType) {
-      setContributeError('请完整填写主分类和子类型');
+    if (!category) {
+      setContributeError('请选择店铺主分类');
       return;
     }
 
@@ -363,10 +365,18 @@ export default function ContributionForm({
       ])
     ).slice(0, 5);
 
+    let derivedShopType: (typeof SHOP_TYPE_OPTIONS)[number] = '服务';
+    if (category === 'food') {
+      const isSnack = Array.from(tags).some(t => L2_TAGS.food['快餐小吃'].includes(t as any));
+      derivedShopType = isSnack ? '快餐小吃' : '正餐';
+    } else if (category === 'drink') {
+      derivedShopType = '饮品甜点';
+    }
+
     const payloadBase = {
       tags,
       features: selectedFeatures,
-      shop_type: shopType,
+      shop_type: derivedShopType,
       rating_label: ratingScore === 5 ? '封神之作' : ratingScore === 4 ? '强烈推荐' : ratingScore >= 2 ? '还行吧' : '建议避雷',
       rating: ratingScore,
       image_urls: imageUrls,
@@ -508,41 +518,30 @@ export default function ContributionForm({
 
       {((selectedPlace && !duplicateLoading) || (manualMode && manualCoordinates)) && (
         <form onSubmit={handleSubmitContribute} className="mt-4 space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">主分类</label>
-              <select
-                value={category}
-                onChange={(e) => {
-                  setCategory(e.target.value as 'food' | 'drink' | 'vibe' | 'deal' | '');
-                  setSelectedPresetTags([]);
-                }}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                required
-              >
-                <option value="">请选择</option>
-                <option value="food">美食</option>
-                <option value="drink">饮品</option>
-                <option value="vibe">氛围</option>
-                <option value="deal">优惠</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">子类型</label>
-              <select
-                value={shopType}
-                onChange={(e) => setShopType(e.target.value as (typeof SHOP_TYPE_OPTIONS)[number] | '')}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                required
-              >
-                <option value="">请选择</option>
-                {SHOP_TYPE_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              店铺主分类 <span className="font-normal text-slate-400">（决定基础展示位置，可跨界组合下方标签）</span>
+            </label>
+            <div className="flex gap-2">
+              {[
+                { value: 'food', label: '美食' },
+                { value: 'drink', label: '饮品' },
+                { value: 'vibe', label: '氛围' },
+                { value: 'deal', label: '优惠' }
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setCategory(opt.value as any)}
+                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                    category === opt.value
+                      ? 'border-[#006633] bg-[#006633] text-white'
+                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -607,32 +606,37 @@ export default function ContributionForm({
             </div>
           </div>
 
-          {availableL2Tags.length > 0 && (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">扩展标签（多选）</label>
-              <div className="flex flex-wrap gap-2">
-                {availableL2Tags.map((tag) => {
-                  const checked = selectedPresetTags.includes(tag);
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPresetTags((prev) =>
-                          checked ? prev.filter((item) => item !== tag) : [...prev, tag]
-                        );
-                      }}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                        checked ? 'border-[#006633] bg-[#006633] text-white' : 'border-slate-200 bg-slate-50 text-slate-600'
-                      }`}
-                    >
-                      {tag}
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+            <label className="mb-3 block text-sm font-medium text-slate-700">全库扩展标签（可跨类多选）</label>
+            <div className="space-y-4">
+              {allL2Groups.map((group) => (
+                <div key={group.id}>
+                  <p className="mb-2 text-xs font-semibold text-slate-500">{group.title}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {group.tags.map((tag) => {
+                      const checked = selectedPresetTags.includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPresetTags((prev) =>
+                              checked ? prev.filter((item) => item !== tag) : [...prev, tag]
+                            );
+                          }}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                            checked ? 'border-[#006633] bg-[#006633] text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">自定义标签（逗号分隔，最多和扩展标签合计5个）</label>
