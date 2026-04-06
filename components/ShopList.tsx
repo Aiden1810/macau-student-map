@@ -1,26 +1,11 @@
 import Image from 'next/image';
-import {ChevronDown, MessageCircle, Navigation, Search, SlidersHorizontal, Star, StarHalf} from 'lucide-react';
+import {MessageCircle, Navigation, Search, SlidersHorizontal, Star, StarHalf} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {L2_TAGS} from '@/components/FilterBar';
 import MobileShopDetailModal from '@/components/MobileShopDetailModal';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
-import {DrawerFiltersState, FILTERABLE_RATING_LABELS, Shop, ShopCategoryKey, SHOP_DRAWER_TYPES, SHOP_FEATURE_OPTIONS} from '@/types/shop';
-
-const DRAWER_FILTERS = {
-  shopType: {
-    label: '类型',
-    options: SHOP_DRAWER_TYPES
-  },
-  ratingLabel: {
-    label: '口碑',
-    options: FILTERABLE_RATING_LABELS
-  },
-  features: {
-    label: '特色',
-    options: SHOP_FEATURE_OPTIONS
-  }
-} as const;
+import {DrawerFiltersState, Shop, ShopCategoryKey, ShopFeature} from '@/types/shop';
 
 interface ScenarioShortcut {
   key: 'student-deal' | 'top-rated' | 'delivery' | 'new-shop';
@@ -102,7 +87,6 @@ export default function ShopList({
 }: ShopListProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(0);
-  const [isMobileFilterExpanded, setIsMobileFilterExpanded] = useState(false);
   const [recentlyLocatedShopId, setRecentlyLocatedShopId] = useState<Shop['id'] | null>(null);
   const [mobileDetailShop, setMobileDetailShop] = useState<Shop | null>(null);
   const dragStartYRef = useRef<number | null>(null);
@@ -112,7 +96,6 @@ export default function ShopList({
   useEffect(() => {
     setMobileExpanded(false);
     setMobileHeight(0);
-    setIsMobileFilterExpanded(false);
   }, [collapseMobileSheetSignal]);
 
   useEffect(() => {
@@ -233,7 +216,7 @@ export default function ShopList({
                     const next = e.target.checked 
                       ? [...drawerFilters.features, '外卖可达']
                       : drawerFilters.features.filter(f => f !== '外卖可达');
-                    onChangeDrawerFilters({...drawerFilters, features: next as any});
+                    onChangeDrawerFilters({...drawerFilters, features: next as ShopFeature[]});
                   }}
                 />
                 <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
@@ -251,7 +234,7 @@ export default function ShopList({
                     const next = e.target.checked 
                       ? [...drawerFilters.features, '深夜营业']
                       : drawerFilters.features.filter(f => f !== '深夜营业');
-                    onChangeDrawerFilters({...drawerFilters, features: next as any});
+                    onChangeDrawerFilters({...drawerFilters, features: next as ShopFeature[]});
                   }}
                 />
                 <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
