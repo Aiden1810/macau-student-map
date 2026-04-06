@@ -4,7 +4,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import toast from 'react-hot-toast';
 import ContributionForm from '@/components/ContributionForm';
-import FilterBar from '@/components/FilterBar';
+import FilterBar, {L2_TAGS} from '@/components/FilterBar';
 import Header from '@/components/Header';
 import MapPlaceholder from '@/components/MapPlaceholder';
 import ShopList from '@/components/ShopList';
@@ -50,7 +50,21 @@ function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
   }
 
   if (tabKey === 'deal') {
-    return shops.filter((s) => s.features.includes('有折扣') || s.features.includes('学生价'));
+    const dealTags = Object.values(L2_TAGS.deal || {}).flat();
+    return shops.filter(
+      (s) =>
+        s.category === 'deal' ||
+        s.features.includes('有折扣') ||
+        s.features.includes('学生价') ||
+        s.tags.some((t) => dealTags.some((gt) => gt === t))
+    );
+  }
+
+  if (tabKey === 'food' || tabKey === 'drink' || tabKey === 'vibe') {
+    const groupTags = Object.values(L2_TAGS[tabKey]).flat();
+    return shops.filter(
+      (s) => s.category === tabKey || s.tags.some((t) => groupTags.some((gt) => gt === t))
+    );
   }
 
   return shops.filter((s) => s.category === tabKey);
