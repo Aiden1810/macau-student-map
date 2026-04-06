@@ -385,26 +385,28 @@ export default function Page() {
           />
         </div>
 
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] px-[14px] pt-[max(env(safe-area-inset-top),6px)]">
-          <Header
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            searchPlaceholder={t('searchPlaceholder')}
-            isAdmin={isAdmin}
-            userEmail={userEmail}
-            loginHref="/admin-login"
-            onLogout={handleLogout}
-            onToggleContribute={() => {
-              setIsContributeOpen((prev) => !prev);
-              setMapPickMode(false);
-              setManualCoordinates(null);
-              setPageError(null);
-              setPageNotice(null);
-            }}
-            contributeLabel={tContribute('button')}
-          />
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] flex flex-col">
+          <div className="pointer-events-auto bg-white px-[14px] pt-[max(env(safe-area-inset-top),6px)] pb-2 border-b border-slate-200/80">
+            <Header
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              searchPlaceholder={t('searchPlaceholder')}
+              isAdmin={isAdmin}
+              userEmail={userEmail}
+              loginHref="/admin-login"
+              onLogout={handleLogout}
+              onToggleContribute={() => {
+                setIsContributeOpen((prev) => !prev);
+                setMapPickMode(false);
+                setManualCoordinates(null);
+                setPageError(null);
+                setPageNotice(null);
+              }}
+              contributeLabel={tContribute('button')}
+            />
+          </div>
 
-          <div className="pointer-events-auto mt-1.5">
+          <div className="pointer-events-auto px-[14px] pt-1.5">
             <FilterBar activeL1={activeL1} activeL2={activeL2} onChange={handleTopFilterChange} />
           </div>
         </div>
