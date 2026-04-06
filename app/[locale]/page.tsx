@@ -386,7 +386,7 @@ export default function Page() {
         </div>
 
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] flex flex-col">
-          <div className="pointer-events-auto bg-white px-[14px] pt-[max(env(safe-area-inset-top),4px)] pb-1 border-b border-slate-200/80">
+          <div className="pointer-events-auto rounded-b-[18px] bg-white px-[14px] pt-[max(env(safe-area-inset-top),4px)] pb-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             <Header
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
