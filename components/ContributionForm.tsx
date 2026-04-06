@@ -1,12 +1,13 @@
 'use client';
 
-import {FormEvent, useEffect, useState} from 'react';
+import {FormEvent, useEffect, useMemo, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {Star} from 'lucide-react';
+import {L2_TAGS} from '@/components/FilterBar';
 import ImageUpload from '@/components/ImageUpload';
 import {useDebounce} from '@/lib/hooks/useDebounce';
 import {supabase} from '@/lib/supabase';
-import {ShopFeature} from '@/types/shop';
+import {ShopCategoryKey, ShopFeature} from '@/types/shop';
 
 type GeocodeOption = {
   placeId: string;
@@ -153,6 +154,7 @@ export default function ContributionForm({
   const [shopType, setShopType] = useState<(typeof SHOP_TYPE_OPTIONS)[number] | ''>('');
   const [ratingScore, setRatingScore] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
   const [selectedFeatures, setSelectedFeatures] = useState<ShopFeature[]>([]);
+  const [selectedPresetTags, setSelectedPresetTags] = useState<string[]>([]);
 
   const [reviewText, setReviewText] = useState('');
   const [tagsInput, setTagsInput] = useState('');
@@ -160,6 +162,12 @@ export default function ContributionForm({
   const [submitLoading, setSubmitLoading] = useState(false);
   const [contributeMessage, setContributeMessage] = useState<string | null>(null);
   const [contributeError, setContributeError] = useState<string | null>(null);
+
+  const availableL2Tags = useMemo(() => {
+    if (!category) return [];
+    const groupMap = (L2_TAGS as Partial<Record<Exclude<ShopCategoryKey, 'all' | 'review'>, Record<string, readonly string[]>>>)[category as Exclude<ShopCategoryKey, 'all' | 'review'>] ?? {};
+    return Object.values(groupMap).flat();
+  }, [category]);
 
   useEffect(() => {
     let cancelled = false;
@@ -346,12 +354,13 @@ export default function ContributionForm({
     setContributeMessage(null);
 
     const tags = Array.from(
-      new Set(
-        tagsInput
+      new Set([
+        ...selectedPresetTags,
+        ...tagsInput
           .split(',')
           .map((item) => item.trim())
           .filter(Boolean)
-      )
+      ])
     ).slice(0, 5);
 
     const payloadBase = {
@@ -504,7 +513,10 @@ export default function ContributionForm({
               <label className="mb-1 block text-sm font-medium text-slate-700">主分类</label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value as 'food' | 'drink' | 'vibe' | 'deal' | '')}
+                onChange={(e) => {
+                  setCategory(e.target.value as 'food' | 'drink' | 'vibe' | 'deal' | '');
+                  setSelectedPresetTags([]);
+                }}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
                 required
               >
@@ -595,8 +607,35 @@ export default function ContributionForm({
             </div>
           </div>
 
+          {availableL2Tags.length > 0 && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">扩展标签（多选）</label>
+              <div className="flex flex-wrap gap-2">
+                {availableL2Tags.map((tag) => {
+                  const checked = selectedPresetTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPresetTags((prev) =>
+                          checked ? prev.filter((item) => item !== tag) : [...prev, tag]
+                        );
+                      }}
+                      className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                        checked ? 'border-[#006633] bg-[#006633] text-white' : 'border-slate-200 bg-slate-50 text-slate-600'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">标签（逗号分隔，最多5个）</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">自定义标签（逗号分隔，最多和扩展标签合计5个）</label>
             <input
               type="text"
               value={tagsInput}
