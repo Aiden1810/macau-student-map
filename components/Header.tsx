@@ -46,8 +46,8 @@ export default function Header({
 
   return (
     <header className={`pointer-events-auto z-50 md:sticky md:top-0 md:border-b md:border-emerald-900/20 md:text-white md:shadow-sm md:backdrop-blur-md md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)] ${isCompact ? 'md:bg-[#006633]/86' : 'md:bg-[#006633]/96'}`}>
-      <div className="mx-auto flex max-w-7xl flex-col gap-2 md:flex-row md:items-center md:justify-between md:gap-2 md:px-4 md:py-0 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-2 rounded-[22px] px-2 py-2 md:rounded-none md:bg-transparent md:px-0 md:py-0" style={GLASS_STYLE}>
+      <div className="mx-auto flex max-w-7xl flex-col md:flex-row md:items-center md:justify-between md:gap-2 md:px-4 md:py-0 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-2 px-0 py-0.5 md:bg-transparent md:px-0 md:py-0" style={GLASS_STYLE}>
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#FFCC00]/60 bg-[#0c4b2f] text-white shadow-md shadow-[#003a24]/35">
               <span className="text-xs font-extrabold tracking-wide">MU</span>

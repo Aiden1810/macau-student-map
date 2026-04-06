@@ -386,7 +386,7 @@ export default function Page() {
         </div>
 
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] flex flex-col">
-          <div className="pointer-events-auto bg-white px-[14px] pt-[max(env(safe-area-inset-top),6px)] pb-2 border-b border-slate-200/80">
+          <div className="pointer-events-auto bg-white px-[14px] pt-[max(env(safe-area-inset-top),4px)] pb-1 border-b border-slate-200/80">
             <Header
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -406,7 +406,7 @@ export default function Page() {
             />
           </div>
 
-          <div className="pointer-events-auto px-[14px] pt-1.5">
+          <div className="pointer-events-auto px-[14px] pt-1">
             <FilterBar activeL1={activeL1} activeL2={activeL2} onChange={handleTopFilterChange} />
           </div>
         </div>
