@@ -275,13 +275,15 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
                   key={star}
                   type="button"
                   onClick={() => setCommentRating(star)}
-                  className={`rounded-md border px-2 py-1 text-sm transition ${
-                    star === commentRating
-                      ? 'border-amber-300 bg-amber-50 text-amber-700'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
+                  className="p-1 transition-transform hover:scale-110 active:scale-95 outline-none"
                 >
-                  {star}
+                  <Star
+                    className={`h-7 w-7 transition-colors ${
+                      star <= commentRating
+                        ? 'fill-amber-400 text-amber-400'
+                        : 'text-slate-300'
+                    }`}
+                  />
                 </button>
               ))}
             </div>
