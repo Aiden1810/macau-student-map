@@ -6,10 +6,9 @@ import {ShopCategoryKey} from '@/types/shop';
 export const L1_TABS: Array<{key: ShopCategoryKey; label: string}> = [
   {key: 'all', label: '全部'},
   {key: 'food', label: '美食'},
-  {key: 'drink', label: '饮品'},
-  {key: 'vibe', label: '氛围'},
-  {key: 'deal', label: '优惠'},
-  {key: 'review', label: '口碑'}
+  {key: 'drink', label: '饮品/甜点'},
+  {key: 'vibe', label: '场景'},
+  {key: 'review', label: '榜单'}
 ];
 
 export const L2_TAGS = {

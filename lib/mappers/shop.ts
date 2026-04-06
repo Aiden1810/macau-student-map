@@ -149,11 +149,11 @@ function normalizeCategoryKey(value: unknown): Exclude<ShopCategoryKey, 'all' | 
       return 'food';
     }
 
-    if (['饮品', '咖啡', '奶茶'].includes(value.trim())) {
+    if (['饮品', '饮品/甜点', '咖啡', '奶茶'].includes(value.trim())) {
       return 'drink';
     }
 
-    if (['氛围', '环境'].includes(value.trim())) {
+    if (['氛围', '场景', '环境'].includes(value.trim())) {
       return 'vibe';
     }
 

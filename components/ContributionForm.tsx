@@ -152,8 +152,8 @@ export default function ContributionForm({
   const allL2Groups = useMemo(() => {
     return [
       { id: 'food', title: '🍔 美食标签', tags: Object.values(L2_TAGS.food).flat() },
-      { id: 'drink', title: '☕ 饮品标签', tags: Object.values(L2_TAGS.drink).flat() },
-      { id: 'vibe', title: '✨ 氛围标签', tags: Object.values(L2_TAGS.vibe).flat() },
+      { id: 'drink', title: '☕ 饮品/甜点标签', tags: Object.values(L2_TAGS.drink).flat() },
+      { id: 'vibe', title: '✨ 场景标签', tags: Object.values(L2_TAGS.vibe).flat() },
       { id: 'deal', title: '💰 优惠标签', tags: Object.values(L2_TAGS.deal).flat() }
     ];
   }, []);
@@ -512,8 +512,8 @@ export default function ContributionForm({
             <div className="flex gap-2">
               {[
                 { value: 'food', label: '美食' },
-                { value: 'drink', label: '饮品' },
-                { value: 'vibe', label: '氛围' },
+                { value: 'drink', label: '饮品/甜点' },
+                { value: 'vibe', label: '场景' },
                 { value: 'deal', label: '优惠' }
               ].map((opt) => (
                 <button

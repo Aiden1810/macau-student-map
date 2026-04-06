@@ -25,10 +25,10 @@ function hasDrawerFilters(filters: DrawerFiltersState): boolean {
 const L1_LABELS: Record<ShopCategoryKey, string> = {
   all: '全部',
   food: '美食',
-  drink: '饮品',
-  vibe: '氛围',
+  drink: '饮品/甜点',
+  vibe: '场景',
   deal: '优惠',
-  review: '口碑'
+  review: '榜单'
 };
 
 const SCENARIO_SHORTCUTS: Array<{
