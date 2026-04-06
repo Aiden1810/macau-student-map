@@ -32,14 +32,14 @@ const L1_LABELS: Record<ShopCategoryKey, string> = {
 };
 
 const SCENARIO_SHORTCUTS: Array<{
-  key: 'late-night' | 'student-deal' | 'photo' | 'top-rated';
+  key: 'student-deal' | 'top-rated' | 'delivery' | 'new-shop';
   label: string;
   helper: string;
 }> = [
-  {key: 'late-night', label: '夜宵', helper: '深夜营业'},
-  {key: 'student-deal', label: '学生优惠', helper: '学生价 / 有折扣'},
-  {key: 'photo', label: '适合拍照', helper: '出片氛围'},
-  {key: 'top-rated', label: '封神口碑', helper: '封神 / 强推'}
+  {key: 'student-deal', label: '💰 学生党必看', helper: '学生价 / 有折扣'},
+  {key: 'top-rated', label: '🏆 闭眼冲', helper: '封神之作 / 强推'},
+  {key: 'delivery', label: '🛵 外卖宅家', helper: '外卖可达'},
+  {key: 'new-shop', label: '🆕 新店尝鲜', helper: '本周新上'}
 ];
 
 function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
@@ -102,7 +102,7 @@ export default function Page() {
   const [activeL1, setActiveL1] = useState<ShopCategoryKey>('all');
   const [activeL2, setActiveL2] = useState<string | null>(null);
   const [drawerFilters, setDrawerFilters] = useState<DrawerFiltersState>(DEFAULT_DRAWER_FILTERS);
-  const [activeScenario, setActiveScenario] = useState<null | 'late-night' | 'student-deal' | 'photo' | 'top-rated'>(null);
+  const [activeScenario, setActiveScenario] = useState<null | 'student-deal' | 'top-rated' | 'delivery' | 'new-shop'>(null);
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
   const [collapseMobileSheetSignal, setCollapseMobileSheetSignal] = useState(0);
   const [locateSignal, setLocateSignal] = useState(0);
@@ -216,16 +216,16 @@ export default function Page() {
       return drawerFiltered;
     }
 
-    if (activeScenario === 'late-night') {
-      return drawerFiltered.filter((shop) => shop.features.includes('深夜营业'));
-    }
-
     if (activeScenario === 'student-deal') {
       return drawerFiltered.filter((shop) => shop.features.includes('学生价') || shop.features.includes('有折扣'));
     }
 
-    if (activeScenario === 'photo') {
-      return drawerFiltered.filter((shop) => shop.features.includes('适合拍照'));
+    if (activeScenario === 'delivery') {
+      return drawerFiltered.filter((shop) => shop.features.includes('外卖可达'));
+    }
+
+    if (activeScenario === 'new-shop') {
+      return drawerFiltered.filter((shop) => shop.tags.includes('本周新上') || shop.tags.includes('新店开业'));
     }
 
     return drawerFiltered.filter((shop) => ['封神之作', '强烈推荐'].includes(shop.ratingLabel));

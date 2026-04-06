@@ -23,7 +23,7 @@ const DRAWER_FILTERS = {
 } as const;
 
 interface ScenarioShortcut {
-  key: 'late-night' | 'student-deal' | 'photo' | 'top-rated';
+  key: 'student-deal' | 'top-rated' | 'delivery' | 'new-shop';
   label: string;
   helper: string;
 }
