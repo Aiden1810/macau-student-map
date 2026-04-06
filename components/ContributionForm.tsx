@@ -36,6 +36,68 @@ const RATING_OPTIONS: RatingOption[] = [
 const SHOP_TYPE_OPTIONS = ['正餐', '快餐小吃', '饮品甜点', '服务'] as const;
 const FEATURE_OPTIONS: ShopFeature[] = ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'];
 
+type AMapWindow = Window & {
+  AMap?: any;
+  __amapPlaceLoadingPromise?: Promise<any>;
+  _AMapSecurityConfig?: {securityJsCode?: string};
+};
+
+function getAmapFromWindow(): any | undefined {
+  return (window as AMapWindow).AMap;
+}
+
+function loadAmapPlaceSdk(key: string): Promise<any> {
+  if (typeof window === 'undefined') {
+    return Promise.reject(new Error('AMap only works in browser'));
+  }
+
+  const w = window as AMapWindow;
+  const securityCode = process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE;
+
+  if (securityCode && !w._AMapSecurityConfig) {
+    w._AMapSecurityConfig = {securityJsCode: securityCode};
+  }
+
+  if (w.AMap) {
+    return Promise.resolve(w.AMap);
+  }
+
+  if (w.__amapPlaceLoadingPromise) {
+    return w.__amapPlaceLoadingPromise;
+  }
+
+  w.__amapPlaceLoadingPromise = new Promise((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-amap="true"]');
+
+    if (existingScript) {
+      existingScript.addEventListener('load', () => {
+        if (w.AMap) resolve(w.AMap);
+      });
+      existingScript.addEventListener('error', () => reject(new Error('Failed to load AMap script')));
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.PlaceSearch`;
+    script.async = true;
+    script.defer = true;
+    script.dataset.amap = 'true';
+
+    script.onload = () => {
+      if (w.AMap) {
+        resolve(w.AMap);
+      } else {
+        reject(new Error('AMap script loaded but AMap is unavailable'));
+      }
+    };
+    script.onerror = () => reject(new Error('Failed to load AMap script'));
+
+    document.head.appendChild(script);
+  });
+
+  return w.__amapPlaceLoadingPromise;
+}
+
 export default function ContributionForm({
   onSuccess,
   onCancel,
@@ -73,6 +135,8 @@ export default function ContributionForm({
   );
 
   useEffect(() => {
+    let cancelled = false;
+
     const runGeocode = async () => {
       const amapKey = process.env.NEXT_PUBLIC_AMAP_WEB_KEY;
       const keyword = debouncedGeocodeQuery.trim();
@@ -86,56 +150,59 @@ export default function ContributionForm({
       setContributeError(null);
 
       try {
-        const searchAmap = async (searchKeyword: string, city: '澳门' | '珠海') => {
-          const endpoint = `https://restapi.amap.com/v3/place/text?key=${encodeURIComponent(amapKey)}&keywords=${encodeURIComponent(searchKeyword)}&city=${encodeURIComponent(city)}&citylimit=true&extensions=base&offset=8&page=1`;
-          const response = await fetch(endpoint);
+        const AMap = await loadAmapPlaceSdk(amapKey);
 
-          if (!response.ok) {
-            throw new Error(tContribute('searchFailed'));
-          }
+        const searchWithPlaceSearch = (city: string, searchKeyword: string): Promise<GeocodeOption[]> =>
+          new Promise((resolve, reject) => {
+            AMap.plugin('AMap.PlaceSearch', () => {
+              const placeSearch = new AMap.PlaceSearch({
+                city,
+                citylimit: true,
+                pageSize: 8,
+                pageIndex: 1,
+                extensions: 'base'
+              });
 
-          const payload = (await response.json()) as {
-            status?: string;
-            info?: string;
-            pois?: Array<{
-              id?: string;
-              name?: string;
-              address?: string;
-              pname?: string;
-              cityname?: string;
-              adname?: string;
-              location?: string;
-            }>;
-          };
+              placeSearch.search(searchKeyword, (status: string, result: any) => {
+                if (status !== 'complete' || !result?.poiList?.pois) {
+                  if (result?.info && result.info !== 'OK') {
+                    reject(new Error(result.info));
+                    return;
+                  }
+                  resolve([]);
+                  return;
+                }
 
-          if (payload.status !== '1') {
-            throw new Error(payload.info || tContribute('searchFailed'));
-          }
+                const options = (result.poiList.pois as any[])
+                  .map((poi) => {
+                    const lng = Number(poi?.location?.lng);
+                    const lat = Number(poi?.location?.lat);
 
-          return (payload.pois ?? [])
-            .map((poi) => {
-              const [lngRaw, latRaw] = (poi.location ?? '').split(',');
-              const lng = Number(lngRaw);
-              const lat = Number(latRaw);
+                    if (!poi?.id || Number.isNaN(lng) || Number.isNaN(lat)) {
+                      return null;
+                    }
 
-              if (!poi.id || Number.isNaN(lng) || Number.isNaN(lat)) {
-                return null;
-              }
+                    const region = [poi.pname, poi.cityname, poi.adname].filter(Boolean).join(' ');
+                    const address = [region, poi.address].filter(Boolean).join(' ');
 
-              const region = [poi.pname, poi.cityname, poi.adname].filter(Boolean).join(' ');
-              const address = [region, poi.address].filter(Boolean).join(' ');
+                    return {
+                      placeId: String(poi.id),
+                      name: String(poi.name || '').trim() || tContribute('unnamedPlace'),
+                      fullAddress: address.trim(),
+                      coordinates: [lng, lat] as [number, number]
+                    };
+                  })
+                  .filter((item): item is GeocodeOption => item !== null);
 
-              return {
-                placeId: String(poi.id),
-                name: poi.name?.trim() || tContribute('unnamedPlace'),
-                fullAddress: address.trim(),
-                coordinates: [lng, lat] as [number, number]
-              };
-            })
-            .filter((item): item is GeocodeOption => item !== null);
-        };
+                resolve(options);
+              });
+            });
+          });
 
-        const [macauOptions, zhuhaiOptions] = await Promise.all([searchAmap(keyword, '澳门'), searchAmap(keyword, '珠海')]);
+        const [macauOptions, zhuhaiOptions] = await Promise.all([
+          searchWithPlaceSearch('澳门', keyword),
+          searchWithPlaceSearch('珠海', keyword)
+        ]);
 
         let options = [...macauOptions, ...zhuhaiOptions].filter(
           (item, index, arr) => arr.findIndex((x) => x.placeId === item.placeId) === index
@@ -143,8 +210,8 @@ export default function ContributionForm({
 
         if (options.length === 0) {
           const [macauFallback, zhuhaiFallback] = await Promise.all([
-            searchAmap(`澳门特别行政区 ${keyword}`, '澳门'),
-            searchAmap(`珠海市 ${keyword}`, '珠海')
+            searchWithPlaceSearch('澳门', `澳门特别行政区 ${keyword}`),
+            searchWithPlaceSearch('珠海', `珠海市 ${keyword}`)
           ]);
 
           options = [...macauFallback, ...zhuhaiFallback].filter(
@@ -152,16 +219,26 @@ export default function ContributionForm({
           );
         }
 
-        setGeocodeResults(options);
+        if (!cancelled) {
+          setGeocodeResults(options);
+        }
       } catch (error) {
-        setGeocodeResults([]);
-        setContributeError(error instanceof Error ? error.message : tContribute('searchFailed'));
+        if (!cancelled) {
+          setGeocodeResults([]);
+          setContributeError(error instanceof Error ? error.message : tContribute('searchFailed'));
+        }
       } finally {
-        setGeocodeLoading(false);
+        if (!cancelled) {
+          setGeocodeLoading(false);
+        }
       }
     };
 
     runGeocode();
+
+    return () => {
+      cancelled = true;
+    };
   }, [debouncedGeocodeQuery, manualMode, tContribute]);
 
   const handleChoosePlace = async (option: GeocodeOption) => {

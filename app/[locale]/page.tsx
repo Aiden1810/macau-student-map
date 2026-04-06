@@ -566,7 +566,7 @@ export default function Page() {
       </div>
 
       {isContributeOpen && (
-        <div className="fixed inset-x-0 bottom-0 z-[70] max-h-[90dvh] overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:inset-auto md:static md:max-h-none md:overflow-visible md:px-0 md:pb-0">
+        <div className="fixed inset-x-0 bottom-0 z-[90] max-h-[90dvh] overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:inset-auto md:right-5 md:bottom-5 md:w-[420px] md:max-h-[calc(100dvh-96px)] md:px-0 md:pb-0">
           <ContributionForm
             manualCoordinates={manualCoordinates}
             onRequestMapPick={() => {
