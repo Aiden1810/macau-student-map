@@ -448,6 +448,9 @@ export default function Page() {
           activeScenario={activeScenario}
           onChangeActiveScenario={setActiveScenario}
           scenarioShortcuts={SCENARIO_SHORTCUTS}
+          activeL1={activeL1}
+          activeL2={activeL2}
+          onL2Change={handleTopFilterChange}
         />
       </div>
 

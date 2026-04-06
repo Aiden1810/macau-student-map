@@ -1,10 +1,11 @@
 import Image from 'next/image';
 import {ChevronDown, MessageCircle, Navigation, Search, SlidersHorizontal, Star, StarHalf} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState} from 'react';
+import {L2_TAGS} from '@/components/FilterBar';
 import MobileShopDetailModal from '@/components/MobileShopDetailModal';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
-import {DrawerFiltersState, FILTERABLE_RATING_LABELS, Shop, SHOP_DRAWER_TYPES, SHOP_FEATURE_OPTIONS} from '@/types/shop';
+import {DrawerFiltersState, FILTERABLE_RATING_LABELS, Shop, ShopCategoryKey, SHOP_DRAWER_TYPES, SHOP_FEATURE_OPTIONS} from '@/types/shop';
 
 const DRAWER_FILTERS = {
   shopType: {
@@ -53,6 +54,9 @@ interface ShopListProps {
   activeScenario?: ScenarioShortcut['key'] | null;
   onChangeActiveScenario?: (next: ScenarioShortcut['key'] | null) => void;
   scenarioShortcuts?: ScenarioShortcut[];
+  activeL1?: ShopCategoryKey;
+  activeL2?: string | null;
+  onL2Change?: (l1: ShopCategoryKey, l2: string | null) => void;
 }
 
 const SHEET_COLLAPSED_HEIGHT = 215;
@@ -91,7 +95,10 @@ export default function ShopList({
   onResetDrawerFilters,
   activeScenario = null,
   onChangeActiveScenario,
-  scenarioShortcuts = []
+  scenarioShortcuts = [],
+  activeL1 = 'all',
+  activeL2 = null,
+  onL2Change
 }: ShopListProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(0);
@@ -380,7 +387,7 @@ export default function ShopList({
           <input
             type="text"
             placeholder="搜索店铺、美食、地点…"
-            className="h-[37px] w-full rounded-[13px] border-0 bg-[rgba(255,255,255,0.55)] py-2 pl-10 pr-16 text-sm text-[#0d2918] placeholder:text-[#1A5C2E]/60 outline-none backdrop-blur-[16px] ring-0"
+            className="h-[37px] w-full rounded-[13px] appearance-none bg-[rgba(255,255,255,0.55)] py-2 pl-10 pr-16 text-sm text-[#0d2918] placeholder:text-[#1A5C2E]/60 shadow-[0_0_0_1px_rgba(255,255,255,0.6)] outline-none focus:outline-none focus:ring-0"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -394,6 +401,34 @@ export default function ShopList({
             </button>
           )}
         </div>
+
+        {/* L2 sub-tags strip — shown in drawer when a category is selected */}
+        {activeL1 !== 'all' && onL2Change && (() => {
+          const groupMap = (L2_TAGS as Partial<Record<Exclude<ShopCategoryKey, 'all'>, Record<string, readonly string[]>>>)[activeL1 as Exclude<ShopCategoryKey, 'all'>] ?? {};
+          const allTags = Object.values(groupMap).flat();
+          if (allTags.length === 0) return null;
+          return (
+            <div className="hide-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-1">
+              {allTags.map((tag) => {
+                const isActive = activeL2 === tag;
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => onL2Change(activeL1, isActive ? null : tag)}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
+                      isActive
+                        ? 'bg-[#006633] text-white'
+                        : 'bg-white/60 text-[#0d2918]'
+                    }`}
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         <div className="mb-2 flex items-center justify-between">
           <p className="text-sm font-semibold text-[#0d2918]">场景筛选</p>
@@ -435,7 +470,7 @@ export default function ShopList({
             {loading ? (
               <div className="space-y-2">
                 {Array.from({length: 4}).map((_, index) => (
-                  <div key={`mobile-skeleton-${index}`} className="rounded-2xl border border-white/50 bg-white/38 p-3">
+                  <div key={`mobile-skeleton-${index}`} className="rounded-2xl bg-white/38 p-3">
                     <ShopCardSkeleton />
                   </div>
                 ))}
