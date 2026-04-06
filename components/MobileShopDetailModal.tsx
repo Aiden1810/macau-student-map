@@ -65,7 +65,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
   const [commentsLoading, setCommentsLoading] = useState(true);
 
   // Post comment state
-  const [commentRating, setCommentRating] = useState<1 | 2 | 3 | 4 | 5>(5);
+  const [commentRating, setCommentRating] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
   const [commentContent, setCommentContent] = useState('');
   const [commentImageUrls, setCommentImageUrls] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -117,7 +117,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
     if (open) {
       fetchComments();
       setCommentContent('');
-      setCommentRating(5);
+      setCommentRating(0);
       setCommentImageUrls([]);
       setSubmitMessage(null);
       setSubmitError(null);
@@ -152,6 +152,10 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
 
   const handleSubmitComment = async () => {
     if (!commentContent.trim() || submitting) return;
+    if (commentRating === 0) {
+      setSubmitError('请先点击星星进行评分');
+      return;
+    }
 
     setSubmitting(true);
     setSubmitError(null);
@@ -185,7 +189,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
       }
 
       setCommentContent('');
-      setCommentRating(5);
+      setCommentRating(0);
       setCommentImageUrls([]);
       setSubmitMessage('评论发布成功');
       await fetchComments();
@@ -321,7 +325,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
               <button
                 type="button"
                 onClick={handleSubmitComment}
-                disabled={submitting || !commentContent.trim()}
+                disabled={submitting || !commentContent.trim() || commentRating === 0}
                 className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? '发布中...' : '发布'}
