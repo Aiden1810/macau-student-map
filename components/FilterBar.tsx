@@ -42,6 +42,14 @@ interface FilterBarProps {
   onChange: (l1: ShopCategoryKey, l2: string | null) => void;
 }
 
+const MOBILE_GLASS_STYLE = {
+  background: 'rgba(255, 255, 255, 0.18)',
+  backdropFilter: 'blur(28px) saturate(2.2)',
+  WebkitBackdropFilter: 'blur(28px) saturate(2.2)',
+  border: '0.5px solid rgba(255, 255, 255, 0.65)',
+  boxShadow: '0 3px 18px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.55)'
+} as const;
+
 export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps) {
   const groupedL2Tags = useMemo(() => {
     if (activeL1 === 'all') {
@@ -52,26 +60,29 @@ export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps
   }, [activeL1]);
 
   return (
-    <section className="rounded-2xl border border-slate-200/80 bg-white/95 px-3 py-2.5 shadow-sm backdrop-blur md:px-4 md:py-3">
+    <section className="rounded-2xl px-2 py-2 md:rounded-2xl md:border md:border-slate-200/80 md:bg-white/95 md:px-4 md:py-3 md:shadow-sm md:backdrop-blur" style={MOBILE_GLASS_STYLE}>
       <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
-        {L1_TABS.map((tab) => (
-          <button
-            key={tab.key}
-            type="button"
-            onClick={() => onChange(tab.key, null)}
-            className={`min-h-10 shrink-0 rounded-full border px-4 text-sm font-semibold transition ${
-              activeL1 === tab.key
-                ? 'border-[#006633] bg-[#006633] text-white'
-                : 'border-slate-200 bg-slate-50 text-slate-700 active:scale-[0.99]'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {L1_TABS.map((tab) => {
+          const isReview = tab.key === 'review';
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => onChange(tab.key, null)}
+              className={`min-h-10 shrink-0 rounded-2xl border px-4 text-sm font-semibold transition ${isReview ? 'hidden md:inline-flex' : 'inline-flex'} ${
+                activeL1 === tab.key
+                  ? 'border-[rgba(60,160,80,0.25)] bg-[rgba(22,80,38,0.82)] text-[rgba(210,255,225,0.95)]'
+                  : 'border-white/45 bg-white/5 text-[#0d2918] md:border-slate-200 md:bg-slate-50 md:text-slate-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {activeL1 !== 'all' && (
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 hidden space-y-2 md:block">
           {Object.entries(groupedL2Tags).map(([group, tags]) => (
             <div key={group} className="space-y-1">
               <p className="px-1 text-xs font-semibold text-slate-500">{group}</p>

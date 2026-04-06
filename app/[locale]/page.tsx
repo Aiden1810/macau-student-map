@@ -37,9 +37,9 @@ const SCENARIO_SHORTCUTS: Array<{
   helper: string;
 }> = [
   {key: 'late-night', label: '夜宵', helper: '深夜营业'},
-  {key: 'student-deal', label: '学生党优惠', helper: '学生价 / 有折扣'},
+  {key: 'student-deal', label: '学生优惠', helper: '学生价 / 有折扣'},
   {key: 'photo', label: '适合拍照', helper: '出片氛围'},
-  {key: 'top-rated', label: '高分口碑', helper: '封神 / 强推'}
+  {key: 'top-rated', label: '封神口碑', helper: '封神 / 强推'}
 ];
 
 function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
@@ -369,66 +369,202 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-slate-50 text-slate-800">
-      <Header
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        searchPlaceholder={t('searchPlaceholder')}
-        isAdmin={isAdmin}
-        userEmail={userEmail}
-        loginHref="/admin-login"
-        onLogout={handleLogout}
-        onToggleContribute={() => {
-          setIsContributeOpen((prev) => !prev);
-          setMapPickMode(false);
-          setManualCoordinates(null);
-          setPageError(null);
-          setPageNotice(null);
-        }}
-        contributeLabel={tContribute('button')}
-      />
-
-      <main className="relative mx-auto max-w-7xl px-4 pt-1.5 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:px-6 sm:pt-2 md:h-[calc(100dvh-4rem)] md:pb-4 lg:px-8">
-        <div className="mb-0">
-          <FilterBar activeL1={activeL1} activeL2={activeL2} onChange={handleTopFilterChange} />
+    <div className="min-h-[100dvh] text-slate-800 md:bg-slate-50">
+      <div className="relative md:hidden">
+        <div className="h-[100dvh] w-full">
+          <MapPlaceholder
+            shops={displayedShops}
+            selectedShopId={selectedShopId}
+            locateSignal={locateSignal}
+            onSelectShop={setSelectedShopId}
+            contributionPickMode={mapPickMode}
+            onPickCoordinates={(coords) => {
+              setManualCoordinates(coords);
+              setMapPickMode(false);
+            }}
+          />
         </div>
 
-        <section className="mt-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
-          <div className="mb-1.5 flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-700">场景快捷筛选</p>
-            {activeScenario && (
-              <button
-                type="button"
-                onClick={() => setActiveScenario(null)}
-                className="text-xs font-medium text-slate-500 hover:text-slate-700"
-              >
-                清除场景
-              </button>
-            )}
-          </div>
-          <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
-            {SCENARIO_SHORTCUTS.map((scenario) => {
-              const active = activeScenario === scenario.key;
-              return (
-                <button
-                  key={scenario.key}
-                  type="button"
-                  onClick={() => setActiveScenario(active ? null : scenario.key)}
-                  className={`shrink-0 rounded-xl border px-3 py-2 text-left transition ${
-                    active
-                      ? 'border-[#006633] bg-[#006633]/5 text-[#006633]'
-                      : 'border-slate-200 bg-slate-50 text-slate-700'
-                  }`}
-                >
-                  <p className="text-xs font-semibold">{scenario.label}</p>
-                  <p className="text-[11px] opacity-80">{scenario.helper}</p>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-40 px-[14px] pt-[56px]">
+          <Header
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            searchPlaceholder={t('searchPlaceholder')}
+            isAdmin={isAdmin}
+            userEmail={userEmail}
+            loginHref="/admin-login"
+            onLogout={handleLogout}
+            onToggleContribute={() => {
+              setIsContributeOpen((prev) => !prev);
+              setMapPickMode(false);
+              setManualCoordinates(null);
+              setPageError(null);
+              setPageNotice(null);
+            }}
+            contributeLabel={tContribute('button')}
+          />
 
-        {isContributeOpen && (
+          <div className="pointer-events-auto mt-3">
+            <FilterBar activeL1={activeL1} activeL2={activeL2} onChange={handleTopFilterChange} />
+          </div>
+        </div>
+
+        {pageError && (
+          <p className="pointer-events-none absolute left-[14px] right-[14px] top-[168px] z-40 rounded-xl border border-rose-200/80 bg-rose-50/90 px-3 py-2 text-sm text-rose-700 shadow-sm">
+            {pageError}
+          </p>
+        )}
+        {pageNotice && (
+          <p className="pointer-events-none absolute left-[14px] right-[14px] top-[168px] z-40 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-sm text-emerald-700 shadow-sm">
+            {pageNotice}
+          </p>
+        )}
+
+        <ShopList
+          filteredShops={displayedShops}
+          loading={loading}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onLocateShop={handleLocateShop}
+          mobileSearchPlaceholder={t('mobileSearchPlaceholder')}
+          emptyText={t('emptyResult')}
+          hasAnyShops={visibleShops.length > 0}
+          hasActiveFilters={hasActiveFilters}
+          activeFilterLabels={activeFilterLabels}
+          onClearSearch={() => setSearchQuery('')}
+          onClearAllFilters={resetAllFiltersAndSearch}
+          canApprove={isAdmin}
+          approvingShopId={approvingShopId}
+          onApproveShop={handleApproveShop}
+          canDelete={isAdmin}
+          deletingShopId={deletingShopId}
+          onDeleteShop={handleDeleteShop}
+          collapseMobileSheetSignal={collapseMobileSheetSignal}
+          drawerFilters={drawerFilters}
+          onChangeDrawerFilters={setDrawerFilters}
+          onResetDrawerFilters={() => setDrawerFilters(DEFAULT_DRAWER_FILTERS)}
+          activeScenario={activeScenario}
+          onChangeActiveScenario={setActiveScenario}
+          scenarioShortcuts={SCENARIO_SHORTCUTS}
+        />
+      </div>
+
+      <div className="hidden md:block">
+        <Header
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          searchPlaceholder={t('searchPlaceholder')}
+          isAdmin={isAdmin}
+          userEmail={userEmail}
+          loginHref="/admin-login"
+          onLogout={handleLogout}
+          onToggleContribute={() => {
+            setIsContributeOpen((prev) => !prev);
+            setMapPickMode(false);
+            setManualCoordinates(null);
+            setPageError(null);
+            setPageNotice(null);
+          }}
+          contributeLabel={tContribute('button')}
+        />
+
+        <main className="relative mx-auto max-w-7xl px-4 pt-1.5 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:px-6 sm:pt-2 md:h-[calc(100dvh-4rem)] md:pb-4 lg:px-8">
+          <div className="mb-0">
+            <FilterBar activeL1={activeL1} activeL2={activeL2} onChange={handleTopFilterChange} />
+          </div>
+
+          <section className="mt-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <p className="text-sm font-semibold text-slate-700">场景快捷筛选</p>
+              {activeScenario && (
+                <button
+                  type="button"
+                  onClick={() => setActiveScenario(null)}
+                  className="text-xs font-medium text-slate-500 hover:text-slate-700"
+                >
+                  清除场景
+                </button>
+              )}
+            </div>
+            <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
+              {SCENARIO_SHORTCUTS.map((scenario) => {
+                const active = activeScenario === scenario.key;
+                return (
+                  <button
+                    key={scenario.key}
+                    type="button"
+                    onClick={() => setActiveScenario(active ? null : scenario.key)}
+                    className={`shrink-0 rounded-xl border px-3 py-2 text-left transition ${
+                      active
+                        ? 'border-[#006633] bg-[#006633]/5 text-[#006633]'
+                        : 'border-slate-200 bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <p className="text-xs font-semibold">{scenario.label}</p>
+                    <p className="text-[11px] opacity-80">{scenario.helper}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {pageError && (
+            <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 shadow-sm">{pageError}</p>
+          )}
+          {pageNotice && (
+            <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 shadow-sm">{pageNotice}</p>
+          )}
+
+          <div className="grid grid-cols-1 gap-0 md:h-[calc(100dvh-11rem)] md:grid-cols-12 md:gap-6">
+            <div className="order-1 h-[58dvh] min-h-[360px] md:order-2 md:col-span-8 md:h-full lg:col-span-8">
+              <MapPlaceholder
+                shops={displayedShops}
+                selectedShopId={selectedShopId}
+                locateSignal={locateSignal}
+                onSelectShop={setSelectedShopId}
+                contributionPickMode={mapPickMode}
+                onPickCoordinates={(coords) => {
+                  setManualCoordinates(coords);
+                  setMapPickMode(false);
+                }}
+              />
+            </div>
+
+            <div className="order-2 min-h-0 md:order-1 md:col-span-4 lg:col-span-4">
+              <ShopList
+                filteredShops={displayedShops}
+                loading={loading}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                onLocateShop={handleLocateShop}
+                mobileSearchPlaceholder={t('mobileSearchPlaceholder')}
+                emptyText={t('emptyResult')}
+                hasAnyShops={visibleShops.length > 0}
+                hasActiveFilters={hasActiveFilters}
+                activeFilterLabels={activeFilterLabels}
+                onClearSearch={() => setSearchQuery('')}
+                onClearAllFilters={resetAllFiltersAndSearch}
+                canApprove={isAdmin}
+                approvingShopId={approvingShopId}
+                onApproveShop={handleApproveShop}
+                canDelete={isAdmin}
+                deletingShopId={deletingShopId}
+                onDeleteShop={handleDeleteShop}
+                collapseMobileSheetSignal={collapseMobileSheetSignal}
+                drawerFilters={drawerFilters}
+                onChangeDrawerFilters={setDrawerFilters}
+                onResetDrawerFilters={() => setDrawerFilters(DEFAULT_DRAWER_FILTERS)}
+                activeScenario={activeScenario}
+                onChangeActiveScenario={setActiveScenario}
+                scenarioShortcuts={SCENARIO_SHORTCUTS}
+              />
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {isContributeOpen && (
+        <div className="fixed inset-x-0 bottom-0 z-[70] max-h-[90dvh] overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:inset-auto md:static md:max-h-none md:overflow-visible md:px-0 md:pb-0">
           <ContributionForm
             manualCoordinates={manualCoordinates}
             onRequestMapPick={() => {
@@ -449,58 +585,8 @@ export default function Page() {
               setManualCoordinates(null);
             }}
           />
-        )}
-
-        {pageError && (
-          <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 shadow-sm">{pageError}</p>
-        )}
-        {pageNotice && (
-          <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 shadow-sm">{pageNotice}</p>
-        )}
-
-        <div className="grid grid-cols-1 gap-0 md:h-[calc(100dvh-11rem)] md:grid-cols-12 md:gap-6">
-          <div className="order-1 h-[58dvh] min-h-[360px] md:order-2 md:col-span-8 md:h-full lg:col-span-8">
-            <MapPlaceholder
-              shops={displayedShops}
-              selectedShopId={selectedShopId}
-              locateSignal={locateSignal}
-              onSelectShop={setSelectedShopId}
-              contributionPickMode={mapPickMode}
-              onPickCoordinates={(coords) => {
-                setManualCoordinates(coords);
-                setMapPickMode(false);
-              }}
-            />
-          </div>
-
-          <div className="order-2 min-h-0 md:order-1 md:col-span-4 lg:col-span-4">
-            <ShopList
-              filteredShops={displayedShops}
-              loading={loading}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              onLocateShop={handleLocateShop}
-              mobileSearchPlaceholder={t('mobileSearchPlaceholder')}
-              emptyText={t('emptyResult')}
-              hasAnyShops={visibleShops.length > 0}
-              hasActiveFilters={hasActiveFilters}
-              activeFilterLabels={activeFilterLabels}
-              onClearSearch={() => setSearchQuery('')}
-              onClearAllFilters={resetAllFiltersAndSearch}
-              canApprove={isAdmin}
-              approvingShopId={approvingShopId}
-              onApproveShop={handleApproveShop}
-              canDelete={isAdmin}
-              deletingShopId={deletingShopId}
-              onDeleteShop={handleDeleteShop}
-              collapseMobileSheetSignal={collapseMobileSheetSignal}
-              drawerFilters={drawerFilters}
-              onChangeDrawerFilters={setDrawerFilters}
-              onResetDrawerFilters={() => setDrawerFilters(DEFAULT_DRAWER_FILTERS)}
-            />
-          </div>
         </div>
-      </main>
+      )}
     </div>
   );
 }

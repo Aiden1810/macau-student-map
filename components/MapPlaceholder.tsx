@@ -34,6 +34,9 @@ type AMapMapInstance = {
   destroy: () => void;
   setZoomAndCenter: (zoom: number, center: [number, number], immediately?: boolean, options?: {duration?: number}) => void;
   setFitView?: (overlays?: unknown[], immediately?: boolean, avoid?: number[], maxZoom?: number) => void;
+  getZoom?: () => number;
+  getCenter?: () => {getLng: () => number; getLat: () => number};
+  setZoom?: (zoom: number, immediately?: boolean, options?: {duration?: number}) => void;
 };
 
 type AMapGeolocation = {
@@ -226,6 +229,7 @@ export default function MapPlaceholder({
 
   const [mapReady, setMapReady] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [mapViewport, setMapViewport] = useState<{zoom: number; center: [number, number] | null}>({zoom: 14, center: null});
   const lastLocateSignalRef = useRef(0);
   const lastSelectedShopIdRef = useRef<Shop['id'] | null>(null);
   const contributionPickModeRef = useRef(contributionPickMode);
@@ -255,6 +259,7 @@ export default function MapPlaceholder({
     map.setZoomAndCenter(isMobile ? 15.4 : 16, [longitude, latitude], true, {
       duration: isMobile ? 620 : 800
     });
+    setMapViewport({zoom: isMobile ? 15.4 : 16, center: [longitude, latitude]});
   };
 
   useEffect(() => {
@@ -296,12 +301,20 @@ export default function MapPlaceholder({
         });
 
         map.addControl(new AMap.Scale());
-        map.addControl(new AMap.ToolBar({position: {right: '16px', top: '16px'}}));
 
         map.on('click', (event) => {
           if (!contributionPickModeRef.current || !onPickCoordinatesRef.current) return;
           const lnglat = event.lnglat;
           onPickCoordinatesRef.current([lnglat.getLng(), lnglat.getLat()]);
+        });
+
+        map.on('moveend', () => {
+          const currentZoom = map.getZoom?.() ?? 14;
+          const currentCenter = map.getCenter?.();
+          setMapViewport({
+            zoom: currentZoom,
+            center: currentCenter ? [currentCenter.getLng(), currentCenter.getLat()] : null
+          });
         });
 
         mapRef.current = map;
@@ -483,17 +496,61 @@ export default function MapPlaceholder({
     });
   };
 
+  const handleZoomIn = () => {
+    const map = mapRef.current;
+    if (!map?.setZoom) return;
+    const currentZoom = map.getZoom?.() ?? mapViewport.zoom;
+    map.setZoom(Math.min(currentZoom + 1, 20), true, {duration: 220});
+  };
+
+  const handleZoomOut = () => {
+    const map = mapRef.current;
+    if (!map?.setZoom) return;
+    const currentZoom = map.getZoom?.() ?? mapViewport.zoom;
+    map.setZoom(Math.max(currentZoom - 1, 3), true, {duration: 220});
+  };
+
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_10px_28px_rgba(2,30,18,0.08)] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]">
+    <div className="relative h-full w-full overflow-hidden rounded-none border-0 bg-transparent shadow-none md:rounded-2xl md:border md:border-slate-200/90 md:bg-white md:shadow-[0_10px_28px_rgba(2,30,18,0.08)] md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)]">
       <div ref={containerRef} className="h-full w-full" />
 
-      <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col gap-2">
+      <div className="pointer-events-none absolute right-3 top-1/2 z-20 flex -translate-y-1/2 flex-col md:hidden">
+        <button
+          type="button"
+          onClick={handleZoomIn}
+          className="pointer-events-auto h-10 w-10 rounded-t-[11px] rounded-b-[4px] border border-white/60 bg-white/18 text-base font-bold text-[#0d2918]"
+          style={{
+            backdropFilter: 'blur(28px) saturate(2.2)',
+            WebkitBackdropFilter: 'blur(28px) saturate(2.2)',
+            boxShadow: '0 3px 18px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.55)'
+          }}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={handleZoomOut}
+          className="pointer-events-auto mt-[1px] h-10 w-10 rounded-t-[4px] rounded-b-[11px] border border-white/60 bg-white/18 text-base font-bold text-[#0d2918]"
+          style={{
+            backdropFilter: 'blur(28px) saturate(2.2)',
+            WebkitBackdropFilter: 'blur(28px) saturate(2.2)',
+            boxShadow: '0 3px 18px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.55)'
+          }}
+        >
+          −
+        </button>
+
         <button
           type="button"
           onClick={handleLocateMe}
-          className="pointer-events-auto rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs font-semibold text-slate-700 shadow hover:bg-white"
+          className="pointer-events-auto mt-2 h-10 w-10 rounded-[11px] border border-white/60 bg-white/18 text-[11px] font-semibold text-[#0d2918]"
+          style={{
+            backdropFilter: 'blur(28px) saturate(2.2)',
+            WebkitBackdropFilter: 'blur(28px) saturate(2.2)',
+            boxShadow: '0 3px 18px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.55)'
+          }}
         >
-          {geoLoading ? '定位中...' : '定位到我'}
+          {geoLoading ? '...' : '定位'}
         </button>
       </div>
     </div>
