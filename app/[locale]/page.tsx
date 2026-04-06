@@ -475,6 +475,32 @@ export default function Page() {
             <FilterBar activeL1={activeL1} activeL2={activeL2} onChange={handleTopFilterChange} />
           </div>
 
+          {isContributeOpen && (
+            <div className="mt-2 max-h-[60dvh] overflow-y-auto">
+              <ContributionForm
+                manualCoordinates={manualCoordinates}
+                onRequestMapPick={() => {
+                  setMapPickMode(true);
+                  setViewMode('map');
+                }}
+                onCancel={() => {
+                  setIsContributeOpen(false);
+                  setMapPickMode(false);
+                  setManualCoordinates(null);
+                }}
+                onSuccess={async () => {
+                  await fetchShops();
+                  setPageNotice(tContribute('submitSuccess'));
+                  setPageError(null);
+                  setIsContributeOpen(false);
+                  setMapPickMode(false);
+                  setManualCoordinates(null);
+                }}
+              />
+            </div>
+          )}
+
+
           <section className="mt-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
             <div className="mb-1.5 flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-700">场景快捷筛选</p>
@@ -566,7 +592,7 @@ export default function Page() {
       </div>
 
       {isContributeOpen && (
-        <div className="fixed inset-x-0 bottom-0 z-[90] max-h-[90dvh] overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:inset-auto md:right-5 md:bottom-5 md:w-[420px] md:max-h-[calc(100dvh-96px)] md:px-0 md:pb-0">
+        <div className="fixed inset-x-0 bottom-0 z-[90] max-h-[90dvh] overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:hidden">
           <ContributionForm
             manualCoordinates={manualCoordinates}
             onRequestMapPick={() => {

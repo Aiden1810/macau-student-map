@@ -1,5 +1,7 @@
-import {ChevronDown, Search, SlidersHorizontal} from 'lucide-react';
+import Image from 'next/image';
+import {ChevronDown, MessageCircle, Navigation, Search, SlidersHorizontal, Star, StarHalf} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState} from 'react';
+import MobileShopDetailModal from '@/components/MobileShopDetailModal';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
 import {DrawerFiltersState, FILTERABLE_RATING_LABELS, Shop, SHOP_DRAWER_TYPES, SHOP_FEATURE_OPTIONS} from '@/types/shop';
@@ -95,6 +97,7 @@ export default function ShopList({
   const [mobileHeight, setMobileHeight] = useState(0);
   const [isMobileFilterExpanded, setIsMobileFilterExpanded] = useState(false);
   const [recentlyLocatedShopId, setRecentlyLocatedShopId] = useState<Shop['id'] | null>(null);
+  const [mobileDetailShop, setMobileDetailShop] = useState<Shop | null>(null);
   const dragStartYRef = useRef<number | null>(null);
   const dragStartHeightRef = useRef<number>(0);
   const locateHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -444,32 +447,111 @@ export default function ShopList({
               </div>
             ) : (
               <div className="space-y-2">
-                {filteredShops.map((shop) => (
-                  <button
-                    key={shop.id}
-                    type="button"
-                    onClick={() => handleLocateWithHighlight(shop.id)}
-                    className="w-full rounded-2xl border border-white/55 bg-white/40 px-3 py-2 text-left"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="h-8 w-8 shrink-0 rounded-xl bg-[rgba(26,92,46,0.16)]" />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-[#0d2918]">{shop.name}</p>
-                          <p className="truncate text-xs text-[#1A5C2E]/80">{shop.shopType} · 暂无距离</p>
+                {filteredShops.map((shop) => {
+                  const coverUrl = shop.imageUrls?.[0] ?? '';
+                  const hasImage = typeof coverUrl === 'string' && coverUrl.trim().length > 0;
+                  const safeRating = Number.isFinite(shop.rating) ? Math.max(0, Math.min(5, shop.rating)) : 0;
+                  const rFull = Math.floor(safeRating);
+                  const rHalf = safeRating - rFull >= 0.5;
+                  const rEmpty = 5 - rFull - (rHalf ? 1 : 0);
+
+                  return (
+                    <div
+                      key={shop.id}
+                      className="w-full rounded-2xl border border-white/55 bg-white/40 px-3 py-2.5"
+                    >
+                      <div className="flex items-start gap-2.5">
+                        {/* Thumbnail */}
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/60">
+                          {hasImage ? (
+                            <Image
+                              src={coverUrl}
+                              alt={shop.name}
+                              width={48}
+                              height={48}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-[rgba(26,92,46,0.12)]">
+                              <svg viewBox="0 0 120 80" className="h-5 w-7 text-[#1A5C2E]/40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M14 33L20 18H100L106 33" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
+                                <path d="M18 33H102V64H18V33Z" stroke="currentColor" strokeWidth="6" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="truncate text-sm font-semibold text-[#0d2918]">{shop.name}</p>
+                            <span className="shrink-0 rounded-xl bg-[rgba(26,92,46,0.10)] px-2 py-0.5 text-[11px] font-semibold text-[#1A5C2E]">
+                              {shop.ratingLabel}
+                            </span>
+                          </div>
+                          <p className="truncate text-xs text-[#1A5C2E]/80 mt-0.5">{shop.shopType}</p>
+
+                          {/* Stars */}
+                          <div className="mt-1 flex items-center gap-1">
+                            <div className="flex items-center gap-px">
+                              {Array.from({length: rFull}).map((_, i) => (
+                                <Star key={`sf-${i}`} className="h-3 w-3 fill-amber-400 text-amber-400" />
+                              ))}
+                              {rHalf && <StarHalf className="h-3 w-3 fill-amber-400 text-amber-400" />}
+                              {Array.from({length: rEmpty}).map((_, i) => (
+                                <Star key={`se-${i}`} className="h-3 w-3 text-slate-300" />
+                              ))}
+                            </div>
+                            <span className="text-xs font-semibold text-[#0d2918]">{safeRating.toFixed(1)}</span>
+                            <span className="text-[11px] text-[#1A5C2E]/60">({shop.reviews}条评论)</span>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMobileDetailShop(shop);
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg border border-[rgba(26,92,46,0.20)] bg-[rgba(26,92,46,0.06)] px-2 py-1 text-[11px] font-semibold text-[#1A5C2E] transition active:bg-[rgba(26,92,46,0.12)]"
+                            >
+                              <MessageCircle className="h-3 w-3" />
+                              查看评论
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLocateWithHighlight(shop.id);
+                              }}
+                              className="inline-flex items-center gap-1 text-[11px] font-medium text-[#1A5C2E]/70 transition active:text-[#1A5C2E]"
+                            >
+                              <Navigation className="h-3 w-3" />
+                              查看位置
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <span className="shrink-0 rounded-xl bg-[rgba(26,92,46,0.10)] px-2 py-1 text-[11px] font-semibold text-[#1A5C2E]">
-                        {shop.ratingLabel}
-                      </span>
                     </div>
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         )}
       </div>
+
+      {mobileDetailShop && (
+        <MobileShopDetailModal
+          shop={mobileDetailShop}
+          open={!!mobileDetailShop}
+          onClose={() => setMobileDetailShop(null)}
+          onLocate={(shopId) => {
+            handleLocateWithHighlight(shopId);
+          }}
+        />
+      )}
     </>
   );
 }
