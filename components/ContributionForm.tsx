@@ -141,6 +141,7 @@ export default function ContributionForm({
   const [ratingScore, setRatingScore] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
   const [selectedFeatures, setSelectedFeatures] = useState<ShopFeature[]>([]);
   const [selectedPresetTags, setSelectedPresetTags] = useState<string[]>([]);
+  const [expandedSecondaryTagGroups, setExpandedSecondaryTagGroups] = useState(false);
 
   const [reviewText, setReviewText] = useState('');
   const [tagsInput, setTagsInput] = useState('');
@@ -168,6 +169,16 @@ export default function ContributionForm({
       }))
       .filter((group) => group.tags.length > 0);
   }, []);
+
+  const primaryTagGroup = useMemo(() => {
+    if (!category) return null;
+    return allL2Groups.find((group) => group.id === category) ?? null;
+  }, [allL2Groups, category]);
+
+  const secondaryTagGroups = useMemo(() => {
+    if (!category) return allL2Groups;
+    return allL2Groups.filter((group) => group.id !== category);
+  }, [allL2Groups, category]);
 
   useEffect(() => {
     let cancelled = false;
@@ -532,7 +543,10 @@ export default function ContributionForm({
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setCategory(opt.value as 'food' | 'drink' | 'vibe' | 'deal')}
+                  onClick={() => {
+                    setCategory(opt.value as 'food' | 'drink' | 'vibe' | 'deal');
+                    setExpandedSecondaryTagGroups(false);
+                  }}
                   className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
                     category === opt.value
                       ? 'border-[#006633] bg-[#006633] text-white'
@@ -608,34 +622,80 @@ export default function ContributionForm({
 
           <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
             <label className="mb-3 block text-sm font-medium text-slate-700">全库扩展标签（可跨类多选）</label>
-            <div className="space-y-4">
-              {allL2Groups.map((group) => (
-                <div key={group.id}>
-                  <p className="mb-2 text-xs font-semibold text-slate-500">{group.title}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {group.tags.map((tag) => {
-                      const checked = selectedPresetTags.includes(tag);
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => {
-                            setSelectedPresetTags((prev) =>
-                              checked ? prev.filter((item) => item !== tag) : [...prev, tag]
-                            );
-                          }}
-                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                            checked ? 'border-[#006633] bg-[#006633] text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          {tag}
-                        </button>
-                      );
-                    })}
-                  </div>
+
+            {category && primaryTagGroup && (
+              <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-emerald-800">主分类优先：{primaryTagGroup.title}</p>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700">推荐优先选择</span>
                 </div>
-              ))}
+                <div className="flex flex-wrap gap-2">
+                  {primaryTagGroup.tags.map((tag) => {
+                    const checked = selectedPresetTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPresetTags((prev) =>
+                            checked ? prev.filter((item) => item !== tag) : [...prev, tag]
+                          );
+                        }}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                          checked
+                            ? 'border-[#006633] bg-[#006633] text-white shadow-sm'
+                            : 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50'
+                        }`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-slate-500">其他标签组（次级）</p>
+              <button
+                type="button"
+                onClick={() => setExpandedSecondaryTagGroups((prev) => !prev)}
+                className="text-xs font-medium text-[#006633] hover:underline"
+              >
+                {expandedSecondaryTagGroups ? '收起其他标签' : '展开其他标签'}
+              </button>
             </div>
+
+            {expandedSecondaryTagGroups && (
+              <div className="space-y-4">
+                {secondaryTagGroups.map((group) => (
+                  <div key={group.id}>
+                    <p className="mb-2 text-xs font-semibold text-slate-500">{group.title}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {group.tags.map((tag) => {
+                        const checked = selectedPresetTags.includes(tag);
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => {
+                              setSelectedPresetTags((prev) =>
+                                checked ? prev.filter((item) => item !== tag) : [...prev, tag]
+                              );
+                            }}
+                            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                              checked ? 'border-[#006633] bg-[#006633] text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            {tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
