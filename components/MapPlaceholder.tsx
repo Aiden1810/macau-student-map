@@ -9,6 +9,7 @@ interface MapPlaceholderProps {
   selectedShopId: Shop['id'] | null;
   locateSignal?: number;
   onSelectShop: (shopId: Shop['id']) => void;
+  onMapExploreIntent?: (meta: {durationMs: number; distanceMeters: number}) => void;
   contributionPickMode?: boolean;
   onPickCoordinates?: (coords: [number, number]) => void;
   highlightedLocation?: {
@@ -87,6 +88,9 @@ type MarkerStore = {
 };
 
 const MACAU_CENTER: [number, number] = [113.5439, 22.1896];
+const MAP_EXPLORE_MIN_DURATION_MS = 520;
+const MAP_EXPLORE_MIN_DISTANCE_METERS = 220;
+const MAP_EXPLORE_COOLDOWN_MS = 1400;
 
 function getAMapFromWindow(): AMapNamespace | undefined {
   return (window as AMapWindow).AMap;
@@ -209,6 +213,25 @@ function escapeHtml(raw: string): string {
     .replaceAll("'", '&#39;');
 }
 
+function toRadians(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
+function getDistanceMeters(from: [number, number], to: [number, number]): number {
+  const earthRadius = 6371000;
+  const dLat = toRadians(to[1] - from[1]);
+  const dLng = toRadians(to[0] - from[0]);
+  const lat1 = toRadians(from[1]);
+  const lat2 = toRadians(to[1]);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadius * c;
+}
+
 function buildSelectedShopMarkerHtml(shop: Shop): string {
   const pinHtml = buildShopPinHtml('selected', false);
   const name = escapeHtml(shop.name);
@@ -247,6 +270,7 @@ export default function MapPlaceholder({
   selectedShopId,
   locateSignal = 0,
   onSelectShop,
+  onMapExploreIntent,
   contributionPickMode = false,
   onPickCoordinates,
   highlightedLocation = null
@@ -268,6 +292,10 @@ export default function MapPlaceholder({
   const lastSelectedShopIdRef = useRef<Shop['id'] | null>(null);
   const contributionPickModeRef = useRef(contributionPickMode);
   const onPickCoordinatesRef = useRef(onPickCoordinates);
+  const onMapExploreIntentRef = useRef(onMapExploreIntent);
+  const exploreGestureStartRef = useRef<{at: number; center: [number, number]} | null>(null);
+  const ignoreNextMoveEndRef = useRef(false);
+  const lastExploreIntentAtRef = useRef(0);
 
   const selectedShop = useMemo(
     () => shops.find((shop) => shop.id === selectedShopId && shop.hasCoordinates) ?? null,
@@ -288,6 +316,8 @@ export default function MapPlaceholder({
     const map = mapRef.current;
     if (!map) return;
 
+    ignoreNextMoveEndRef.current = true;
+
     const isMobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
 
     map.setZoomAndCenter(isMobile ? 15.4 : 16, [longitude, latitude], true, {
@@ -303,6 +333,10 @@ export default function MapPlaceholder({
   useEffect(() => {
     onPickCoordinatesRef.current = onPickCoordinates;
   }, [onPickCoordinates]);
+
+  useEffect(() => {
+    onMapExploreIntentRef.current = onMapExploreIntent;
+  }, [onMapExploreIntent]);
 
   useEffect(() => {
     const amapKey = process.env.NEXT_PUBLIC_AMAP_WEB_KEY;
@@ -342,13 +376,60 @@ export default function MapPlaceholder({
           onPickCoordinatesRef.current([lnglat.getLng(), lnglat.getLat()]);
         });
 
+        map.on('movestart', () => {
+          const center = map.getCenter?.();
+          if (!center) {
+            exploreGestureStartRef.current = null;
+            return;
+          }
+
+          exploreGestureStartRef.current = {
+            at: Date.now(),
+            center: [center.getLng(), center.getLat()]
+          };
+        });
+
         map.on('moveend', () => {
           const currentZoom = map.getZoom?.() ?? 14;
           const currentCenter = map.getCenter?.();
+          const currentCenterTuple: [number, number] | null = currentCenter
+            ? [currentCenter.getLng(), currentCenter.getLat()]
+            : null;
+
           setMapViewport({
             zoom: currentZoom,
-            center: currentCenter ? [currentCenter.getLng(), currentCenter.getLat()] : null
+            center: currentCenterTuple
           });
+
+          if (ignoreNextMoveEndRef.current) {
+            ignoreNextMoveEndRef.current = false;
+            exploreGestureStartRef.current = null;
+            return;
+          }
+
+          if (!currentCenterTuple || !exploreGestureStartRef.current) {
+            exploreGestureStartRef.current = null;
+            return;
+          }
+
+          const durationMs = Date.now() - exploreGestureStartRef.current.at;
+          const distanceMeters = getDistanceMeters(exploreGestureStartRef.current.center, currentCenterTuple);
+          exploreGestureStartRef.current = null;
+
+          const isLikelyExploreIntent =
+            durationMs >= MAP_EXPLORE_MIN_DURATION_MS && distanceMeters >= MAP_EXPLORE_MIN_DISTANCE_METERS;
+
+          if (!isLikelyExploreIntent) {
+            return;
+          }
+
+          const now = Date.now();
+          if (now - lastExploreIntentAtRef.current < MAP_EXPLORE_COOLDOWN_MS) {
+            return;
+          }
+
+          lastExploreIntentAtRef.current = now;
+          onMapExploreIntentRef.current?.({durationMs, distanceMeters});
         });
 
         mapRef.current = map;
