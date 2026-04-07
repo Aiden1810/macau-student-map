@@ -63,13 +63,6 @@ export default function Header({
             >
               {contributeLabel}
             </button>
-
-            <Link
-              href={isAdmin ? '/admin' : loginHref}
-              className="inline-flex items-center gap-1 rounded-2xl border border-[#1A5C2E] px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5 sm:text-sm"
-            >
-              管理员
-            </Link>
           </div>
         </div>
 
