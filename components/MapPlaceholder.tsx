@@ -6,6 +6,7 @@ import {Shop} from '@/types/shop';
 
 interface MapPlaceholderProps {
   shops: Shop[];
+  activeL1?: string;
   selectedShopId: Shop['id'] | null;
   locateSignal?: number;
   onSelectShop: (shopId: Shop['id']) => void;
@@ -16,6 +17,19 @@ interface MapPlaceholderProps {
     latitude: number;
     name?: string;
   } | null;
+}
+
+function calculateDistance(lng1: number, lat1: number, lng2: number, lat2: number): number {
+  const R = 6371e3; // meters
+  const p1 = (lat1 * Math.PI) / 180;
+  const p2 = (lat2 * Math.PI) / 180;
+  const dp = ((lat2 - lat1) * Math.PI) / 180;
+  const dl = ((lng2 - lng1) * Math.PI) / 180;
+
+  const a = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
 }
 
 type AMapLngLat = {
@@ -244,6 +258,7 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
 
 export default function MapPlaceholder({
   shops,
+  activeL1 = 'all',
   selectedShopId,
   locateSignal = 0,
   onSelectShop,
@@ -274,8 +289,8 @@ export default function MapPlaceholder({
     [shops, selectedShopId]
   );
 
-  const buildMarkerHtml = (isActive: boolean, isHovered: boolean) => {
-    if (isActive || isHovered) {
+  const buildMarkerHtml = (isActive: boolean, isHovered: boolean, isFilteredView = false) => {
+    if (isActive || isHovered || isFilteredView) {
       return buildShopPinHtml('selected');
     }
 
@@ -392,13 +407,26 @@ export default function MapPlaceholder({
     }
     markersRef.current.clear();
 
-    const validShops = shops.filter((shop) => shop.hasCoordinates);
+    const isFilteredView = activeL1 !== 'all' && activeL1 !== 'region';
+    const center = map.getCenter?.();
+    const centerLng = center?.getLng() ?? MACAU_CENTER[0];
+    const centerLat = center?.getLat() ?? MACAU_CENTER[1];
+
+    let validShops = shops.filter((shop) => shop.hasCoordinates);
+
+    // If filtered view, limit by distance (5km)
+    if (isFilteredView) {
+      validShops = validShops.filter((shop) => {
+        const dist = calculateDistance(centerLng, centerLat, shop.coordinates[0], shop.coordinates[1]);
+        return dist <= 5000;
+      });
+    }
 
     const markers = validShops.map((shop) => {
       const marker = new AMap.Marker({
         position: shop.coordinates,
         offset: new AMap.Pixel(0, 0),
-        content: buildMarkerHtml(false, false),
+        content: buildMarkerHtml(false, false, isFilteredView),
         extData: {shopId: shop.id}
       });
 
@@ -407,7 +435,6 @@ export default function MapPlaceholder({
       });
 
       marker.on('mouseover', () => {
-        // Only show hover effect on desktop
         if (window.innerWidth > 768) {
           setHoveredShopId(shop.id);
         }
@@ -417,34 +444,46 @@ export default function MapPlaceholder({
         setHoveredShopId(null);
       });
 
-      markersRef.current.set(shop.id, {marker});
+      if (!isFilteredView) {
+        markersRef.current.set(shop.id, {marker});
+      } else {
+        marker.setMap(map);
+        markersRef.current.set(shop.id, {marker});
+      }
       return marker;
     });
 
     if (markers.length === 0) return;
 
-    clusterRef.current = new AMap.MarkerCluster(map, markers, {
-      gridSize: 60,
-      renderClusterMarker: (context) => {
-        const count = context.count;
-        const div = document.createElement('div');
-        div.style.width = '36px';
-        div.style.height = '36px';
-        div.style.borderRadius = '9999px';
-        div.style.background = '#006633';
-        div.style.border = '2px solid #fff';
-        div.style.color = '#fff';
-        div.style.fontSize = '12px';
-        div.style.fontWeight = '700';
-        div.style.display = 'flex';
-        div.style.alignItems = 'center';
-        div.style.justifyContent = 'center';
-        div.style.boxShadow = '0 2px 10px rgba(0,0,0,.25)';
-        div.textContent = String(count);
-        context.marker.setContent(div);
+    if (!isFilteredView) {
+      clusterRef.current = new AMap.MarkerCluster(map, markers, {
+        gridSize: 60,
+        renderClusterMarker: (context) => {
+          const count = context.count;
+          const div = document.createElement('div');
+          div.style.width = '36px';
+          div.style.height = '36px';
+          div.style.borderRadius = '9999px';
+          div.style.background = '#006633';
+          div.style.border = '2px solid #fff';
+          div.style.color = '#fff';
+          div.style.fontSize = '12px';
+          div.style.fontWeight = '700';
+          div.style.display = 'flex';
+          div.style.alignItems = 'center';
+          div.style.justifyContent = 'center';
+          div.style.boxShadow = '0 2px 10px rgba(0,0,0,.25)';
+          div.textContent = String(count);
+          context.marker.setContent(div);
+        }
+      });
+    } else {
+      // In filtered view, set fitView to show matching shops nearby
+      if (map.setFitView && markers.length > 0) {
+        map.setFitView(markers, false, [60, 60, 60, 60], 16);
       }
-    });
-  }, [shops, mapReady, onSelectShop]);
+    }
+  }, [shops, mapReady, onSelectShop, activeL1]);
 
   useEffect(() => {
     const map = mapRef.current;

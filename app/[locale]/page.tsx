@@ -419,6 +419,7 @@ export default function Page() {
         <div className="fixed inset-0 z-0 m-0 h-[100dvh] w-full p-0">
           <MapPlaceholder
             shops={displayedShops}
+            activeL1={activeL1}
             selectedShopId={selectedShopId}
             locateSignal={locateSignal}
             onSelectShop={setSelectedShopId}
@@ -609,6 +610,7 @@ export default function Page() {
             <div className="order-1 h-[58dvh] min-h-[360px] md:order-2 md:col-span-8 md:h-full lg:col-span-8">
               <MapPlaceholder
                 shops={displayedShops}
+                activeL1={activeL1}
                 selectedShopId={selectedShopId}
                 locateSignal={locateSignal}
                 onSelectShop={setSelectedShopId}
