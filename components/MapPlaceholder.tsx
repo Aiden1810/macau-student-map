@@ -191,12 +191,9 @@ function buildUserPinHtml(anchored = true): string {
       <g filter="url(#${filterId})">
         <path d="M22 52C22 52 7 38.2 7 24.6C7 15.3 13.7 8 22 8C30.3 8 37 15.3 37 24.6C37 38.2 22 52 22 52Z" fill="#ffffff"/>
         <circle cx="22" cy="24" r="11.4" fill="#2563eb"/>
-        <g transform="translate(16.3 17.2)" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="5.7" cy="4" r="2.6" fill="#ffffff" stroke="none"/>
-          <path d="M5.7 7.4V12.2"/>
-          <path d="M2.6 9.8H8.8"/>
-          <path d="M5.7 12.2L3.6 15.5"/>
-          <path d="M5.7 12.2L7.8 15.5"/>
+        <g transform="translate(15.6 16.8)">
+          <circle cx="6.4" cy="4.2" r="2.7" fill="#ffffff"/>
+          <path d="M1.8 12.6C2.8 9.8 4.4 8.4 6.4 8.4C8.4 8.4 10 9.8 11 12.6" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round"/>
         </g>
       </g>
     </svg>
