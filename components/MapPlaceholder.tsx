@@ -19,18 +19,7 @@ interface MapPlaceholderProps {
   } | null;
 }
 
-function calculateDistance(lng1: number, lat1: number, lng2: number, lat2: number): number {
-  const R = 6371e3; // meters
-  const p1 = (lat1 * Math.PI) / 180;
-  const p2 = (lat2 * Math.PI) / 180;
-  const dp = ((lat2 - lat1) * Math.PI) / 180;
-  const dl = ((lng2 - lng1) * Math.PI) / 180;
-
-  const a = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
-}
+// Distance tool removed since 5km limit was relaxed for better UX
 
 type AMapLngLat = {
   getLng: () => number;
@@ -409,7 +398,7 @@ export default function MapPlaceholder({
 
     const isFilteredView = activeL1 !== 'all' && activeL1 !== 'region';
     
-    let validShops = shops.filter((shop) => shop.hasCoordinates);
+    const validShops = shops.filter((shop) => shop.hasCoordinates);
 
     const markers = validShops.map((shop) => {
       const marker = new AMap.Marker({
@@ -471,7 +460,7 @@ export default function MapPlaceholder({
       // In filtered view, set fitView with padding to ensure visibility
       if (map.setFitView && markers.length > 0) {
         setTimeout(() => {
-          if (mapRef.current) {
+          if (mapRef.current?.setFitView) {
             mapRef.current.setFitView(markers, false, [80, 50, 200, 50], 16);
           }
         }, 100);
