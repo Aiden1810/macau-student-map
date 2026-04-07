@@ -87,6 +87,7 @@ export default function ShopList({
 }: ShopListProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const [recentlyLocatedShopId, setRecentlyLocatedShopId] = useState<Shop['id'] | null>(null);
   const [mobileDetailShop, setMobileDetailShop] = useState<Shop | null>(null);
   const dragStartYRef = useRef<number | null>(null);
@@ -111,6 +112,7 @@ export default function ShopList({
   const startDrag = (clientY: number) => {
     dragStartYRef.current = clientY;
     dragStartHeightRef.current = mobileExpanded ? getExpandedHeightPx() : SHEET_COLLAPSED_HEIGHT;
+    setIsDragging(true);
   };
 
   const moveDrag = (clientY: number) => {
@@ -121,12 +123,31 @@ export default function ShopList({
     setMobileHeight(next);
   };
 
-  const endDrag = () => {
+  const endDrag = (clientY?: number) => {
     if (dragStartYRef.current === null) return;
+    setIsDragging(false);
 
-    const threshold = window.innerHeight * 0.55;
-    const finalHeight = mobileHeight || (mobileExpanded ? getExpandedHeightPx() : SHEET_COLLAPSED_HEIGHT);
-    setMobileExpanded(finalHeight >= threshold);
+    let finalExpanded = mobileExpanded;
+
+    if (clientY !== undefined) {
+      const delta = dragStartYRef.current - clientY;
+      
+      if (mobileExpanded && delta < -40) {
+        finalExpanded = false;
+      } else if (!mobileExpanded && delta > 40) {
+        finalExpanded = true;
+      } else {
+        const threshold = window.innerHeight * 0.55;
+        const currentHeight = mobileHeight || (mobileExpanded ? getExpandedHeightPx() : SHEET_COLLAPSED_HEIGHT);
+        finalExpanded = currentHeight >= threshold;
+      }
+    } else {
+      const threshold = window.innerHeight * 0.55;
+      const currentHeight = mobileHeight || (mobileExpanded ? getExpandedHeightPx() : SHEET_COLLAPSED_HEIGHT);
+      finalExpanded = currentHeight >= threshold;
+    }
+
+    setMobileExpanded(finalExpanded);
     setMobileHeight(0);
     dragStartYRef.current = null;
   };
@@ -305,7 +326,7 @@ export default function ShopList({
       <div className="hidden w-full flex-col gap-4 md:flex">{desktopListContent}</div>
 
       <div
-        className="fixed inset-x-0 bottom-0 z-40 rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] transition-[height] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden"
+        className={`fixed inset-x-0 bottom-0 z-40 rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden ${!isDragging ? 'transition-[height] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
         style={{height: mobileHeight > 0 ? `${mobileHeight}px` : mobileExpanded ? `${SHEET_EXPANDED_VH}dvh` : `${SHEET_COLLAPSED_HEIGHT}px`, ...MOBILE_GLASS_STYLE}}
       >
         <div
@@ -315,11 +336,11 @@ export default function ShopList({
           onClick={() => setMobileExpanded((prev) => !prev)}
           onTouchStart={(e) => startDrag(e.touches[0].clientY)}
           onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
-          onTouchEnd={endDrag}
+          onTouchEnd={(e) => endDrag(e.changedTouches[0].clientY)}
           onMouseDown={(e) => startDrag(e.clientY)}
           onMouseMove={(e) => moveDrag(e.clientY)}
-          onMouseUp={endDrag}
-          onMouseLeave={endDrag}
+          onMouseUp={(e) => endDrag(e.clientY)}
+          onMouseLeave={() => endDrag()}
           className="mx-auto -mt-2 mb-2 flex h-8 w-full cursor-grab items-center justify-center touch-none outline-none active:cursor-grabbing"
         >
           <div className="h-1 w-[34px] rounded-[2px] bg-[#1A5C2E]/35" />
@@ -405,11 +426,11 @@ export default function ShopList({
             onClick={() => setMobileExpanded(true)}
             onTouchStart={(e) => startDrag(e.touches[0].clientY)}
             onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
-            onTouchEnd={endDrag}
+            onTouchEnd={(e) => endDrag(e.changedTouches[0].clientY)}
             onMouseDown={(e) => startDrag(e.clientY)}
             onMouseMove={(e) => moveDrag(e.clientY)}
-            onMouseUp={endDrag}
-            onMouseLeave={endDrag}
+            onMouseUp={(e) => endDrag(e.clientY)}
+            onMouseLeave={() => endDrag()}
             className="w-full touch-none cursor-grab rounded-2xl bg-white/25 px-3 py-2 text-left active:cursor-grabbing"
           >
             <p className="text-sm font-semibold text-[#0d2918]">上拉查看附近店铺列表</p>
