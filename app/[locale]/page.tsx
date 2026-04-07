@@ -111,7 +111,6 @@ export default function Page() {
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
   const [collapseMobileSheetSignal, setCollapseMobileSheetSignal] = useState(0);
   const [locateSignal, setLocateSignal] = useState(0);
-  const [mobileAutoCollapseSignal, setMobileAutoCollapseSignal] = useState(0);
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -423,10 +422,6 @@ export default function Page() {
             selectedShopId={selectedShopId}
             locateSignal={locateSignal}
             onSelectShop={setSelectedShopId}
-            onMapExploreIntent={() => {
-              if (mapPickMode || isContributeOpen) return;
-              setMobileAutoCollapseSignal((prev) => prev + 1);
-            }}
             contributionPickMode={mapPickMode}
             onPickCoordinates={(coords) => {
               setManualCoordinates(coords);
@@ -482,7 +477,6 @@ export default function Page() {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onLocateShop={handleLocateShop}
-          autoCollapseSignal={mobileAutoCollapseSignal}
           mobileSearchPlaceholder={t('mobileSearchPlaceholder')}
           emptyText={t('emptyResult')}
           hasAnyShops={visibleShops.length > 0}

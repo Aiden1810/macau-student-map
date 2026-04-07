@@ -33,7 +33,6 @@ interface ShopListProps {
   deletingShopId: Shop['id'] | null;
   onDeleteShop: (shopId: Shop['id']) => void;
   collapseMobileSheetSignal?: number;
-  autoCollapseSignal?: number;
   drawerFilters: DrawerFiltersState;
   onChangeDrawerFilters: (next: DrawerFiltersState) => void;
   onResetDrawerFilters: () => void;
@@ -82,7 +81,6 @@ export default function ShopList({
   deletingShopId,
   onDeleteShop,
   collapseMobileSheetSignal = 0,
-  autoCollapseSignal = 0,
   drawerFilters,
   onChangeDrawerFilters,
   onResetDrawerFilters,
@@ -102,7 +100,6 @@ export default function ShopList({
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const lastAutoCollapseAtRef = useRef(0);
   const [recentlyLocatedShopId, setRecentlyLocatedShopId] = useState<Shop['id'] | null>(null);
   const [mobileDetailShop, setMobileDetailShop] = useState<Shop | null>(null);
   const dragStartYRef = useRef<number | null>(null);
@@ -113,21 +110,6 @@ export default function ShopList({
     setMobileExpanded(false);
     setMobileHeight(0);
   }, [collapseMobileSheetSignal]);
-
-  useEffect(() => {
-    if (!mobileExpanded || isDragging) {
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastAutoCollapseAtRef.current < 1400) {
-      return;
-    }
-
-    lastAutoCollapseAtRef.current = now;
-    setMobileExpanded(false);
-    setMobileHeight(0);
-  }, [autoCollapseSignal, mobileExpanded, isDragging]);
 
   useEffect(() => {
     return () => {
@@ -484,7 +466,6 @@ export default function ShopList({
           <button
             type="button"
             onClick={() => setMobileExpanded(true)}
-            aria-label="上拉展开店铺列表"
             onTouchStart={(e) => startDrag(e.touches[0].clientY)}
             onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
             onTouchEnd={(e) => endDrag(e.changedTouches[0].clientY)}
@@ -495,7 +476,7 @@ export default function ShopList({
             className="w-full touch-none cursor-grab rounded-2xl bg-white/25 px-3 py-2 text-left active:cursor-grabbing"
           >
             <p className="text-sm font-semibold text-[#0d2918]">上拉查看附近店铺列表</p>
-            <p className="mt-0.5 text-xs text-[#1A5C2E]/80">当前共 {filteredShops.length} 家 · 地图拖动后会自动温和收起</p>
+            <p className="mt-0.5 text-xs text-[#1A5C2E]/80">当前共 {filteredShops.length} 家</p>
           </button>
         ) : (
           <div className="mt-1 h-[calc(100%-145px)] overflow-y-auto pb-[max(env(safe-area-inset-bottom,0px),72px)]">
