@@ -150,12 +150,23 @@ export default function ContributionForm({
   const [contributeError, setContributeError] = useState<string | null>(null);
 
   const allL2Groups = useMemo(() => {
-    return [
-      { id: 'food', title: '🍔 美食标签', tags: Object.values(L2_TAGS.food).flat() },
-      { id: 'drink', title: '☕ 饮品/甜点标签', tags: Object.values(L2_TAGS.drink).flat() },
-      { id: 'vibe', title: '✨ 场景标签', tags: Object.values(L2_TAGS.vibe).flat() },
-      { id: 'deal', title: '💰 优惠标签', tags: Object.values(L2_TAGS.deal).flat() }
-    ];
+    const groupTitleMap: Record<string, string> = {
+      food: '🍔 美食标签',
+      drink: '☕ 饮品/甜点标签',
+      vibe: '✨ 场景标签',
+      deal: '💰 优惠标签',
+      review: '🏆 榜单标签',
+      region: '🗺️ 区域标签'
+    };
+
+    return Object.entries(L2_TAGS)
+      .filter(([l1Key]) => l1Key !== 'all')
+      .map(([l1Key, groupMap]) => ({
+        id: l1Key,
+        title: groupTitleMap[l1Key] ?? `${l1Key} 标签`,
+        tags: Object.values(groupMap).flat()
+      }))
+      .filter((group) => group.tags.length > 0);
   }, []);
 
   useEffect(() => {
