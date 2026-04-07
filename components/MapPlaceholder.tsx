@@ -227,11 +227,19 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
   const emptyStarHtml = '<span style="color:#cbd5e1;">☆</span>'.repeat(emptyStars);
   const starsHtml = `${fullStarHtml}${halfStarHtml}${emptyStarHtml}`;
   const primaryTag = escapeHtml(shop.tags[0] ?? '暂无标签');
+  const price = shop.pricePerPerson ? `￥${shop.pricePerPerson}` : '暂无';
 
-  return `<div style="position:relative;width:248px;height:120px;transform:translate(-50%,-100%);pointer-events:none;z-index:999;">
-    <div style="position:absolute;bottom:54px;left:50%;transform:translateX(-50%);width:228px;background:#ffffff;border:1px solid rgba(22,101,52,0.18);border-radius:12px;box-shadow:0 10px 22px rgba(15,23,42,0.12);padding:10px 11px;pointer-events:none;">
+  // Position: Card is now below the pin
+  return `<div style="position:relative;width:248px;pointer-events:none;z-index:999;display:flex;flex-direction:column;align-items:center;transform:translate(-50%, 0);">
+    <div style="width:44px;height:54px;display:flex;justify-content:center;">
+      ${pinHtml}
+    </div>
+    <div style="width:228px;background:#ffffff;border:1px solid rgba(22,101,52,0.18);border-radius:12px;box-shadow:0 10px 22px rgba(15,23,42,0.12);padding:10px 11px;margin-top:2px;">
       <div style="font-size:14px;font-weight:700;line-height:1.3;color:#166534;word-break:break-word;">${name}</div>
-      <div style="margin-top:5px;display:inline-flex;align-items:center;border-radius:9999px;background:rgba(245,158,11,0.14);color:#f59e0b;font-size:11px;font-weight:700;line-height:1;padding:4px 8px;">${ratingLabel}</div>
+      <div style="margin-top:5px;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;">
+        <span style="border-radius:9999px;background:rgba(245,158,11,0.14);color:#f59e0b;padding:3px 8px;">${ratingLabel}</span>
+        <span style="border-radius:9999px;background:rgba(22,101,52,0.08);color:#166534;padding:3px 8px;">人均 ${price}</span>
+      </div>
       <div style="margin-top:7px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.2;">
         <span style="color:#f59e0b;letter-spacing:0.5px;">${starsHtml}</span>
         <span style="color:#111827;font-weight:600;">${score}</span>
@@ -239,8 +247,26 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
       </div>
       <div style="margin-top:7px;display:inline-flex;align-items:center;border-radius:9999px;background:#f8fafc;border:1px solid #e2e8f0;color:#334155;font-size:11px;font-weight:600;line-height:1;padding:4px 8px;">${primaryTag}</div>
     </div>
-    <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:44px;height:54px;display:flex;justify-content:center;">
+  </div>`;
+}
+
+function buildFilteredMarkerHtml(shop: Shop): string {
+  const pinHtml = buildShopPinHtml('selected', false);
+  const name = escapeHtml(shop.name);
+  const score = Number.isFinite(shop.rating) ? shop.rating.toFixed(1) : '0';
+  const price = shop.pricePerPerson ? `￥${shop.pricePerPerson}` : '暂无';
+  
+  return `<div style="display:flex;flex-direction:column;align-items:center;transform:translate(-50%, -50%);">
+    <div style="width:44px;height:54px;display:flex;justify-content:center;">
       ${pinHtml}
+    </div>
+    <div style="margin-top:-4px;padding:4px 8px;background:rgba(255,255,255,0.95);backdrop-filter:blur(4px);border:1px solid rgba(22,101,52,0.2);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);display:flex;flex-direction:column;align-items:center;gap:0px;pointer-events:none;min-width:80px;">
+      <div style="font-size:12px;font-weight:800;color:#166534;white-space:nowrap;">${name}</div>
+      <div style="font-size:10px;font-weight:600;color:#666;white-space:nowrap;display:flex;align-items:center;gap:4px;">
+        <span style="color:#f59e0b;">★ ${score}</span>
+        <span style="color:#eee;">|</span>
+        <span>人均 ${price}</span>
+      </div>
     </div>
   </div>`;
 }
@@ -404,7 +430,7 @@ export default function MapPlaceholder({
       const marker = new AMap.Marker({
         position: shop.coordinates,
         offset: new AMap.Pixel(0, 0),
-        content: buildMarkerHtml(false, false, isFilteredView),
+        content: isFilteredView ? buildFilteredMarkerHtml(shop) : buildMarkerHtml(false, false),
         zIndex: isFilteredView ? 110 : 100,
         extData: {shopId: shop.id}
       });

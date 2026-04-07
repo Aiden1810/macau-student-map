@@ -140,6 +140,7 @@ export default function ContributionForm({
   const [expandedSecondaryTagGroups, setExpandedSecondaryTagGroups] = useState(false);
 
   const [reviewText, setReviewText] = useState('');
+  const [pricePerPerson, setPricePerPerson] = useState('');
   const [tagsInput, setTagsInput] = useState('');
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -391,7 +392,8 @@ export default function ContributionForm({
       status: 'pending',
       total_sum: ratingScore,
       rating_count: 1,
-      review_count: 1
+      review_count: 1,
+      price_per_person: pricePerPerson.trim() ? Number(pricePerPerson) : null
     };
 
     const payload = canSubmitFromSearch
@@ -588,6 +590,17 @@ export default function ContributionForm({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">人均消费 (MOP/人) <span className="font-normal text-slate-400">（可选）</span></label>
+            <input
+              type="number"
+              value={pricePerPerson}
+              onChange={(e) => setPricePerPerson(e.target.value)}
+              placeholder="例如：65"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+            />
           </div>
 
           <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
