@@ -9,7 +9,7 @@ interface MapPlaceholderProps {
   selectedShopId: Shop['id'] | null;
   locateSignal?: number;
   onSelectShop: (shopId: Shop['id']) => void;
-  onMapExploreIntent?: (meta: {durationMs: number; distanceMeters: number}) => void;
+  onMapExploreIntent?: () => void;
   contributionPickMode?: boolean;
   onPickCoordinates?: (coords: [number, number]) => void;
   highlightedLocation?: {
@@ -88,8 +88,6 @@ type MarkerStore = {
 };
 
 const MACAU_CENTER: [number, number] = [113.5439, 22.1896];
-const MAP_EXPLORE_MIN_DURATION_MS = 120;
-const MAP_EXPLORE_MIN_DISTANCE_METERS = 18;
 const MAP_EXPLORE_COOLDOWN_MS = 500;
 
 function getAMapFromWindow(): AMapNamespace | undefined {
@@ -213,25 +211,6 @@ function escapeHtml(raw: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function toRadians(degrees: number): number {
-  return (degrees * Math.PI) / 180;
-}
-
-function getDistanceMeters(from: [number, number], to: [number, number]): number {
-  const earthRadius = 6371000;
-  const dLat = toRadians(to[1] - from[1]);
-  const dLng = toRadians(to[0] - from[0]);
-  const lat1 = toRadians(from[1]);
-  const lat2 = toRadians(to[1]);
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return earthRadius * c;
-}
-
 function buildSelectedShopMarkerHtml(shop: Shop): string {
   const pinHtml = buildShopPinHtml('selected', false);
   const name = escapeHtml(shop.name);
@@ -293,7 +272,8 @@ export default function MapPlaceholder({
   const contributionPickModeRef = useRef(contributionPickMode);
   const onPickCoordinatesRef = useRef(onPickCoordinates);
   const onMapExploreIntentRef = useRef(onMapExploreIntent);
-  const exploreGestureStartRef = useRef<{at: number; center: [number, number]} | null>(null);
+  const pointerDownRef = useRef(false);
+  const mapDraggingRef = useRef(false);
   const ignoreNextMoveEndRef = useRef(false);
   const lastExploreIntentAtRef = useRef(0);
 
@@ -376,17 +356,31 @@ export default function MapPlaceholder({
           onPickCoordinatesRef.current([lnglat.getLng(), lnglat.getLat()]);
         });
 
-        map.on('movestart', () => {
-          const center = map.getCenter?.();
-          if (!center) {
-            exploreGestureStartRef.current = null;
-            return;
-          }
+        const containerEl = containerRef.current;
+        if (containerEl) {
+          containerEl.addEventListener('touchstart', () => {
+            pointerDownRef.current = true;
+          }, {passive: true});
+          containerEl.addEventListener('touchend', () => {
+            pointerDownRef.current = false;
+          }, {passive: true});
+          containerEl.addEventListener('touchcancel', () => {
+            pointerDownRef.current = false;
+          }, {passive: true});
 
-          exploreGestureStartRef.current = {
-            at: Date.now(),
-            center: [center.getLng(), center.getLat()]
-          };
+          containerEl.addEventListener('mousedown', () => {
+            pointerDownRef.current = true;
+          });
+          containerEl.addEventListener('mouseup', () => {
+            pointerDownRef.current = false;
+          });
+          containerEl.addEventListener('mouseleave', () => {
+            pointerDownRef.current = false;
+          });
+        }
+
+        map.on('movestart', () => {
+          mapDraggingRef.current = pointerDownRef.current;
         });
 
         map.on('moveend', () => {
@@ -403,23 +397,17 @@ export default function MapPlaceholder({
 
           if (ignoreNextMoveEndRef.current) {
             ignoreNextMoveEndRef.current = false;
-            exploreGestureStartRef.current = null;
+            mapDraggingRef.current = false;
             return;
           }
 
-          if (!currentCenterTuple || !exploreGestureStartRef.current) {
-            exploreGestureStartRef.current = null;
+          if (!mapDraggingRef.current) {
             return;
           }
 
-          const durationMs = Date.now() - exploreGestureStartRef.current.at;
-          const distanceMeters = getDistanceMeters(exploreGestureStartRef.current.center, currentCenterTuple);
-          exploreGestureStartRef.current = null;
+          mapDraggingRef.current = false;
 
-          const isLikelyExploreIntent =
-            durationMs >= MAP_EXPLORE_MIN_DURATION_MS && distanceMeters >= MAP_EXPLORE_MIN_DISTANCE_METERS;
-
-          if (!isLikelyExploreIntent) {
+          if (!currentCenterTuple) {
             return;
           }
 
@@ -429,7 +417,7 @@ export default function MapPlaceholder({
           }
 
           lastExploreIntentAtRef.current = now;
-          onMapExploreIntentRef.current?.({durationMs, distanceMeters});
+          onMapExploreIntentRef.current?.();
         });
 
         mapRef.current = map;
