@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import {Check, Navigation, Tag, Trash2} from 'lucide-react';
+import {Check, Heart, Navigation, Tag, Trash2} from 'lucide-react';
 import {useLocale, useTranslations} from 'next-intl';
 import StarRating from '@/components/StarRating';
 import {getRatingTagFromData} from '@/lib/utils/ratingTag';
@@ -16,6 +16,8 @@ interface ShopCardProps {
   canDelete?: boolean;
   deleting?: boolean;
   onDelete?: (shopId: Shop['id']) => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: (shopId: Shop['id'], e: React.MouseEvent) => void;
 }
 
 
@@ -48,7 +50,9 @@ export default function ShopCard({
   onApprove,
   canDelete = false,
   deleting = false,
-  onDelete
+  onDelete,
+  isFavorite = false,
+  onToggleFavorite
 }: ShopCardProps) {
   const t = useTranslations('ShopCard');
   const locale = useLocale();
@@ -68,11 +72,20 @@ export default function ShopCard({
           : 'border-slate-100/90 shadow-md'
       }`}
     >
-      <div className="mb-3 overflow-hidden rounded-xl border border-slate-100">
+      <div className="relative mb-3 overflow-hidden rounded-xl border border-slate-100">
         {hasValidImageUrl ? (
           <Image src={coverImageUrl} alt={shop.name} width={640} height={360} className="h-40 w-full object-cover" />
         ) : (
           <ShopPlaceholder />
+        )}
+        {onToggleFavorite && (
+          <button
+            type="button"
+            onClick={(e) => onToggleFavorite(shop.id, e)}
+            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/70 backdrop-blur-md transition-transform hover:scale-110 active:scale-95"
+          >
+            <Heart className={`h-4 w-4 ${isFavorite ? 'fill-rose-500 text-rose-500' : 'text-slate-600'}`} />
+          </button>
         )}
       </div>
 
@@ -81,9 +94,15 @@ export default function ShopCard({
           <h3 className="truncate text-lg font-bold text-slate-800 transition-colors duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:text-[#006633]">
             {shop.name}
           </h3>
-          <p className={`mt-1 text-sm ${isPendingAddress ? 'text-gray-400' : 'text-slate-500'} truncate`}>
-            {address}
-          </p>
+          <div className="mt-1 flex items-center gap-1.5 flex-wrap text-sm text-slate-500">
+            {shop.pricePerPerson && (
+              <span className="font-medium text-emerald-700">人均 MOP {shop.pricePerPerson}</span>
+            )}
+            {shop.pricePerPerson && shop.region && <span className="text-slate-300">|</span>}
+            {shop.region && <span className="font-medium text-indigo-700">{shop.region}</span>}
+            {(shop.pricePerPerson || shop.region) && <span className="text-slate-300">|</span>}
+            <span className={`truncate ${isPendingAddress ? 'text-gray-400' : ''}`}>{address}</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-1">
@@ -118,11 +137,24 @@ export default function ShopCard({
         ))}
       </div>
 
-      <div className="mb-4 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{t('reviewTitle')}</p>
-        <p className="text-sm text-slate-700 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]">
-          {shop.reviewText?.trim() ? shop.reviewText : t('noDetailedReview')}
-        </p>
+      <div className="mb-4 space-y-2">
+        {shop.sharpReview && (
+          <div className="rounded-lg border-l-4 border-rose-400 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800">
+            “{shop.sharpReview}”
+          </div>
+        )}
+        {shop.signatureDish && (
+          <div className="rounded-lg border-l-4 border-amber-400 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+            必点：{shop.signatureDish}
+          </div>
+        )}
+
+        <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{t('reviewTitle')}</p>
+          <p className="text-sm text-slate-700 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]">
+            {shop.reviewText?.trim() ? shop.reviewText : t('noDetailedReview')}
+          </p>
+        </div>
       </div>
 
       <div className="mt-auto border-t border-slate-50 pt-3">

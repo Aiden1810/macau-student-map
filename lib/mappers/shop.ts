@@ -446,6 +446,11 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
   const rawReviewText = row?.review_text;
   const rawShopStatus = row?.status;
   const rawCategory = row?.category;
+  
+  const rawPricePerPerson = row?.price_per_person;
+  const rawRegion = row?.region;
+  const rawSignatureDish = row?.signature_dish;
+  const rawSharpReview = row?.sharp_review;
 
   const reviewMetrics = normalizeReviewMetrics(rawRating, rawReviews, rawReviewCount, rawTotalSum, rawRatingCount);
   const normalizedReviewText =
@@ -481,7 +486,11 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
     reviews: reviewMetrics.reviews,
     recommendStatus: normalizeRecommendStatus(rawStatus),
     reviewText: normalizedReviewText,
-    status: normalizeShopStatus(rawShopStatus)
+    status: normalizeShopStatus(rawShopStatus),
+    pricePerPerson: parseMaybeNumber(rawPricePerPerson),
+    region: typeof rawRegion === 'string' && rawRegion.trim().length > 0 ? (rawRegion.trim() as Shop['region']) : null,
+    signatureDish: typeof rawSignatureDish === 'string' && rawSignatureDish.trim().length > 0 ? rawSignatureDish.trim() : null,
+    sharpReview: typeof rawSharpReview === 'string' && rawSharpReview.trim().length > 0 ? rawSharpReview.trim() : null
   };
 
   return shop;

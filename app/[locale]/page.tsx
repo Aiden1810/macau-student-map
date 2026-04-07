@@ -10,7 +10,8 @@ import MapPlaceholder from '@/components/MapPlaceholder';
 import ShopList from '@/components/ShopList';
 import {mapShopList} from '@/lib/mappers/shop';
 import {supabase} from '@/lib/supabase';
-import {DrawerFiltersState, Shop, ShopCategoryKey, ViewMode} from '@/types/shop';
+import {useFavorites} from '@/lib/hooks/useFavorites';
+import {DrawerFiltersState, Shop, ShopCategoryKey, ShopRegion, ViewMode} from '@/types/shop';
 
 const DEFAULT_DRAWER_FILTERS: DrawerFiltersState = {
   shopType: '全部',
@@ -103,6 +104,9 @@ export default function Page() {
   const [activeL2, setActiveL2] = useState<string | null>(null);
   const [drawerFilters, setDrawerFilters] = useState<DrawerFiltersState>(DEFAULT_DRAWER_FILTERS);
   const [activeScenario, setActiveScenario] = useState<null | 'student-deal' | 'top-rated' | 'delivery' | 'new-shop'>(null);
+  const [activeRegion, setActiveRegion] = useState<ShopRegion | 'all'>('all');
+  const [showFavorites, setShowFavorites] = useState(false);
+  const {favorites, toggleFavorite, isLoaded} = useFavorites();
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
   const [collapseMobileSheetSignal, setCollapseMobileSheetSignal] = useState(0);
   const [locateSignal, setLocateSignal] = useState(0);
@@ -130,7 +134,7 @@ export default function Page() {
       const {data, error} = await supabase
         .from('shops')
         .select(
-          'id,name,category,student_discount,tags,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text,image_urls,address,main_category,sub_tags'
+          'id,name,category,student_discount,tags,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text,image_urls,address,main_category,sub_tags,price_per_person,region,signature_dish,sharp_review'
         )
         .or(statusFilter);
 
@@ -210,7 +214,15 @@ export default function Page() {
 
     const l1Filtered = filterByL1(activeL1, searched);
     const l2Filtered = activeL2 ? filterByL2(activeL2, l1Filtered) : l1Filtered;
-    const drawerFiltered = applyDrawerFilters(l2Filtered, drawerFilters);
+    let drawerFiltered = applyDrawerFilters(l2Filtered, drawerFilters);
+
+    if (showFavorites && isLoaded) {
+      drawerFiltered = drawerFiltered.filter((shop) => favorites.includes(shop.id));
+    }
+
+    if (activeRegion !== 'all') {
+      drawerFiltered = drawerFiltered.filter((shop) => shop.region === activeRegion);
+    }
 
     if (!activeScenario) {
       return drawerFiltered;
@@ -229,7 +241,7 @@ export default function Page() {
     }
 
     return drawerFiltered.filter((shop) => ['封神之作', '强烈推荐'].includes(shop.ratingLabel));
-  }, [activeL1, activeL2, activeScenario, drawerFilters, searchQuery, visibleShops]);
+  }, [activeL1, activeL2, activeScenario, drawerFilters, searchQuery, visibleShops, showFavorites, isLoaded, favorites, activeRegion]);
 
   const hasActiveTopFilters = activeL1 !== 'all' || activeL2 !== null;
   const hasActiveDrawerFilters = hasDrawerFilters(drawerFilters);
@@ -239,6 +251,14 @@ export default function Page() {
 
   const activeFilterLabels = useMemo(() => {
     const labels: string[] = [];
+
+    if (showFavorites) {
+      labels.push('我的收藏');
+    }
+
+    if (activeRegion !== 'all') {
+      labels.push(`区域: ${activeRegion}`);
+    }
 
     if (activeL1 !== 'all') {
       labels.push(`频道: ${L1_LABELS[activeL1]}`);
@@ -602,6 +622,12 @@ export default function Page() {
                 activeScenario={activeScenario}
                 onChangeActiveScenario={setActiveScenario}
                 scenarioShortcuts={SCENARIO_SHORTCUTS}
+                showFavorites={showFavorites}
+                setShowFavorites={setShowFavorites}
+                activeRegion={activeRegion}
+                setActiveRegion={setActiveRegion}
+                favorites={favorites}
+                onToggleFavorite={toggleFavorite}
               />
             </div>
           </div>

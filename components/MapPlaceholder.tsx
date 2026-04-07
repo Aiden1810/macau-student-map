@@ -230,9 +230,11 @@ export default function MapPlaceholder({
   const clusterRef = useRef<{setMap: (map: AMapMapInstance | null) => void} | null>(null);
   const selectedPinRef = useRef<AMapMarker | null>(null);
   const selectedShopPinRef = useRef<AMapMarker | null>(null);
+  const hoveredShopPinRef = useRef<AMapMarker | null>(null);
 
   const [mapReady, setMapReady] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [hoveredShopId, setHoveredShopId] = useState<Shop['id'] | null>(null);
   const [mapViewport, setMapViewport] = useState<{zoom: number; center: [number, number] | null}>({zoom: 14, center: null});
   const lastLocateSignalRef = useRef(0);
   const lastSelectedShopIdRef = useRef<Shop['id'] | null>(null);
@@ -340,6 +342,7 @@ export default function MapPlaceholder({
       clusterRef.current = null;
       selectedPinRef.current = null;
       selectedShopPinRef.current = null;
+      hoveredShopPinRef.current = null;
     };
   }, []);
 
@@ -372,6 +375,17 @@ export default function MapPlaceholder({
 
       marker.on('click', () => {
         onSelectShop(shop.id);
+      });
+
+      marker.on('mouseover', () => {
+        // Only show hover effect on desktop
+        if (window.innerWidth > 768) {
+          setHoveredShopId(shop.id);
+        }
+      });
+
+      marker.on('mouseout', () => {
+        setHoveredShopId(null);
       });
 
       markersRef.current.set(shop.id, {marker});
@@ -444,6 +458,34 @@ export default function MapPlaceholder({
       flyToLocation(selectedShop.coordinates[0], selectedShop.coordinates[1]);
     }
   }, [selectedShop, locateSignal]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const AMap = getAMapFromWindow();
+
+    if (!map || !AMap) return;
+
+    if (hoveredShopPinRef.current) {
+      hoveredShopPinRef.current.setMap(null);
+      hoveredShopPinRef.current = null;
+    }
+
+    // Don't show hover popup if this shop is already selected
+    if (!hoveredShopId || hoveredShopId === selectedShopId) return;
+
+    const shop = shops.find(s => s.id === hoveredShopId);
+    if (!shop || !shop.hasCoordinates) return;
+
+    const marker = new AMap.Marker({
+      position: shop.coordinates,
+      offset: new AMap.Pixel(0, 0),
+      zIndex: 310, // Just below selected shop but above others
+      content: buildSelectedShopMarkerHtml(shop)
+    });
+
+    marker.setMap(map);
+    hoveredShopPinRef.current = marker;
+  }, [hoveredShopId, selectedShopId, shops]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -26,6 +26,8 @@ export interface DrawerFiltersState {
   features: ShopFeature[];
 }
 
+export type ShopRegion = '澳门半岛' | '氹仔区' | '路环区' | '横琴校区' | '其它';
+
 export interface Shop {
   id: string;
   name: string;
@@ -47,6 +49,10 @@ export interface Shop {
   recommendStatus: RecommendStatus;
   reviewText?: string | null;
   status: ShopStatus;
+  pricePerPerson?: number | null;
+  region?: ShopRegion | null;
+  signatureDish?: string | null;
+  sharpReview?: string | null;
 }
 
 export interface Comment {

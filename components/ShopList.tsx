@@ -5,7 +5,7 @@ import {L2_TAGS} from '@/components/FilterBar';
 import MobileShopDetailModal from '@/components/MobileShopDetailModal';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
-import {DrawerFiltersState, Shop, ShopCategoryKey, ShopFeature} from '@/types/shop';
+import {DrawerFiltersState, Shop, ShopCategoryKey, ShopFeature, ShopRegion} from '@/types/shop';
 
 interface ScenarioShortcut {
   key: 'student-deal' | 'top-rated' | 'delivery' | 'new-shop';
@@ -42,6 +42,12 @@ interface ShopListProps {
   activeL1?: ShopCategoryKey;
   activeL2?: string | null;
   onL2Change?: (l1: ShopCategoryKey, l2: string | null) => void;
+  showFavorites?: boolean;
+  setShowFavorites?: (next: boolean) => void;
+  activeRegion?: ShopRegion | 'all';
+  setActiveRegion?: (next: ShopRegion | 'all') => void;
+  favorites?: string[];
+  onToggleFavorite?: (shopId: string, e: React.MouseEvent) => void;
 }
 
 const SHEET_COLLAPSED_HEIGHT = 215;
@@ -83,7 +89,13 @@ export default function ShopList({
   scenarioShortcuts = [],
   activeL1 = 'all',
   activeL2 = null,
-  onL2Change
+  onL2Change,
+  showFavorites,
+  setShowFavorites,
+  activeRegion,
+  setActiveRegion,
+  favorites,
+  onToggleFavorite
 }: ShopListProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(0);
@@ -225,7 +237,21 @@ export default function ShopList({
             <span className="text-sm font-semibold text-[#0d2918]">高级过滤</span>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
+            {showFavorites !== undefined && setShowFavorites !== undefined && (
+              <label className="flex cursor-pointer items-center gap-2">
+                <span className="text-xs font-semibold text-rose-600 truncate">我的收藏</span>
+                <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-100 transition-colors duration-200 ease-in-out has-[:checked]:bg-rose-500">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={showFavorites}
+                    onChange={(e) => setShowFavorites(e.target.checked)}
+                  />
+                  <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
+                </div>
+              </label>
+            )}
             <label className="flex cursor-pointer items-center gap-2">
               <span className="text-xs font-semibold text-slate-600">外卖可达</span>
               <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-200 transition-colors duration-200 ease-in-out has-[:checked]:bg-[#006633]">
@@ -280,7 +306,25 @@ export default function ShopList({
         )}
       </div>
 
-      <div className="mt-3 flex-1 space-y-4 overflow-y-auto pb-1 pr-1">
+      <div className="mt-2 hide-scrollbar flex items-center gap-1.5 overflow-x-auto pb-1">
+        {activeRegion !== undefined && setActiveRegion !== undefined && ['all', '澳门半岛', '氹仔区', '路环区', '横琴校区'].map((regionKey) => {
+          const isActive = activeRegion === regionKey;
+          const label = regionKey === 'all' ? '全部区域' : regionKey;
+          return (
+            <button
+              key={regionKey}
+              onClick={() => setActiveRegion(regionKey as ShopRegion | 'all')}
+              className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
+                isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {label}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="mt-2 flex-1 space-y-4 overflow-y-auto pb-1 pr-1">
         {loading ? (
           Array.from({length: 6}).map((_, index) => <ShopCardSkeleton key={`skeleton-${index}`} />)
         ) : (
@@ -297,6 +341,8 @@ export default function ShopList({
                   canDelete={canDelete}
                   deleting={deletingShopId === shop.id}
                   onDelete={onDeleteShop}
+                  isFavorite={favorites?.includes(shop.id)}
+                  onToggleFavorite={onToggleFavorite}
                 />
               </div>
             ))}
@@ -400,7 +446,7 @@ export default function ShopList({
         </div>
 
         <div className="hide-scrollbar mb-2 flex gap-2 overflow-x-auto pb-1">
-          {scenarioShortcuts.map((scenario) => {
+          {scenarioShortcuts?.map((scenario) => {
             const active = activeScenario === scenario.key;
             return (
               <button
@@ -417,6 +463,34 @@ export default function ShopList({
                 <p className="mt-0.5 text-[11px] opacity-80">{scenario.helper}</p>
               </button>
             );
+          })}
+        </div>
+        
+        <div className="hide-scrollbar mb-3 flex gap-1.5 overflow-x-auto pb-1 items-center">
+           {showFavorites !== undefined && setShowFavorites !== undefined && (
+             <button
+                onClick={() => setShowFavorites(!showFavorites)}
+                className={`shrink-0 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold transition shadow-sm ${
+                  showFavorites ? 'bg-rose-500 text-white' : 'bg-white/80 text-rose-600 border border-rose-100'
+                }`}
+             >
+                🤍 我的收藏
+             </button>
+           )}
+           {activeRegion !== undefined && setActiveRegion !== undefined && ['all', '澳门半岛', '氹仔区', '路环区', '横琴校区'].map((regionKey) => {
+            const isActive = activeRegion === regionKey;
+            const label = regionKey === 'all' ? '全部区域' : regionKey;
+            return (
+              <button
+                key={regionKey}
+                onClick={() => setActiveRegion(regionKey as ShopRegion | 'all')}
+                className={`shrink-0 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold transition ${
+                  isActive ? 'bg-indigo-600 text-white shadow-md' : 'bg-white/50 text-slate-700'
+                }`}
+              >
+                {label}
+              </button>
+            )
           })}
         </div>
 
