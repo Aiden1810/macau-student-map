@@ -236,8 +236,11 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
               {shop.address?.trim() || '地址信息收录中 (Address pending)'}
             </p>
 
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex items-center gap-3">
               <InlineStarRating score={shop.rating} reviewCount={shop.reviews} />
+              <span className="text-sm font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                人均 {shop.pricePerPerson ? `MOP ${shop.pricePerPerson}` : '暂无'}
+              </span>
             </div>
 
             <div className="mt-2 flex flex-wrap gap-2">

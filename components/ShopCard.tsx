@@ -95,12 +95,12 @@ export default function ShopCard({
             {shop.name}
           </h3>
           <div className="mt-1 flex items-center gap-1.5 flex-wrap text-sm text-slate-500">
-            {shop.pricePerPerson && (
-              <span className="font-medium text-emerald-700">人均 MOP {shop.pricePerPerson}</span>
-            )}
-            {shop.pricePerPerson && shop.region && <span className="text-slate-300">|</span>}
+            <span className="font-medium text-emerald-700">
+              人均 {shop.pricePerPerson ? `MOP ${shop.pricePerPerson}` : '暂无'}
+            </span>
+            {shop.region && <span className="text-slate-300">|</span>}
             {shop.region && <span className="font-medium text-indigo-700">{shop.region}</span>}
-            {(shop.pricePerPerson || shop.region) && <span className="text-slate-300">|</span>}
+            <span className="text-slate-300">|</span>
             <span className={`truncate ${isPendingAddress ? 'text-gray-400' : ''}`}>{address}</span>
           </div>
         </div>

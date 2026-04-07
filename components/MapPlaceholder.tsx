@@ -229,8 +229,9 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
   const primaryTag = escapeHtml(shop.tags[0] ?? '暂无标签');
   const price = shop.pricePerPerson ? `￥${shop.pricePerPerson}` : '暂无';
 
-  // Position: Card is now below the pin
-  return `<div style="position:relative;width:248px;pointer-events:none;z-index:999;display:flex;flex-direction:column;align-items:center;transform:translate(-50%, 0);">
+  // Position: Tip of the pin is at the coordinate, card is below it
+  // Pin height is 54px, tip is ~52px from top.
+  return `<div style="position:relative;width:248px;pointer-events:none;z-index:999;display:flex;flex-direction:column;align-items:center;transform:translate(-50%, -52px);">
     <div style="width:44px;height:54px;display:flex;justify-content:center;">
       ${pinHtml}
     </div>
@@ -256,7 +257,8 @@ function buildFilteredMarkerHtml(shop: Shop): string {
   const score = Number.isFinite(shop.rating) ? shop.rating.toFixed(1) : '0';
   const price = shop.pricePerPerson ? `￥${shop.pricePerPerson}` : '暂无';
   
-  return `<div style="display:flex;flex-direction:column;align-items:center;transform:translate(-50%, -50%);">
+  // Position: Tip of the pin is at the coordinate, label is below it
+  return `<div style="display:flex;flex-direction:column;align-items:center;transform:translate(-50%, -52px);">
     <div style="width:44px;height:54px;display:flex;justify-content:center;">
       ${pinHtml}
     </div>
