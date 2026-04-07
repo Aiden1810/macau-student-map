@@ -148,15 +148,7 @@ function ShopHero({
   );
 }
 
-function PostComment({
-  shopId,
-  onPublished,
-  currentUserId
-}: {
-  shopId: string;
-  onPublished: () => Promise<void> | void;
-  currentUserId: string | null;
-}) {
+function PostComment({shopId, onPublished}: {shopId: string; onPublished: () => Promise<void> | void}) {
   const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5>(5);
   const [content, setContent] = useState('');
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -215,7 +207,6 @@ function PostComment({
         .from('comments')
         .insert({
           shop_id: shopId,
-          user_id: currentUserId,
           content: payloadContent,
           rating
         })
@@ -314,17 +305,7 @@ function PostComment({
   );
 }
 
-function CommentList({
-  comments,
-  loading,
-  error,
-  currentUserId
-}: {
-  comments: CommentWithImages[];
-  loading: boolean;
-  error: string | null;
-  currentUserId: string | null;
-}) {
+function CommentList({comments, loading, error}: {comments: CommentWithImages[]; loading: boolean; error: string | null}) {
   if (loading) {
     return <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">评论加载中...</div>;
   }
@@ -343,15 +324,8 @@ function CommentList({
 
           return (
             <article key={comment.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <StarRating score={comment.rating} />
-                  {currentUserId && comment.userId === currentUserId && (
-                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                      我评论过
-                    </span>
-                  )}
-                </div>
+              <div className="flex items-center justify-between">
+                <StarRating score={comment.rating} />
                 <span className="text-xs text-slate-400">{dateLabel}</span>
               </div>
 
@@ -395,7 +369,6 @@ export default function ShopDetailPage() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isAdminImageManagerOpen, setIsAdminImageManagerOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const galleryImages = useMemo(
     () => (shop?.imageUrls ?? []).filter((url) => typeof url === 'string' && url.trim().length > 0),
@@ -441,7 +414,7 @@ export default function ShopDetailPage() {
 
     const {data, error} = await supabase
       .from('comments')
-      .select('id,shop_id,user_id,content,rating,created_at,comment_images(image_url)')
+      .select('id,shop_id,content,rating,created_at,comment_images(image_url)')
       .eq('shop_id', shopId)
       .order('created_at', {ascending: false});
 
@@ -456,7 +429,6 @@ export default function ShopDetailPage() {
     const normalized = (data ?? []).map((row) => ({
       id: String(row.id),
       shopId: String(row.shop_id),
-      userId: row.user_id ? String(row.user_id) : null,
       content: String(row.content ?? ''),
       rating: Number(row.rating ?? 0) as 1 | 2 | 3 | 4 | 5,
       createdAt: String(row.created_at),
@@ -474,12 +446,10 @@ export default function ShopDetailPage() {
     const {data, error} = await supabase.auth.getUser();
     if (error || !data?.user) {
       setIsAuthenticated(false);
-      setCurrentUserId(null);
       return;
     }
 
     setIsAuthenticated(true);
-    setCurrentUserId(data.user.id);
   }, []);
 
   useEffect(() => {
@@ -521,18 +491,12 @@ export default function ShopDetailPage() {
 
         <PostComment
           shopId={shop.id}
-          currentUserId={currentUserId}
           onPublished={async () => {
             await Promise.all([fetchComments(), fetchShop()]);
           }}
         />
 
-        <CommentList
-          comments={comments}
-          loading={commentsLoading}
-          error={commentsError}
-          currentUserId={currentUserId}
-        />
+        <CommentList comments={comments} loading={commentsLoading} error={commentsError} />
       </main>
 
       <ImageLightbox

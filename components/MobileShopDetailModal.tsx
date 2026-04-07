@@ -12,7 +12,6 @@ import {Shop} from '@/types/shop';
 type CommentWithImages = {
   id: string;
   shopId: string;
-  userId: string | null;
   content: string;
   rating: 1 | 2 | 3 | 4 | 5;
   createdAt: string;
@@ -59,7 +58,6 @@ interface MobileShopDetailModalProps {
 export default function MobileShopDetailModal({shop, open, onClose, onLocate}: MobileShopDetailModalProps) {
   const [comments, setComments] = useState<CommentWithImages[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Post comment state
   const [commentRating, setCommentRating] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
@@ -83,7 +81,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
 
     const {data, error} = await supabase
       .from('comments')
-      .select('id,shop_id,user_id,content,rating,created_at,comment_images(image_url)')
+      .select('id,shop_id,content,rating,created_at,comment_images(image_url)')
       .eq('shop_id', shop.id)
       .order('created_at', {ascending: false});
 
@@ -97,7 +95,6 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
     const normalized = (data ?? []).map((row) => ({
       id: String(row.id),
       shopId: String(row.shop_id),
-      userId: row.user_id ? String(row.user_id) : null,
       content: String(row.content ?? ''),
       rating: Number(row.rating ?? 0) as 1 | 2 | 3 | 4 | 5,
       createdAt: String(row.created_at),
@@ -121,29 +118,6 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
       setSubmitError(null);
     }
   }, [open, fetchComments]);
-
-  useEffect(() => {
-    const syncUser = async () => {
-      const {data, error} = await supabase.auth.getUser();
-      if (error || !data?.user) {
-        setCurrentUserId(null);
-        return;
-      }
-      setCurrentUserId(data.user.id);
-    };
-
-    void syncUser();
-
-    const {
-      data: {subscription}
-    } = supabase.auth.onAuthStateChange(() => {
-      void syncUser();
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
 
 
   const handleUploadImage = async (file: File) => {
@@ -189,7 +163,6 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
         .from('comments')
         .insert({
           shop_id: shop.id,
-          user_id: currentUserId,
           content: payloadContent,
           rating: commentRating
         })
@@ -384,22 +357,15 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
 
                   return (
                     <article key={comment.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-0.5">
-                            {Array.from({length: cFull}).map((_, i) => (
-                              <Star key={`cf-${i}`} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                            ))}
-                            {cHalf && <StarHalf className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
-                            {Array.from({length: cEmpty}).map((_, i) => (
-                              <Star key={`ce-${i}`} className="h-3.5 w-3.5 text-slate-300" />
-                            ))}
-                          </div>
-                          {currentUserId && comment.userId === currentUserId && (
-                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                              我评论过
-                            </span>
-                          )}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-0.5">
+                          {Array.from({length: cFull}).map((_, i) => (
+                            <Star key={`cf-${i}`} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                          ))}
+                          {cHalf && <StarHalf className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
+                          {Array.from({length: cEmpty}).map((_, i) => (
+                            <Star key={`ce-${i}`} className="h-3.5 w-3.5 text-slate-300" />
+                          ))}
                         </div>
                         <span className="text-[11px] text-slate-400">{dateLabel}</span>
                       </div>
