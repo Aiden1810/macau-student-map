@@ -1,7 +1,7 @@
 'use client';
 
 import {useMemo} from 'react';
-import {ShopCategoryKey} from '@/types/shop';
+import {ShopCategoryKey, ShopRegion} from '@/types/shop';
 
 export const L1_TABS: Array<{key: ShopCategoryKey; label: string}> = [
   {key: 'all', label: '全部'},
@@ -38,11 +38,13 @@ export type L2GroupMap = typeof L2_TAGS;
 interface FilterBarProps {
   activeL1: ShopCategoryKey;
   activeL2: string | null;
+  activeRegion: ShopRegion | 'all';
+  onRegionChange: (region: ShopRegion | 'all') => void;
   onChange: (l1: ShopCategoryKey, l2: string | null) => void;
 }
 
 
-export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps) {
+export default function FilterBar({activeL1, activeL2, activeRegion, onRegionChange, onChange}: FilterBarProps) {
   const groupedL2Tags = useMemo(() => {
     if (activeL1 === 'all') {
       return {} as Record<string, readonly string[]>;
@@ -73,7 +75,32 @@ export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps
             );
           })}
         </div>
-        <div className="pointer-events-none absolute right-0 top-0 z-50 h-full w-8 bg-gradient-to-l from-black/[0.03] to-transparent md:hidden" />
+        <div className="pointer-events-none absolute right-0 top-0 z-50 h-full w-8 bg-gradient-to-l from-white/10 to-transparent md:hidden" />
+      </div>
+
+      {/* Region selector row */}
+      <div className="relative mt-2">
+        <div className="hide-scrollbar flex items-center gap-1.5 overflow-x-auto pb-1 pr-6">
+          {['all', '澳门半岛', '氹仔岛', '路环岛', '香洲区', '横琴区', '其它'].map((rk) => {
+            const isActive = activeRegion === rk;
+            const label = rk === 'all' ? '📍 全部区域' : rk;
+            return (
+              <button
+                key={rk}
+                type="button"
+                onClick={() => onRegionChange(rk as ShopRegion | 'all')}
+                className={`inline-flex shrink-0 items-center justify-center rounded-xl border px-3 py-1.5 text-[11px] font-bold transition shadow-sm ${
+                  isActive
+                    ? 'border-[#006633]/30 bg-[#006633] text-white shadow-md'
+                    : 'border-slate-200/60 bg-white/50 text-[#1a1a1a]/70 backdrop-blur-[12px]'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="pointer-events-none absolute right-0 top-0 z-50 h-full w-8 bg-gradient-to-l from-white/8 to-transparent md:hidden" />
       </div>
 
       {activeL1 !== 'all' && (

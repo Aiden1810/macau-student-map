@@ -441,7 +441,13 @@ export default function Page() {
           </div>
 
           <div className="pointer-events-auto px-[14px] pt-1">
-            <FilterBar activeL1={activeL1} activeL2={activeL2} onChange={handleTopFilterChange} />
+            <FilterBar 
+              activeL1={activeL1} 
+              activeL2={activeL2} 
+              activeRegion={activeRegion}
+              onRegionChange={setActiveRegion}
+              onChange={handleTopFilterChange} 
+            />
           </div>
         </div>
 
@@ -509,7 +515,13 @@ export default function Page() {
 
         <main className="relative mx-auto max-w-7xl px-4 pt-1.5 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:px-6 sm:pt-2 md:h-[calc(100dvh-4rem)] md:pb-4 lg:px-8">
           <div className="mb-0">
-            <FilterBar activeL1={activeL1} activeL2={activeL2} onChange={handleTopFilterChange} />
+            <FilterBar 
+              activeL1={activeL1} 
+              activeL2={activeL2} 
+              activeRegion={activeRegion}
+              onRegionChange={setActiveRegion}
+              onChange={handleTopFilterChange} 
+            />
           </div>
 
           {isContributeOpen && (

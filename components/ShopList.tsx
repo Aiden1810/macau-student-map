@@ -305,25 +305,6 @@ export default function ShopList({
           </div>
         )}
       </div>
-
-      <div className="mt-2 hide-scrollbar flex items-center gap-1.5 overflow-x-auto pb-1">
-        {activeRegion !== undefined && setActiveRegion !== undefined && ['all', '澳门半岛', '氹仔岛', '路环岛', '香洲区', '横琴区', '其它'].map((regionKey) => {
-          const isActive = activeRegion === regionKey;
-          const label = regionKey === 'all' ? '全部区域' : regionKey;
-          return (
-            <button
-              key={regionKey}
-              onClick={() => setActiveRegion(regionKey as ShopRegion | 'all')}
-              className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-colors ${
-                isActive ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {label}
-            </button>
-          )
-        })}
-      </div>
-
       <div className="mt-2 flex-1 space-y-4 overflow-y-auto pb-1 pr-1">
         {loading ? (
           Array.from({length: 6}).map((_, index) => <ShopCardSkeleton key={`skeleton-${index}`} />)
@@ -441,7 +422,21 @@ export default function ShopList({
         })()}
 
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-sm font-semibold text-[#0d2918]">场景筛选</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-[#0d2918]">场景筛选</p>
+            {showFavorites !== undefined && setShowFavorites !== undefined && (
+              <button
+                onClick={() => setShowFavorites(!showFavorites)}
+                className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold transition ${
+                  showFavorites 
+                    ? 'bg-rose-500 text-white shadow-sm' 
+                    : 'bg-rose-50/80 text-rose-600 border border-rose-100'
+                }`}
+              >
+                {showFavorites ? '❤️ 已藏' : '🤍 收藏'}
+              </button>
+            )}
+          </div>
           <span className="rounded-2xl bg-[rgba(26,92,46,0.10)] px-2.5 py-1 text-xs font-semibold text-[#1A5C2E]">附近 {filteredShops.length} 家</span>
         </div>
 
@@ -465,34 +460,7 @@ export default function ShopList({
             );
           })}
         </div>
-        
-        <div className="hide-scrollbar mb-3 flex gap-1.5 overflow-x-auto pb-1 items-center">
-           {showFavorites !== undefined && setShowFavorites !== undefined && (
-             <button
-                onClick={() => setShowFavorites(!showFavorites)}
-                className={`shrink-0 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold transition shadow-sm ${
-                  showFavorites ? 'bg-rose-500 text-white' : 'bg-white/80 text-rose-600 border border-rose-100'
-                }`}
-             >
-                🤍 我的收藏
-             </button>
-           )}
-           {activeRegion !== undefined && setActiveRegion !== undefined && ['all', '澳门半岛', '氹仔岛', '路环岛', '香洲区', '横琴区', '其它'].map((regionKey) => {
-            const isActive = activeRegion === regionKey;
-            const label = regionKey === 'all' ? '全部区域' : regionKey;
-            return (
-              <button
-                key={regionKey}
-                onClick={() => setActiveRegion(regionKey as ShopRegion | 'all')}
-                className={`shrink-0 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold transition ${
-                  isActive ? 'bg-indigo-600 text-white shadow-md' : 'bg-white/50 text-slate-700'
-                }`}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </div>
+
 
         {!mobileExpanded ? (
           <button
