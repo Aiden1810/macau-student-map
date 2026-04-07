@@ -438,7 +438,7 @@ export default function Page() {
               searchPlaceholder={t('searchPlaceholder')}
               isAdmin={isAdmin}
               userEmail={userEmail}
-              loginHref="/admin-login"
+              loginHref="/login"
               onLogout={handleLogout}
               onToggleContribute={() => {
                 setIsContributeOpen((prev) => !prev);

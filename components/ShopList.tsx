@@ -578,6 +578,19 @@ export default function ShopList({
                               <Navigation className="h-3 w-3" />
                               查看位置
                             </button>
+                            {onToggleFavorite && (
+                              <button
+                                type="button"
+                                onClick={(e) => onToggleFavorite(shop.id, e)}
+                                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                                  favorites?.includes(shop.id)
+                                    ? 'bg-rose-500 text-white'
+                                    : 'border border-rose-200 bg-white/70 text-rose-600'
+                                }`}
+                              >
+                                {favorites?.includes(shop.id) ? '已收藏' : '收藏'}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>

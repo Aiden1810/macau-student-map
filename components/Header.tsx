@@ -63,6 +63,14 @@ export default function Header({
             >
               {contributeLabel}
             </button>
+            {!userEmail && (
+              <Link
+                href={loginHref}
+                className="inline-flex items-center rounded-2xl border border-[#1A5C2E]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5 sm:text-sm"
+              >
+                {tAuth('login')}
+              </Link>
+            )}
           </div>
         </div>
 
@@ -79,20 +87,31 @@ export default function Header({
           </div>
         </div>
 
-        {userEmail && (
-          <div className="hidden items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs text-white md:flex">
-            {isAdmin && <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />}
-            <span className="max-w-[140px] truncate">{userEmail}</span>
-            <button
-              type="button"
-              onClick={onLogout}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-white transition hover:bg-white/15"
+        <div className="hidden items-center gap-2 md:flex">
+          {!userEmail && (
+            <Link
+              href={loginHref}
+              className="inline-flex items-center rounded-full border border-white/35 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/15"
             >
-              <LogOut className="h-3.5 w-3.5" />
-              {tAuth('logout')}
-            </button>
-          </div>
-        )}
+              {tAuth('login')}
+            </Link>
+          )}
+
+          {userEmail && (
+            <div className="hidden items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs text-white md:flex">
+              {isAdmin && <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />}
+              <span className="max-w-[140px] truncate">{userEmail}</span>
+              <button
+                type="button"
+                onClick={onLogout}
+                className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-medium text-white transition hover:bg-white/15"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                {tAuth('logout')}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
