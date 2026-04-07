@@ -104,6 +104,7 @@ export default function ShopList({
   const [mobileHeight, setMobileHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [mapFocusCollapsed, setMapFocusCollapsed] = useState(false);
+  const hasMountedAutoCollapseRef = useRef(false);
   const lastAutoCollapseAtRef = useRef(0);
   const [recentlyLocatedShopId, setRecentlyLocatedShopId] = useState<Shop['id'] | null>(null);
   const [mobileDetailShop, setMobileDetailShop] = useState<Shop | null>(null);
@@ -118,6 +119,11 @@ export default function ShopList({
   }, [collapseMobileSheetSignal]);
 
   useEffect(() => {
+    if (!hasMountedAutoCollapseRef.current) {
+      hasMountedAutoCollapseRef.current = true;
+      return;
+    }
+
     if (isDragging) {
       return;
     }
