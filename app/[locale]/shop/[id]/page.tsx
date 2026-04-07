@@ -18,15 +18,6 @@ type CommentWithImages = Comment & {
   comment_images: Array<{image_url: string}>;
 };
 
-function calculateAverageRating(comments: Array<{rating: number}>): number {
-  if (comments.length === 0) {
-    return 0;
-  }
-
-  const total = comments.reduce((sum, item) => sum + item.rating, 0);
-  return Number((total / comments.length).toFixed(1));
-}
-
 function ShopImageGallery({
   imageUrls,
   onOpenLightbox
@@ -107,18 +98,16 @@ function ShopImageGallery({
 
 function ShopHero({
   shop,
-  comments,
   onOpenLightbox,
   onOpenAdminManager,
   canManageImages
 }: {
   shop: Shop;
-  comments: CommentWithImages[];
   onOpenLightbox: (index: number) => void;
   onOpenAdminManager: () => void;
   canManageImages: boolean;
 }) {
-  const averageScore = calculateAverageRating(comments);
+  const averageScore = shop.rating;
   const ratingTag = getRatingTag(averageScore);
 
   return (
@@ -147,7 +136,7 @@ function ShopHero({
 
         <p className="mt-1 text-sm text-slate-500">{shop.address}</p>
         <div className="mt-2 flex items-center gap-2">
-          <StarRating score={averageScore} reviewCount={comments.length} />
+          <StarRating score={averageScore} reviewCount={shop.reviews} />
           <span
             className={`rounded-md border px-2 py-1 text-xs font-semibold ${ratingTag.bgClass} ${ratingTag.textClass} ${ratingTag.borderClass}`}
           >
@@ -202,7 +191,7 @@ function PostComment({shopId, onPublished}: {shopId: string; onPublished: () => 
   };
 
   const submitComment = async () => {
-    if (!content.trim() || submitting) {
+    if (submitting) {
       return;
     }
 
@@ -215,7 +204,7 @@ function PostComment({shopId, onPublished}: {shopId: string; onPublished: () => 
         .from('comments')
         .insert({
           shop_id: shopId,
-          content: content.trim(),
+          content: content.trim() || null,
           rating
         })
         .select('id')
@@ -272,7 +261,7 @@ function PostComment({shopId, onPublished}: {shopId: string; onPublished: () => 
         value={content}
         onChange={(e) => setContent(e.target.value)}
         rows={4}
-        placeholder="写下你的体验..."
+        placeholder="可选：写下你的体验..."
         className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
       />
 
@@ -301,7 +290,7 @@ function PostComment({shopId, onPublished}: {shopId: string; onPublished: () => 
         <button
           type="button"
           onClick={submitComment}
-          disabled={submitting || !content.trim()}
+          disabled={submitting}
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? '发布中...' : '发布'}
@@ -337,7 +326,7 @@ function CommentList({comments, loading, error}: {comments: CommentWithImages[];
                 <span className="text-xs text-slate-400">{dateLabel}</span>
               </div>
 
-              <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{comment.content}</p>
+              <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{comment.content?.trim() ? comment.content : '用户仅打分，未填写文字评论。'}</p>
 
               {comment.comment_images.length > 0 && (
                 <div className="mt-3 grid grid-cols-3 gap-2">
@@ -489,7 +478,6 @@ export default function ShopDetailPage() {
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
         <ShopHero
           shop={shop}
-          comments={comments}
           onOpenLightbox={(index) => {
             setLightboxIndex(index);
             setIsLightboxOpen(true);
@@ -501,7 +489,7 @@ export default function ShopDetailPage() {
         <PostComment
           shopId={shop.id}
           onPublished={async () => {
-            await fetchComments();
+            await Promise.all([fetchComments(), fetchShop()]);
           }}
         />
 
