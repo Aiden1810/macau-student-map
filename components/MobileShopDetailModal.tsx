@@ -47,11 +47,6 @@ function InlineStarRating({score, reviewCount}: {score: number; reviewCount?: nu
   );
 }
 
-function calculateAverageRating(comments: Array<{rating: number}>): number {
-  if (comments.length === 0) return 0;
-  const total = comments.reduce((sum, item) => sum + item.rating, 0);
-  return Number((total / comments.length).toFixed(1));
-}
 
 interface MobileShopDetailModalProps {
   shop: Shop;
@@ -124,7 +119,6 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
     }
   }, [open, fetchComments]);
 
-  const averageRating = useMemo(() => calculateAverageRating(comments), [comments]);
 
   const handleUploadImage = async (file: File) => {
     setSubmitError(null);
@@ -151,7 +145,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
   };
 
   const handleSubmitComment = async () => {
-    if (!commentContent.trim() || submitting) return;
+    if (submitting) return;
     if (commentRating === 0) {
       setSubmitError('请先点击星星进行评分');
       return;
@@ -162,11 +156,14 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
     setSubmitMessage(null);
 
     try {
+      const trimmedContent = commentContent.trim();
+      const payloadContent = trimmedContent.length > 0 ? trimmedContent : ' ';
+
       const {data: inserted, error: commentError} = await supabase
         .from('comments')
         .insert({
           shop_id: shop.id,
-          content: commentContent.trim(),
+          content: payloadContent,
           rating: commentRating
         })
         .select('id')
@@ -240,7 +237,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
             </p>
 
             <div className="mt-2 flex items-center gap-2">
-              <InlineStarRating score={averageRating} reviewCount={comments.length} />
+              <InlineStarRating score={shop.rating} reviewCount={shop.reviews} />
             </div>
 
             <div className="mt-2 flex flex-wrap gap-2">
@@ -296,7 +293,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
               value={commentContent}
               onChange={(e) => setCommentContent(e.target.value)}
               rows={3}
-              placeholder="写下你的体验..."
+              placeholder="可选：写下你的体验..."
               className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]"
             />
 
@@ -325,7 +322,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
               <button
                 type="button"
                 onClick={handleSubmitComment}
-                disabled={submitting || !commentContent.trim() || commentRating === 0}
+                disabled={submitting || commentRating === 0}
                 className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? '发布中...' : '发布'}
@@ -373,7 +370,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
                         <span className="text-[11px] text-slate-400">{dateLabel}</span>
                       </div>
 
-                      <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{comment.content}</p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{comment.content?.trim() ? comment.content : '用户仅打分，未填写文字评论。'}</p>
 
                       {comment.comment_images.length > 0 && (
                         <div className="mt-2 grid grid-cols-3 gap-1.5">
