@@ -7,7 +7,6 @@ import {L2_TAGS} from '@/components/FilterBar';
 import ImageUpload from '@/components/ImageUpload';
 import {useDebounce} from '@/lib/hooks/useDebounce';
 import {supabase} from '@/lib/supabase';
-import {ShopFeature} from '@/types/shop';
 
 type GeocodeOption = {
   placeId: string;
@@ -22,8 +21,6 @@ interface ContributionFormProps {
   onRequestMapPick: () => void;
   manualCoordinates: [number, number] | null;
 }
-
-const FEATURE_OPTIONS: ShopFeature[] = ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'];
 
 type AMapPlaceSearchPoi = {
   id?: string;
@@ -139,7 +136,6 @@ export default function ContributionForm({
 
   const [category, setCategory] = useState<'food' | 'drink' | 'vibe' | 'deal' | ''>('');
   const [ratingScore, setRatingScore] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
-  const [selectedFeatures, setSelectedFeatures] = useState<ShopFeature[]>([]);
   const [selectedPresetTags, setSelectedPresetTags] = useState<string[]>([]);
   const [expandedSecondaryTagGroups, setExpandedSecondaryTagGroups] = useState(false);
 
@@ -386,7 +382,6 @@ export default function ContributionForm({
 
     const payloadBase = {
       tags,
-      features: selectedFeatures,
       shop_type: derivedShopType,
       rating_label: ratingScore === 5 ? '封神之作' : ratingScore === 4 ? '强烈推荐' : ratingScore >= 2 ? '还行吧' : '建议避雷',
       rating: ratingScore,
@@ -592,31 +587,6 @@ export default function ContributionForm({
                   />
                 </button>
               ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">特色（可多选）</label>
-            <div className="flex flex-wrap gap-2">
-              {FEATURE_OPTIONS.map((feature) => {
-                const checked = selectedFeatures.includes(feature);
-                return (
-                  <button
-                    key={feature}
-                    type="button"
-                    onClick={() => {
-                      setSelectedFeatures((prev) =>
-                        checked ? prev.filter((item) => item !== feature) : [...prev, feature]
-                      );
-                    }}
-                    className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                      checked ? 'border-[#006633] bg-[#006633] text-white' : 'border-slate-200 bg-slate-50 text-slate-600'
-                    }`}
-                  >
-                    {feature}
-                  </button>
-                );
-              })}
             </div>
           </div>
 
