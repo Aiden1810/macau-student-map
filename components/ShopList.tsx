@@ -307,7 +307,7 @@ export default function ShopList({
       </div>
 
       <div className="mt-2 hide-scrollbar flex items-center gap-1.5 overflow-x-auto pb-1">
-        {activeRegion !== undefined && setActiveRegion !== undefined && ['all', '澳门半岛', '氹仔区', '路环区', '横琴校区'].map((regionKey) => {
+        {activeRegion !== undefined && setActiveRegion !== undefined && ['all', '澳门半岛', '氹仔岛', '路环岛', '香洲区', '横琴区'].map((regionKey) => {
           const isActive = activeRegion === regionKey;
           const label = regionKey === 'all' ? '全部区域' : regionKey;
           return (
@@ -477,7 +477,7 @@ export default function ShopList({
                 🤍 我的收藏
              </button>
            )}
-           {activeRegion !== undefined && setActiveRegion !== undefined && ['all', '澳门半岛', '氹仔区', '路环区', '横琴校区'].map((regionKey) => {
+           {activeRegion !== undefined && setActiveRegion !== undefined && ['all', '澳门半岛', '氹仔岛', '路环岛', '香洲区', '横琴区'].map((regionKey) => {
             const isActive = activeRegion === regionKey;
             const label = regionKey === 'all' ? '全部区域' : regionKey;
             return (

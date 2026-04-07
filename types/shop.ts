@@ -26,7 +26,7 @@ export interface DrawerFiltersState {
   features: ShopFeature[];
 }
 
-export type ShopRegion = '澳门半岛' | '氹仔区' | '路环区' | '横琴校区' | '其它';
+export type ShopRegion = '澳门半岛' | '氹仔岛' | '路环岛' | '香洲区' | '横琴区' | '其它';
 
 export interface Shop {
   id: string;
