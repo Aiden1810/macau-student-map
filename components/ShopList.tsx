@@ -308,9 +308,10 @@ export default function ShopList({
         className="fixed inset-x-0 bottom-0 z-40 rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] transition-[height] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] md:hidden"
         style={{height: mobileHeight > 0 ? `${mobileHeight}px` : mobileExpanded ? `${SHEET_EXPANDED_VH}dvh` : `${SHEET_COLLAPSED_HEIGHT}px`, ...MOBILE_GLASS_STYLE}}
       >
-        <button
-          type="button"
-          aria-label="展开店铺抽屉"
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="展开或收起店铺抽屉"
           onClick={() => setMobileExpanded((prev) => !prev)}
           onTouchStart={(e) => startDrag(e.touches[0].clientY)}
           onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
@@ -319,8 +320,10 @@ export default function ShopList({
           onMouseMove={(e) => moveDrag(e.clientY)}
           onMouseUp={endDrag}
           onMouseLeave={endDrag}
-          className="mx-auto mb-2 block h-1 w-[34px] touch-none rounded-[2px] bg-[#1A5C2E]/35"
-        />
+          className="mx-auto -mt-2 mb-2 flex h-8 w-full cursor-grab items-center justify-center touch-none outline-none active:cursor-grabbing"
+        >
+          <div className="h-1 w-[34px] rounded-[2px] bg-[#1A5C2E]/35" />
+        </div>
 
         <div className="relative mb-2">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1A5C2E]/75" />
@@ -400,7 +403,14 @@ export default function ShopList({
           <button
             type="button"
             onClick={() => setMobileExpanded(true)}
-            className="w-full rounded-2xl bg-white/25 px-3 py-2 text-left"
+            onTouchStart={(e) => startDrag(e.touches[0].clientY)}
+            onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
+            onTouchEnd={endDrag}
+            onMouseDown={(e) => startDrag(e.clientY)}
+            onMouseMove={(e) => moveDrag(e.clientY)}
+            onMouseUp={endDrag}
+            onMouseLeave={endDrag}
+            className="w-full touch-none cursor-grab rounded-2xl bg-white/25 px-3 py-2 text-left active:cursor-grabbing"
           >
             <p className="text-sm font-semibold text-[#0d2918]">上拉查看附近店铺列表</p>
             <p className="mt-0.5 text-xs text-[#1A5C2E]/80">当前共 {filteredShops.length} 家</p>
