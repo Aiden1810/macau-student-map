@@ -479,7 +479,7 @@ export default function ShopList({
             <p className="mt-0.5 text-xs text-[#1A5C2E]/80">当前共 {filteredShops.length} 家</p>
           </button>
         ) : (
-          <div className="mt-1 h-[calc(100%-145px)] overflow-y-auto">
+          <div className="mt-1 h-[calc(100%-145px)] overflow-y-auto pb-[max(env(safe-area-inset-bottom,0px),72px)]">
             {loading ? (
               <div className="space-y-2">
                 {Array.from({length: 4}).map((_, index) => (
