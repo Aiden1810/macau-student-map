@@ -200,11 +200,14 @@ function PostComment({shopId, onPublished}: {shopId: string; onPublished: () => 
     setMessage(null);
 
     try {
+      const trimmedContent = content.trim();
+      const payloadContent = trimmedContent.length > 0 ? trimmedContent : ' ';
+
       const {data: inserted, error: commentError} = await supabase
         .from('comments')
         .insert({
           shop_id: shopId,
-          content: content.trim(),
+          content: payloadContent,
           rating
         })
         .select('id')
