@@ -408,25 +408,15 @@ export default function MapPlaceholder({
     markersRef.current.clear();
 
     const isFilteredView = activeL1 !== 'all' && activeL1 !== 'region';
-    const center = map.getCenter?.();
-    const centerLng = center?.getLng() ?? MACAU_CENTER[0];
-    const centerLat = center?.getLat() ?? MACAU_CENTER[1];
-
+    
     let validShops = shops.filter((shop) => shop.hasCoordinates);
-
-    // If filtered view, limit by distance (5km)
-    if (isFilteredView) {
-      validShops = validShops.filter((shop) => {
-        const dist = calculateDistance(centerLng, centerLat, shop.coordinates[0], shop.coordinates[1]);
-        return dist <= 5000;
-      });
-    }
 
     const markers = validShops.map((shop) => {
       const marker = new AMap.Marker({
         position: shop.coordinates,
         offset: new AMap.Pixel(0, 0),
         content: buildMarkerHtml(false, false, isFilteredView),
+        zIndex: isFilteredView ? 110 : 100,
         extData: {shopId: shop.id}
       });
 
@@ -478,9 +468,13 @@ export default function MapPlaceholder({
         }
       });
     } else {
-      // In filtered view, set fitView to show matching shops nearby
+      // In filtered view, set fitView with padding to ensure visibility
       if (map.setFitView && markers.length > 0) {
-        map.setFitView(markers, false, [60, 60, 60, 60], 16);
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.setFitView(markers, false, [80, 50, 200, 50], 16);
+          }
+        }, 100);
       }
     }
   }, [shops, mapReady, onSelectShop, activeL1]);
