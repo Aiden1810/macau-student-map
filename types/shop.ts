@@ -8,7 +8,7 @@ export type ViewMode = 'list' | 'map';
 
 export type ShopStatus = 'pending' | 'verified' | 'rejected';
 
-export type ShopCategoryKey = 'all' | 'food' | 'drink' | 'vibe' | 'deal' | 'review';
+export type ShopCategoryKey = 'all' | 'food' | 'drink' | 'vibe' | 'region' | 'deal' | 'review';
 
 export type ShopRatingLabel = '封神之作' | '强烈推荐' | '还行吧' | '建议避雷' | '暂无评分';
 

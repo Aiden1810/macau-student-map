@@ -28,6 +28,7 @@ const L1_LABELS: Record<ShopCategoryKey, string> = {
   food: '美食',
   drink: '饮品/甜点',
   vibe: '场景',
+  region: '区域',
   deal: '优惠',
   review: '榜单'
 };
@@ -44,8 +45,8 @@ const SCENARIO_SHORTCUTS: Array<{
 ];
 
 function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
-  if (tabKey === 'all') return shops;
-
+  if (tabKey === 'all' || tabKey === 'region') return shops;
+  
   if (tabKey === 'review') {
     return shops.filter((s) => ['封神之作', '强烈推荐'].includes(s.ratingLabel));
   }
@@ -311,7 +312,17 @@ export default function Page() {
       setActiveL1(l1);
       setActiveL2(null);
       setDrawerFilters(DEFAULT_DRAWER_FILTERS);
+      // If we switch away from region tab, keep the activeRegion filter active (sticky)
+      // but if we switch TO region tab, reset it unless we pick one? 
+      // Actually, if they click "Region" tab, we show all initially in that tab context.
+      if (l1 === 'region') {
+         setActiveRegion('all');
+      }
       return;
+    }
+
+    if (l1 === 'region') {
+      setActiveRegion((l2 as ShopRegion) || 'all');
     }
 
     setActiveL1(l1);
@@ -444,8 +455,6 @@ export default function Page() {
             <FilterBar 
               activeL1={activeL1} 
               activeL2={activeL2} 
-              activeRegion={activeRegion}
-              onRegionChange={setActiveRegion}
               onChange={handleTopFilterChange} 
             />
           </div>
@@ -518,8 +527,6 @@ export default function Page() {
             <FilterBar 
               activeL1={activeL1} 
               activeL2={activeL2} 
-              activeRegion={activeRegion}
-              onRegionChange={setActiveRegion}
               onChange={handleTopFilterChange} 
             />
           </div>
