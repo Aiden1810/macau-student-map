@@ -500,6 +500,12 @@ export default function Page() {
           activeL1={activeL1}
           activeL2={activeL2}
           onL2Change={handleTopFilterChange}
+          showFavorites={showFavorites}
+          setShowFavorites={setShowFavorites}
+          activeRegion={activeRegion}
+          setActiveRegion={setActiveRegion}
+          favorites={favorites}
+          onToggleFavorite={toggleFavorite}
         />
       </div>
 
