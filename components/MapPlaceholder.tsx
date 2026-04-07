@@ -1,5 +1,6 @@
 'use client';
 
+import toast from 'react-hot-toast';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {Shop} from '@/types/shop';
 
@@ -173,6 +174,35 @@ function buildShopPinHtml(size: 'default' | 'selected' = 'default', anchored = t
   </div>`;
 }
 
+function buildUserPinHtml(anchored = true): string {
+  const width = 36;
+  const height = 46;
+  const anchorTransform = anchored ? 'transform:translate(-50%,-100%);' : '';
+  const randId = Math.random().toString(36).slice(2, 9);
+  const filterId = `userPinShadow-${randId}`;
+
+  return `<div style="width:${width}px;height:${height}px;${anchorTransform}display:flex;align-items:flex-start;justify-content:center;">
+    <svg width="${width}" height="${height}" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <filter id="${filterId}" x="-60%" y="-50%" width="220%" height="220%">
+          <feDropShadow dx="0" dy="3" stdDeviation="2.4" flood-color="rgba(30,64,175,0.28)"/>
+        </filter>
+      </defs>
+      <g filter="url(#${filterId})">
+        <path d="M22 52C22 52 7 38.2 7 24.6C7 15.3 13.7 8 22 8C30.3 8 37 15.3 37 24.6C37 38.2 22 52 22 52Z" fill="#ffffff"/>
+        <circle cx="22" cy="24" r="11.4" fill="#2563eb"/>
+        <g transform="translate(16.3 17.2)" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="5.7" cy="4" r="2.6" fill="#ffffff" stroke="none"/>
+          <path d="M5.7 7.4V12.2"/>
+          <path d="M2.6 9.8H8.8"/>
+          <path d="M5.7 12.2L3.6 15.5"/>
+          <path d="M5.7 12.2L7.8 15.5"/>
+        </g>
+      </g>
+    </svg>
+  </div>`;
+}
+
 function escapeHtml(raw: string): string {
   return raw
     .replaceAll('&', '&amp;')
@@ -231,6 +261,7 @@ export default function MapPlaceholder({
   const selectedPinRef = useRef<AMapMarker | null>(null);
   const selectedShopPinRef = useRef<AMapMarker | null>(null);
   const hoveredShopPinRef = useRef<AMapMarker | null>(null);
+  const myLocationPinRef = useRef<AMapMarker | null>(null);
 
   const [mapReady, setMapReady] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
@@ -343,6 +374,7 @@ export default function MapPlaceholder({
       selectedPinRef.current = null;
       selectedShopPinRef.current = null;
       hoveredShopPinRef.current = null;
+      myLocationPinRef.current = null;
     };
   }, []);
 
@@ -521,23 +553,43 @@ export default function MapPlaceholder({
       const geolocation = new AMap.Geolocation({
         enableHighAccuracy: true,
         timeout: 10000,
-        showMarker: true,
-        showCircle: true,
-        zoomToAccuracy: true
+        showMarker: false,
+        showCircle: false,
+        zoomToAccuracy: false
       });
 
       geolocation.getCurrentPosition((status, result) => {
         setGeoLoading(false);
 
         if (status !== 'complete') {
+          toast.error('定位失败，请检查定位权限是否已开启');
           return;
         }
 
         const lng = result.position?.lng;
         const lat = result.position?.lat;
         if (typeof lng === 'number' && typeof lat === 'number') {
+          if (myLocationPinRef.current) {
+            myLocationPinRef.current.setMap(null);
+            myLocationPinRef.current = null;
+          }
+
+          const myMarker = new AMap.Marker({
+            position: [lng, lat],
+            offset: new AMap.Pixel(0, 0),
+            zIndex: 330,
+            content: buildUserPinHtml(true)
+          });
+
+          myMarker.setMap(map);
+          myLocationPinRef.current = myMarker;
+
           flyToLocation(lng, lat);
+          toast.success('已定位到你当前位置');
+          return;
         }
+
+        toast.error('定位结果无效，请稍后重试');
       });
     });
   };
