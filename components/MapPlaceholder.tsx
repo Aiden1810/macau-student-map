@@ -88,9 +88,9 @@ type MarkerStore = {
 };
 
 const MACAU_CENTER: [number, number] = [113.5439, 22.1896];
-const MAP_EXPLORE_MIN_DURATION_MS = 120;
-const MAP_EXPLORE_MIN_DISTANCE_METERS = 18;
-const MAP_EXPLORE_COOLDOWN_MS = 500;
+const MAP_EXPLORE_MIN_DURATION_MS = 520;
+const MAP_EXPLORE_MIN_DISTANCE_METERS = 220;
+const MAP_EXPLORE_COOLDOWN_MS = 1400;
 
 function getAMapFromWindow(): AMapNamespace | undefined {
   return (window as AMapWindow).AMap;

@@ -52,7 +52,6 @@ interface ShopListProps {
 }
 
 const SHEET_COLLAPSED_HEIGHT = 215;
-const SHEET_MAP_FOCUS_HEIGHT = 96;
 const SHEET_EXPANDED_VH = 85;
 
 const MOBILE_GLASS_STYLE: React.CSSProperties = {
@@ -103,7 +102,6 @@ export default function ShopList({
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [mapFocusCollapsed, setMapFocusCollapsed] = useState(false);
   const lastAutoCollapseAtRef = useRef(0);
   const [recentlyLocatedShopId, setRecentlyLocatedShopId] = useState<Shop['id'] | null>(null);
   const [mobileDetailShop, setMobileDetailShop] = useState<Shop | null>(null);
@@ -113,25 +111,23 @@ export default function ShopList({
 
   useEffect(() => {
     setMobileExpanded(false);
-    setMapFocusCollapsed(false);
     setMobileHeight(0);
   }, [collapseMobileSheetSignal]);
 
   useEffect(() => {
-    if (isDragging) {
+    if (!mobileExpanded || isDragging) {
       return;
     }
 
     const now = Date.now();
-    if (now - lastAutoCollapseAtRef.current < 600) {
+    if (now - lastAutoCollapseAtRef.current < 1400) {
       return;
     }
 
     lastAutoCollapseAtRef.current = now;
     setMobileExpanded(false);
-    setMapFocusCollapsed(true);
     setMobileHeight(0);
-  }, [autoCollapseSignal, isDragging]);
+  }, [autoCollapseSignal, mobileExpanded, isDragging]);
 
   useEffect(() => {
     return () => {
@@ -145,11 +141,7 @@ export default function ShopList({
 
   const startDrag = (clientY: number) => {
     dragStartYRef.current = clientY;
-    dragStartHeightRef.current = mobileExpanded
-      ? getExpandedHeightPx()
-      : mapFocusCollapsed
-        ? SHEET_MAP_FOCUS_HEIGHT
-        : SHEET_COLLAPSED_HEIGHT;
+    dragStartHeightRef.current = mobileExpanded ? getExpandedHeightPx() : SHEET_COLLAPSED_HEIGHT;
     setIsDragging(true);
   };
 
@@ -157,8 +149,7 @@ export default function ShopList({
     if (dragStartYRef.current === null) return;
 
     const delta = dragStartYRef.current - clientY;
-    const minHeight = mapFocusCollapsed ? SHEET_MAP_FOCUS_HEIGHT : SHEET_COLLAPSED_HEIGHT;
-    const next = Math.max(minHeight, Math.min(getExpandedHeightPx(), dragStartHeightRef.current + delta));
+    const next = Math.max(SHEET_COLLAPSED_HEIGHT, Math.min(getExpandedHeightPx(), dragStartHeightRef.current + delta));
     setMobileHeight(next);
   };
 
@@ -170,26 +161,23 @@ export default function ShopList({
 
     if (clientY !== undefined) {
       const delta = dragStartYRef.current - clientY;
-
+      
       if (mobileExpanded && delta < -40) {
         finalExpanded = false;
-      } else if (!mobileExpanded && delta > 30) {
+      } else if (!mobileExpanded && delta > 40) {
         finalExpanded = true;
       } else {
         const threshold = window.innerHeight * 0.55;
-        const currentHeight = mobileHeight || (mobileExpanded ? getExpandedHeightPx() : (mapFocusCollapsed ? SHEET_MAP_FOCUS_HEIGHT : SHEET_COLLAPSED_HEIGHT));
+        const currentHeight = mobileHeight || (mobileExpanded ? getExpandedHeightPx() : SHEET_COLLAPSED_HEIGHT);
         finalExpanded = currentHeight >= threshold;
       }
     } else {
       const threshold = window.innerHeight * 0.55;
-      const currentHeight = mobileHeight || (mobileExpanded ? getExpandedHeightPx() : (mapFocusCollapsed ? SHEET_MAP_FOCUS_HEIGHT : SHEET_COLLAPSED_HEIGHT));
+      const currentHeight = mobileHeight || (mobileExpanded ? getExpandedHeightPx() : SHEET_COLLAPSED_HEIGHT);
       finalExpanded = currentHeight >= threshold;
     }
 
     setMobileExpanded(finalExpanded);
-    if (finalExpanded) {
-      setMapFocusCollapsed(false);
-    }
     setMobileHeight(0);
     dragStartYRef.current = null;
   };
@@ -383,15 +371,8 @@ export default function ShopList({
       <div className="hidden w-full flex-col gap-4 md:flex">{desktopListContent}</div>
 
       <div
-        className={`fixed inset-x-0 bottom-0 z-40 rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden ${!isDragging ? 'transition-[height] duration-240 ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
-        style={{
-          height: mobileHeight > 0
-            ? `${mobileHeight}px`
-            : mobileExpanded
-              ? `${SHEET_EXPANDED_VH}dvh`
-              : `${mapFocusCollapsed ? SHEET_MAP_FOCUS_HEIGHT : SHEET_COLLAPSED_HEIGHT}px`,
-          ...MOBILE_GLASS_STYLE
-        }}
+        className={`fixed inset-x-0 bottom-0 z-40 rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden ${!isDragging ? 'transition-[height] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
+        style={{height: mobileHeight > 0 ? `${mobileHeight}px` : mobileExpanded ? `${SHEET_EXPANDED_VH}dvh` : `${SHEET_COLLAPSED_HEIGHT}px`, ...MOBILE_GLASS_STYLE}}
       >
         <div
           role="button"
@@ -502,10 +483,7 @@ export default function ShopList({
         {!mobileExpanded ? (
           <button
             type="button"
-            onClick={() => {
-              setMapFocusCollapsed(false);
-              setMobileExpanded(true);
-            }}
+            onClick={() => setMobileExpanded(true)}
             aria-label="上拉展开店铺列表"
             onTouchStart={(e) => startDrag(e.touches[0].clientY)}
             onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
