@@ -204,7 +204,7 @@ function PostComment({shopId, onPublished}: {shopId: string; onPublished: () => 
         .from('comments')
         .insert({
           shop_id: shopId,
-          content: content.trim() || null,
+          content: content.trim(),
           rating
         })
         .select('id')
