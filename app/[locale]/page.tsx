@@ -430,8 +430,8 @@ export default function Page() {
           />
         </div>
 
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] flex flex-col pt-[max(env(safe-area-inset-top),4px)] px-[14px]">
-          <div className="pointer-events-auto">
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] flex flex-col">
+          <div className="pointer-events-auto rounded-b-[18px] bg-white px-[14px] pt-[max(env(safe-area-inset-top),4px)] pb-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             <Header
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -451,7 +451,7 @@ export default function Page() {
             />
           </div>
 
-          <div className="pointer-events-auto mt-1.5">
+          <div className="pointer-events-auto px-[14px] pt-1">
             <FilterBar 
               activeL1={activeL1} 
               activeL2={activeL2} 
@@ -461,12 +461,12 @@ export default function Page() {
         </div>
 
         {pageError && (
-          <p className="pointer-events-none absolute left-[14px] right-[14px] top-[140px] z-40 rounded-xl border border-rose-200/80 bg-rose-50/90 px-3 py-2 text-sm text-rose-700 shadow-sm backdrop-blur-md">
+          <p className="pointer-events-none absolute left-[14px] right-[14px] top-[168px] z-40 rounded-xl border border-rose-200/80 bg-rose-50/90 px-3 py-2 text-sm text-rose-700 shadow-sm">
             {pageError}
           </p>
         )}
         {pageNotice && (
-          <p className="pointer-events-none absolute left-[14px] right-[14px] top-[140px] z-40 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-sm text-emerald-700 shadow-sm backdrop-blur-md">
+          <p className="pointer-events-none absolute left-[14px] right-[14px] top-[168px] z-40 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-sm text-emerald-700 shadow-sm">
             {pageNotice}
           </p>
         )}
