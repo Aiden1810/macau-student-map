@@ -233,7 +233,7 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
   const emptyStarHtml = '<span style="color:#cbd5e1;">☆</span>'.repeat(emptyStars);
   const starsHtml = `${fullStarHtml}${halfStarHtml}${emptyStarHtml}`;
   const primaryTag = escapeHtml(shop.tags[0] ?? '暂无标签');
-  const price = shop.pricePerPerson ? `￥${shop.pricePerPerson}` : '暂无';
+  const price = shop.pricePerPerson ? `MOP ${shop.pricePerPerson}` : '暂无';
 
   // Position: Tip of the pin is at the coordinate, card is below it
   // Pin height is 54px, tip is ~52px from top.

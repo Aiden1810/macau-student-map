@@ -211,7 +211,18 @@ export default function Page() {
     const searched =
       keyword.length === 0
         ? visibleShops
-        : visibleShops.filter((shop) => [shop.name, ...shop.tags].some((value) => value.toLowerCase().includes(keyword)));
+        : visibleShops.filter((shop) => {
+            const searchPool = [
+              shop.name,
+              shop.address,
+              shop.shopType,
+              shop.mainCategory ?? '',
+              ...shop.tags,
+              ...(shop.subTags ?? [])
+            ];
+
+            return searchPool.some((value) => value.toLowerCase().includes(keyword));
+          });
 
     const l1Filtered = filterByL1(activeL1, searched);
     const l2Filtered = activeL2 ? filterByL2(activeL2, l1Filtered) : l1Filtered;

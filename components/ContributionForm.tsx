@@ -361,19 +361,18 @@ export default function ContributionForm({
     setContributeError(null);
     setContributeMessage(null);
 
-    const tags = Array.from(
-      new Set([
-        ...selectedPresetTags,
-        ...tagsInput
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean)
-      ])
-    ).slice(0, 5);
+    const customTags = tagsInput
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    const mergedTags = Array.from(new Set([...selectedPresetTags, ...customTags])).slice(0, 5);
+    const normalizedCustomTags = mergedTags.filter((tag) => customTags.includes(tag));
+    const normalizedPresetTags = mergedTags.filter((tag) => selectedPresetTags.includes(tag));
 
     let derivedShopType: '正餐' | '快餐小吃' | '饮品甜点' | '服务' = '服务';
     if (category === 'food') {
-      const isSnack = Array.from(tags).some((t) => 
+      const isSnack = mergedTags.some((t) =>
         [...L2_TAGS.food['日常简餐'], ...L2_TAGS.food['街头小吃']].some((snackTag) => snackTag === t)
       );
       derivedShopType = isSnack ? '快餐小吃' : '正餐';
@@ -382,7 +381,9 @@ export default function ContributionForm({
     }
 
     const payloadBase = {
-      tags,
+      tags: mergedTags,
+      main_category: normalizedPresetTags[0] ?? null,
+      sub_tags: normalizedCustomTags,
       shop_type: derivedShopType,
       rating_label: ratingScore === 5 ? '封神之作' : ratingScore === 4 ? '强烈推荐' : ratingScore >= 2 ? '还行吧' : '建议避雷',
       rating: ratingScore,

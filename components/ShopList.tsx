@@ -537,7 +537,11 @@ export default function ShopList({
                               {shop.ratingLabel}
                             </span>
                           </div>
-                          <p className="truncate text-xs text-[#1A5C2E]/80 mt-0.5">{shop.shopType}</p>
+                          <p className="truncate text-xs text-[#1A5C2E]/80 mt-0.5">
+                            {shop.shopType}
+                            <span className="mx-1 text-[#1A5C2E]/30">|</span>
+                            人均 {shop.pricePerPerson ? `MOP ${shop.pricePerPerson}` : '暂无'}
+                          </p>
 
                           {/* Stars */}
                           <div className="mt-1 flex items-center gap-1">
