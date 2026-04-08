@@ -15,16 +15,19 @@ type ShopRegion = '澳门半岛' | '氹仔岛' | '路环岛' | '香洲区' | '�
 type ShopRow = {
   id: string;
   name: string;
+  name_i18n: Record<string, string> | null;
   address: string | null;
   longitude: number | null;
   latitude: number | null;
   category: ShopCategory | null;
   tags: string[] | null;
+  tags_i18n: Record<string, string[]> | null;
   features: Feature[] | null;
   shop_type: ShopType | null;
   rating_label: RatingLabel | null;
   image_urls: string[] | null;
   review_text: string | null;
+  review_text_i18n: Record<string, string> | null;
   student_discount: string | null;
   status: ShopStatus | null;
   created_at: string | null;
@@ -46,8 +49,11 @@ type ShopFormValue = {
   features: Feature[];
   tags: string[];
   custom_tags: string;
+  name_en: string;
   image_urls: string;
   review_text: string;
+  review_text_en: string;
+  tags_en: string;
   student_discount: string;
   status: ShopStatus;
   price_per_person: string;
@@ -92,16 +98,19 @@ function mapAdminRealtimeRow(row: Record<string, unknown>): ShopRow {
   return {
     id: String(row.id ?? ''),
     name: String(row.name ?? ''),
+    name_i18n: row.name_i18n && typeof row.name_i18n === 'object' ? (row.name_i18n as Record<string, string>) : null,
     address: typeof row.address === 'string' ? row.address : null,
     longitude: typeof row.longitude === 'number' ? row.longitude : null,
     latitude: typeof row.latitude === 'number' ? row.latitude : null,
     category: (row.category as ShopCategory | null) ?? null,
     tags: Array.isArray(row.tags) ? (row.tags as string[]) : null,
+    tags_i18n: row.tags_i18n && typeof row.tags_i18n === 'object' ? (row.tags_i18n as Record<string, string[]>) : null,
     features: Array.isArray(row.features) ? (row.features as Feature[]) : null,
     shop_type: (row.shop_type as ShopType | null) ?? null,
     rating_label: (row.rating_label as RatingLabel | null) ?? null,
     image_urls: Array.isArray(row.image_urls) ? (row.image_urls as string[]) : null,
     review_text: typeof row.review_text === 'string' ? row.review_text : null,
+    review_text_i18n: row.review_text_i18n && typeof row.review_text_i18n === 'object' ? (row.review_text_i18n as Record<string, string>) : null,
     student_discount: typeof row.student_discount === 'string' ? row.student_discount : null,
     status: (row.status as ShopStatus | null) ?? null,
     created_at: typeof row.created_at === 'string' ? row.created_at : null,
@@ -138,8 +147,11 @@ function toFormValue(shop?: ShopRow | null): ShopFormValue {
       features: [],
       tags: [],
       custom_tags: '',
+      name_en: '',
       image_urls: '',
       review_text: '',
+      review_text_en: '',
+      tags_en: '',
       student_discount: '',
       status: 'verified',
       price_per_person: '',
@@ -160,8 +172,11 @@ function toFormValue(shop?: ShopRow | null): ShopFormValue {
     features: shop.features ?? [],
     tags: shop.tags ?? [],
     custom_tags: '',
+    name_en: shop.name_i18n?.en ?? '',
     image_urls: (shop.image_urls ?? []).join('\n'),
     review_text: shop.review_text ?? '',
+    review_text_en: shop.review_text_i18n?.en ?? '',
+    tags_en: (shop.tags_i18n?.en ?? []).join(', '),
     student_discount: shop.student_discount ?? '',
     status: shop.status ?? 'pending',
     price_per_person: shop.price_per_person?.toString() ?? '',
@@ -241,6 +256,7 @@ function AdminShopForm({
     if (form.latitude.trim() && Number.isNaN(lat)) return toast.error('Latitude 必须是数字');
 
     const mergedTags = dedupeTrimmedList([...form.tags, ...parseList(form.custom_tags)], 5);
+    const englishTags = dedupeTrimmedList(parseList(form.tags_en), 5);
     const imageUrls = dedupeTrimmedList(parseList(form.image_urls));
     const pricePerPerson = parsePrice(form.price_per_person);
 
@@ -254,6 +270,10 @@ function AdminShopForm({
 
     const payload: Record<string, unknown> = {
       name,
+      name_i18n: {
+        'zh-CN': name,
+        en: form.name_en.trim() || name
+      },
       address: form.address.trim() || null,
       longitude: lng,
       latitude: lat,
@@ -262,8 +282,16 @@ function AdminShopForm({
       rating_label: form.rating_label,
       features: dedupeTrimmedList(form.features),
       tags: mergedTags,
+      tags_i18n: {
+        'zh-CN': mergedTags,
+        en: englishTags.length > 0 ? englishTags : mergedTags
+      },
       image_urls: imageUrls,
       review_text: form.review_text.trim() || null,
+      review_text_i18n: {
+        'zh-CN': form.review_text.trim() || '',
+        en: form.review_text_en.trim() || form.review_text.trim() || ''
+      },
       student_discount: form.student_discount.trim() || null,
       status: form.status,
       price_per_person: pricePerPerson,
@@ -282,8 +310,13 @@ function AdminShopForm({
 
         <form onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">店名 *</span>
+            <span className="mb-1 block text-sm font-medium text-slate-700">店名（中文）*</span>
             <input required value={form.name} onChange={(e) => setForm((prev) => ({...prev, name: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
+          </label>
+
+          <label className="sm:col-span-2">
+            <span className="mb-1 block text-sm font-medium text-slate-700">店名（英文）</span>
+            <input value={form.name_en} onChange={(e) => setForm((prev) => ({...prev, name_en: e.target.value}))} placeholder="e.g. Wong Chi Kei" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
           </label>
 
           <label className="sm:col-span-2">
@@ -353,8 +386,13 @@ function AdminShopForm({
           </div>
 
           <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">补充标签（逗号/换行）</span>
+            <span className="mb-1 block text-sm font-medium text-slate-700">补充标签（中文，逗号/换行）</span>
             <textarea rows={2} value={form.custom_tags} onChange={(e) => setForm((prev) => ({...prev, custom_tags: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
+          </label>
+
+          <label className="sm:col-span-2">
+            <span className="mb-1 block text-sm font-medium text-slate-700">标签（英文，逗号/换行）</span>
+            <textarea rows={2} value={form.tags_en} onChange={(e) => setForm((prev) => ({...prev, tags_en: e.target.value}))} placeholder="e.g. Late Night, Student Discount" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
           </label>
 
           <label className="sm:col-span-2">
@@ -363,8 +401,13 @@ function AdminShopForm({
           </label>
 
           <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">评论摘要</span>
+            <span className="mb-1 block text-sm font-medium text-slate-700">评论摘要（中文）</span>
             <textarea rows={3} value={form.review_text} onChange={(e) => setForm((prev) => ({...prev, review_text: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
+          </label>
+
+          <label className="sm:col-span-2">
+            <span className="mb-1 block text-sm font-medium text-slate-700">评论摘要（英文）</span>
+            <textarea rows={3} value={form.review_text_en} onChange={(e) => setForm((prev) => ({...prev, review_text_en: e.target.value}))} placeholder="e.g. Great for late-night snacks" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
           </label>
 
           <label>
@@ -447,7 +490,7 @@ export default function AdminModerationPage() {
 
     const shopsRes = await supabase
       .from('shops')
-      .select('id,name,address,longitude,latitude,category,tags,features,shop_type,rating_label,image_urls,review_text,student_discount,status,created_at,sub_tags,price_per_person,region,signature_dish,sharp_review')
+      .select('id,name,name_i18n,address,longitude,latitude,category,tags,tags_i18n,features,shop_type,rating_label,image_urls,review_text,review_text_i18n,student_discount,status,created_at,sub_tags,price_per_person,region,signature_dish,sharp_review')
       .or('status.in.(pending,verified,rejected),status.is.null')
       .order('created_at', {ascending: false});
 

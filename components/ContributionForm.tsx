@@ -380,15 +380,25 @@ export default function ContributionForm({
       derivedShopType = '饮品甜点';
     }
 
+    const normalizedReviewText = reviewText.trim();
+
     const payloadBase = {
       tags: mergedTags,
+      tags_i18n: {
+        'zh-CN': mergedTags,
+        en: mergedTags
+      },
       main_category: normalizedPresetTags[0] ?? null,
       sub_tags: normalizedCustomTags,
       shop_type: derivedShopType,
       rating_label: ratingScore === 5 ? '封神之作' : ratingScore === 4 ? '强烈推荐' : ratingScore >= 2 ? '还行吧' : '建议避雷',
       rating: ratingScore,
       image_urls: imageUrls,
-      review_text: reviewText.trim() || null,
+      review_text: normalizedReviewText || null,
+      review_text_i18n: {
+        'zh-CN': normalizedReviewText,
+        en: normalizedReviewText
+      },
       category,
       status: 'pending',
       total_sum: ratingScore,
@@ -401,6 +411,10 @@ export default function ContributionForm({
       ? {
           ...payloadBase,
           name: selectedPlace!.name,
+          name_i18n: {
+            'zh-CN': selectedPlace!.name,
+            en: selectedPlace!.name
+          },
           amap_poi_id: selectedPlace!.placeId,
           longitude: selectedPlace!.coordinates[0],
           latitude: selectedPlace!.coordinates[1]
@@ -408,6 +422,10 @@ export default function ContributionForm({
       : {
           ...payloadBase,
           name: manualShopName.trim(),
+          name_i18n: {
+            'zh-CN': manualShopName.trim(),
+            en: manualShopName.trim()
+          },
           amap_poi_id: null,
           longitude: manualCoordinates![0],
           latitude: manualCoordinates![1]

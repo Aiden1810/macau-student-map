@@ -1,7 +1,7 @@
 'use client';
 
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {useTranslations} from 'next-intl';
+import {useLocale, useTranslations} from 'next-intl';
 import toast from 'react-hot-toast';
 import ContributionForm from '@/components/ContributionForm';
 import FilterBar, {L2_TAGS} from '@/components/FilterBar';
@@ -107,6 +107,7 @@ export default function Page() {
   const t = useTranslations('Common');
   const tContribute = useTranslations('Contribute');
   const tShopCard = useTranslations('ShopCard');
+  const locale = useLocale() as 'zh-CN' | 'zh-MO' | 'en';
 
   const [, setViewMode] = useState<ViewMode>('list');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -144,7 +145,7 @@ export default function Page() {
       const {data, error} = await supabase
         .from('shops')
         .select(
-          'id,name,category,student_discount,tags,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text,image_urls,address,main_category,sub_tags,price_per_person,region,signature_dish,sharp_review'
+          'id,name,name_i18n,category,student_discount,tags,tags_i18n,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text,review_text_i18n,image_urls,address,main_category,sub_tags,price_per_person,region,signature_dish,sharp_review'
         )
         .or(statusFilter);
 
@@ -155,7 +156,7 @@ export default function Page() {
         return;
       }
 
-      const mappedShops = mapShopList((data ?? []) as unknown[]);
+      const mappedShops = mapShopList((data ?? []) as unknown[], locale);
       setShops(mappedShops);
 
       if (hasFetchedRef.current) {
@@ -166,7 +167,7 @@ export default function Page() {
     } finally {
       setLoading(false);
     }
-  }, [userRole]);
+  }, [locale, userRole]);
 
   const fetchCurrentUserRole = useCallback(async () => {
     const {data: authData, error: authError} = await supabase.auth.getUser();
@@ -231,7 +232,7 @@ export default function Page() {
           const row = payload.new as Record<string, unknown> | null;
           if (!row) return;
 
-          const mapped = mapSingleShop(row);
+          const mapped = mapSingleShop(row, locale);
 
           if (userRole !== 'admin' && mapped.status !== 'verified') {
             setShops((prev) => prev.filter((shop) => shop.id !== mapped.id));
@@ -246,7 +247,7 @@ export default function Page() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userRole]);
+  }, [locale, userRole]);
 
   const isAdmin = userRole === 'admin';
   const visibleShops = isAdmin ? shops : shops.filter((shop) => shop.status === 'verified');

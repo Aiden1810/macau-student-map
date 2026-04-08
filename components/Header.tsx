@@ -1,7 +1,7 @@
 import {LogOut, Search, ShieldCheck} from 'lucide-react';
-import {useTranslations} from 'next-intl';
+import {useLocale, useTranslations} from 'next-intl';
 import {type CSSProperties, useEffect, useState} from 'react';
-import {Link} from '@/i18n/navigation';
+import {Link, usePathname} from '@/i18n/navigation';
 
 interface HeaderProps {
   searchQuery: string;
@@ -35,6 +35,9 @@ export default function Header({
   contributeLabel
 }: HeaderProps) {
   const tAuth = useTranslations('Auth');
+  const tCommon = useTranslations('Common');
+  const locale = useLocale();
+  const pathname = usePathname();
   const [isCompact, setIsCompact] = useState(false);
 
   useEffect(() => {
@@ -50,12 +53,36 @@ export default function Header({
         <div className="flex items-center justify-between gap-2 px-0 py-0.5 md:bg-transparent md:px-0 md:py-0" style={GLASS_STYLE}>
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#FFCC00]/60 bg-[#0c4b2f] text-white shadow-md shadow-[#003a24]/35">
-              <span className="text-xs font-extrabold tracking-wide">MU</span>
+              <span className="text-xs font-extrabold tracking-wide">M</span>
             </div>
-            <h1 className="truncate text-base font-bold text-[#0d2918] md:text-xl md:text-[#0c4b2f]">Macau Lens</h1>
+            <h1 className="truncate text-base font-bold text-[#0d2918] md:text-xl md:text-[#0c4b2f]">Macau Pulse</h1>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            <div className="relative group">
+              <button
+                type="button"
+                className="inline-flex items-center rounded-2xl border border-[#1A5C2E]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5 sm:text-sm"
+              >
+                {tCommon('language')}
+              </button>
+              <div className="invisible absolute right-0 z-50 mt-1 min-w-[120px] rounded-lg border border-slate-200 bg-white p-1 opacity-0 shadow-md transition group-hover:visible group-hover:opacity-100">
+                {([
+                  {key: 'zh-CN', label: '简体中文'},
+                  {key: 'zh-MO', label: '繁體中文'},
+                  {key: 'en', label: 'English'}
+                ] as const).map((item) => (
+                  <Link
+                    key={item.key}
+                    href={pathname}
+                    locale={item.key}
+                    className={`block rounded-md px-2 py-1 text-xs ${locale === item.key ? 'bg-[#006633]/10 text-[#006633] font-semibold' : 'text-slate-700 hover:bg-slate-100'}`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
             <button
               type="button"
               onClick={onToggleContribute}

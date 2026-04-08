@@ -12,6 +12,8 @@ import {
   ShopType
 } from '@/types/shop';
 
+type LocaleKey = 'zh-CN' | 'zh-MO' | 'en';
+
 const VALID_SHOP_TYPES: ShopType[] = ['餐饮', '服务'];
 const VALID_RECOMMEND_STATUS: RecommendStatus[] = ['recommend', 'neutral', 'avoid'];
 const VALID_SHOP_STATUS: ShopStatus[] = ['pending', 'verified', 'rejected'];
@@ -350,6 +352,45 @@ function normalizeReviewMetrics(
   return {rating: safeRating, reviews: safeReviews};
 }
 
+function pickLocalizedString(input: unknown, locale: LocaleKey): string | null {
+  if (!isObject(input)) return null;
+
+  const preferred = input[locale];
+  if (typeof preferred === 'string' && preferred.trim().length > 0) {
+    return preferred.trim();
+  }
+
+  const fallbackZhCn = input['zh-CN'];
+  if (typeof fallbackZhCn === 'string' && fallbackZhCn.trim().length > 0) {
+    return fallbackZhCn.trim();
+  }
+
+  const fallbackZhMo = input['zh-MO'];
+  if (typeof fallbackZhMo === 'string' && fallbackZhMo.trim().length > 0) {
+    return fallbackZhMo.trim();
+  }
+
+  const fallbackEn = input.en;
+  if (typeof fallbackEn === 'string' && fallbackEn.trim().length > 0) {
+    return fallbackEn.trim();
+  }
+
+  return null;
+}
+
+function pickLocalizedStringArray(input: unknown, locale: LocaleKey): string[] {
+  if (!isObject(input)) return [];
+
+  const candidate = input[locale] ?? input['zh-CN'] ?? input['zh-MO'] ?? input.en;
+
+  if (!Array.isArray(candidate)) return [];
+
+  return candidate
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function normalizeStringArray(input: unknown): string[] {
   if (isStringArray(input)) {
     return input;
@@ -416,9 +457,9 @@ export function isValidShop(data: unknown): data is Record<string, unknown> {
 /**
  * Robust single-row mapper with alias support + loose defaults.
  */
-export function mapSingleShop(row: Record<string, unknown>): Shop {
+export function mapSingleShop(row: Record<string, unknown>, locale: LocaleKey = 'zh-CN'): Shop {
   const rawId = row?.id ?? row?.shop_id;
-  const rawName = pickRawName(row);
+  const fallbackName = pickRawName(row);
   const rawAddress = pickRawAddress(row);
   const rawImageUrls = pickRawImageUrls(row);
 
@@ -451,10 +492,14 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
   const rawRegion = row?.region;
   const rawSignatureDish = row?.signature_dish;
   const rawSharpReview = row?.sharp_review;
+  const localizedName = pickLocalizedString(row?.name_i18n, locale) ?? fallbackName;
+  const localizedReviewText = pickLocalizedString(row?.review_text_i18n, locale);
+  const localizedTags = pickLocalizedStringArray(row?.tags_i18n, locale);
 
   const reviewMetrics = normalizeReviewMetrics(rawRating, rawReviews, rawReviewCount, rawTotalSum, rawRatingCount);
   const normalizedReviewText =
     typeof rawReviewText === 'string' && rawReviewText.trim().length > 0 ? rawReviewText.trim() : null;
+  const finalReviewText = localizedReviewText ?? normalizedReviewText;
 
   const normalizedMainCategory =
     typeof rawMainCategory === 'string' && rawMainCategory.trim().length > 0 ? rawMainCategory.trim() : null;
@@ -463,12 +508,13 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
   const mergedTags = Array.from(
     new Set([...(normalizedMainCategory ? [normalizedMainCategory] : []), ...normalizedSubTags, ...legacyTags])
   );
+  const finalTags = localizedTags.length > 0 ? localizedTags : mergedTags;
 
   const normalizedCategory = normalizeCategoryKey(rawCategory);
 
   const shop: Shop = {
-    id: String(rawId ?? rawName),
-    name: rawName,
+    id: String(rawId ?? fallbackName),
+    name: localizedName,
     address: rawAddress,
     imageUrls: rawImageUrls,
     type: mapCategoryToShopType(rawType),
@@ -476,7 +522,7 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
     coordinates: normalizedCoordinates ?? MACAU_CENTER,
     hasCoordinates,
     studentDiscount: typeof rawDiscount === 'string' ? rawDiscount : null,
-    tags: mergedTags,
+    tags: finalTags,
     features: normalizeFeatures(rawFeatures),
     shopType: normalizeShopDrawerType(rawShopType, mergedTags, normalizedSubTags),
     ratingLabel: normalizeRatingLabel(row?.rating_label, reviewMetrics.rating),
@@ -485,7 +531,7 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
     rating: reviewMetrics.rating,
     reviews: reviewMetrics.reviews,
     recommendStatus: normalizeRecommendStatus(rawStatus),
-    reviewText: normalizedReviewText,
+    reviewText: finalReviewText,
     status: normalizeShopStatus(rawShopStatus),
     pricePerPerson: parseMaybeNumber(rawPricePerPerson),
     region: typeof rawRegion === 'string' && rawRegion.trim().length > 0 ? (rawRegion.trim() as Shop['region']) : null,
@@ -496,7 +542,7 @@ export function mapSingleShop(row: Record<string, unknown>): Shop {
   return shop;
 }
 
-export function mapShopList(rows: unknown[]): Shop[] {
+export function mapShopList(rows: unknown[], locale: LocaleKey = 'zh-CN'): Shop[] {
   return rows
     .filter((item) => {
       if (!isValidShop(item)) {
@@ -506,5 +552,5 @@ export function mapShopList(rows: unknown[]): Shop[] {
 
       return true;
     })
-    .map((item) => mapSingleShop(item as Record<string, unknown>));
+    .map((item) => mapSingleShop(item as Record<string, unknown>, locale));
 }
