@@ -52,7 +52,6 @@ interface ShopListProps {
 
 const SHEET_COLLAPSED_HEIGHT = 215;
 const SHEET_EXPANDED_VH = 85;
-const SEARCH_MODE_TOP_OFFSET = 118;
 
 const MOBILE_GLASS_STYLE: React.CSSProperties = {
   background: 'rgba(235, 245, 236, 0.75)',
@@ -101,18 +100,15 @@ export default function ShopList({
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [mobileSearchMode, setMobileSearchMode] = useState(false);
   const [recentlyLocatedShopId, setRecentlyLocatedShopId] = useState<Shop['id'] | null>(null);
   const [mobileDetailShop, setMobileDetailShop] = useState<Shop | null>(null);
   const dragStartYRef = useRef<number | null>(null);
   const dragStartHeightRef = useRef<number>(0);
   const locateHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setMobileExpanded(false);
     setMobileHeight(0);
-    setMobileSearchMode(false);
   }, [collapseMobileSheetSignal]);
 
   useEffect(() => {
@@ -122,20 +118,6 @@ export default function ShopList({
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!mobileSearchMode) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      mobileSearchInputRef.current?.focus();
-    }, 30);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [mobileSearchMode]);
 
   const getExpandedHeightPx = () => window.innerHeight * (SHEET_EXPANDED_VH / 100);
 
@@ -371,60 +353,21 @@ export default function ShopList({
       <div className="hidden w-full flex-col gap-4 md:flex">{desktopListContent}</div>
 
       <div
-        className={`fixed inset-x-0 z-40 rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden ${!isDragging ? 'transition-[height,top,bottom] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
-        style={mobileSearchMode
-          ? {
-              top: `${SEARCH_MODE_TOP_OFFSET}px`,
-              bottom: 0,
-              height: 'auto',
-              ...MOBILE_GLASS_STYLE
-            }
-          : {
-              bottom: 0,
-              height: mobileHeight > 0 ? `${mobileHeight}px` : mobileExpanded ? `${SHEET_EXPANDED_VH}dvh` : `${SHEET_COLLAPSED_HEIGHT}px`,
-              ...MOBILE_GLASS_STYLE
-            }}
+        className={`fixed inset-x-0 bottom-0 z-40 rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden ${!isDragging ? 'transition-[height] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
+        style={{height: mobileHeight > 0 ? `${mobileHeight}px` : mobileExpanded ? `${SHEET_EXPANDED_VH}dvh` : `${SHEET_COLLAPSED_HEIGHT}px`, ...MOBILE_GLASS_STYLE}}
       >
         <div
           role="button"
           tabIndex={0}
           aria-label="展开或收起店铺抽屉"
-          onClick={() => {
-            if (mobileSearchMode) {
-              setMobileSearchMode(false);
-              setMobileExpanded(false);
-              return;
-            }
-            setMobileExpanded((prev) => !prev);
-          }}
-          onTouchStart={(e) => {
-            if (mobileSearchMode) return;
-            startDrag(e.touches[0].clientY);
-          }}
-          onTouchMove={(e) => {
-            if (mobileSearchMode) return;
-            moveDrag(e.touches[0].clientY);
-          }}
-          onTouchEnd={(e) => {
-            if (mobileSearchMode) return;
-            endDrag(e.changedTouches[0].clientY);
-          }}
-          onMouseDown={(e) => {
-            if (mobileSearchMode) return;
-            startDrag(e.clientY);
-          }}
-          onMouseMove={(e) => {
-            if (mobileSearchMode) return;
-            moveDrag(e.clientY);
-          }}
-          onMouseUp={(e) => {
-            if (mobileSearchMode) return;
-            endDrag(e.clientY);
-          }}
-          onMouseLeave={() => {
-            if (mobileSearchMode) return;
-            endDrag();
-          }}
+          onClick={() => setMobileExpanded((prev) => !prev)}
+          onTouchStart={(e) => startDrag(e.touches[0].clientY)}
+          onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
+          onTouchEnd={(e) => endDrag(e.changedTouches[0].clientY)}
+          onMouseDown={(e) => startDrag(e.clientY)}
+          onMouseMove={(e) => moveDrag(e.clientY)}
+          onMouseUp={(e) => endDrag(e.clientY)}
+          onMouseLeave={() => endDrag()}
           className="mx-auto -mt-2 mb-2 flex h-8 w-full cursor-grab items-center justify-center touch-none outline-none active:cursor-grabbing"
         >
           <div className="h-1 w-[34px] rounded-[2px] bg-[#1A5C2E]/35" />
@@ -437,14 +380,8 @@ export default function ShopList({
             placeholder="搜索店铺、美食、地点…"
             className="h-[37px] w-full rounded-[13px] appearance-none bg-[rgba(255,255,255,0.55)] py-2 pl-10 pr-16 text-sm text-[#0d2918] placeholder:text-[#1A5C2E]/60 shadow-[0_0_0_1px_rgba(255,255,255,0.6)] outline-none focus:outline-none focus:ring-0"
             value={searchQuery}
-            onFocus={() => {
-              setMobileSearchMode(true);
-              setMobileExpanded(true);
-            }}
-            onClick={() => {
-              setMobileSearchMode(true);
-              setMobileExpanded(true);
-            }}
+            onFocus={() => setMobileExpanded(true)}
+            onClick={() => setMobileExpanded(true)}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           {searchQuery.trim().length > 0 && (
