@@ -380,6 +380,8 @@ export default function ShopList({
             placeholder="搜索店铺、美食、地点…"
             className="h-[37px] w-full rounded-[13px] appearance-none bg-[rgba(255,255,255,0.55)] py-2 pl-10 pr-16 text-sm text-[#0d2918] placeholder:text-[#1A5C2E]/60 shadow-[0_0_0_1px_rgba(255,255,255,0.6)] outline-none focus:outline-none focus:ring-0"
             value={searchQuery}
+            onFocus={() => setMobileExpanded(true)}
+            onClick={() => setMobileExpanded(true)}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           {searchQuery.trim().length > 0 && (
