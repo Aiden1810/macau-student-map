@@ -1,4 +1,4 @@
-import {LogOut, Search, ShieldCheck} from 'lucide-react';
+import {Globe, LogOut, Search, ShieldCheck} from 'lucide-react';
 import {useLocale, useTranslations} from 'next-intl';
 import {type CSSProperties, useEffect, useState} from 'react';
 import {Link, usePathname} from '@/i18n/navigation';
@@ -35,7 +35,6 @@ export default function Header({
   contributeLabel
 }: HeaderProps) {
   const tAuth = useTranslations('Auth');
-  const tCommon = useTranslations('Common');
   const locale = useLocale();
   const pathname = usePathname();
   const [isCompact, setIsCompact] = useState(false);
@@ -62,9 +61,10 @@ export default function Header({
             <div className="relative group">
               <button
                 type="button"
-                className="inline-flex items-center rounded-2xl border border-[#1A5C2E]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5 sm:text-sm"
+                aria-label="Switch language"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white transition hover:bg-white/20"
               >
-                {tCommon('language')}
+                <Globe className="h-4 w-4" />
               </button>
               <div className="invisible absolute right-0 z-50 mt-1 min-w-[120px] rounded-lg border border-slate-200 bg-white p-1 opacity-0 shadow-md transition group-hover:visible group-hover:opacity-100">
                 {([
