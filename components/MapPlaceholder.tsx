@@ -32,6 +32,11 @@ type AMapMarker = {
   setContent?: (content: HTMLElement | string) => void;
 };
 
+type AMapBounds = {
+  getSouthWest: () => AMapLngLat;
+  getNorthEast: () => AMapLngLat;
+};
+
 type AMapMapInstance = {
   addControl: (control: unknown) => void;
   on: (event: string, handler: (event: {lnglat: AMapLngLat}) => void) => void;
@@ -40,6 +45,7 @@ type AMapMapInstance = {
   setFitView?: (overlays?: unknown[], immediately?: boolean, avoid?: number[], maxZoom?: number) => void;
   getZoom?: () => number;
   getCenter?: () => {getLng: () => number; getLat: () => number};
+  getBounds?: () => AMapBounds;
   setZoom?: (zoom: number, immediately?: boolean, options?: {duration?: number}) => void;
 };
 
@@ -251,13 +257,12 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
   </div>`;
 }
 
-function buildFilteredMarkerHtml(shop: Shop): string {
+function buildTopRankMarkerHtml(shop: Shop): string {
   const pinHtml = buildShopPinHtml('selected', false);
   const name = escapeHtml(shop.name);
   const score = Number.isFinite(shop.rating) ? shop.rating.toFixed(1) : '0';
   const price = shop.pricePerPerson ? `￥${shop.pricePerPerson}` : '暂无';
-  
-  // Position: Tip of the pin is at the coordinate, label is below it
+
   return `<div style="display:flex;flex-direction:column;align-items:center;transform:translate(-50%, -52px);">
     <div style="width:44px;height:54px;display:flex;justify-content:center;">
       ${pinHtml}
@@ -271,6 +276,32 @@ function buildFilteredMarkerHtml(shop: Shop): string {
       </div>
     </div>
   </div>`;
+}
+
+function buildMinorMarkerHtml(): string {
+  return `<div style="width:14px;height:14px;transform:translate(-50%,-50%);border-radius:9999px;background:#16a34a;border:2px solid #ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.18);"></div>`;
+}
+
+function isShopInsideBounds(shop: Shop, bounds: AMapBounds | null): boolean {
+  if (!shop.hasCoordinates || !bounds) return false;
+
+  const [lng, lat] = shop.coordinates;
+  const sw = bounds.getSouthWest();
+  const ne = bounds.getNorthEast();
+
+  return lng >= sw.getLng() && lng <= ne.getLng() && lat >= sw.getLat() && lat <= ne.getLat();
+}
+
+function sortByRatingDesc(a: Shop, b: Shop): number {
+  if (b.rating !== a.rating) {
+    return b.rating - a.rating;
+  }
+
+  if (b.reviews !== a.reviews) {
+    return b.reviews - a.reviews;
+  }
+
+  return a.name.localeCompare(b.name, 'zh-Hans-CN');
 }
 
 export default function MapPlaceholder({
@@ -296,6 +327,7 @@ export default function MapPlaceholder({
   const [geoLoading, setGeoLoading] = useState(false);
   const [hoveredShopId, setHoveredShopId] = useState<Shop['id'] | null>(null);
   const [mapViewport, setMapViewport] = useState<{zoom: number; center: [number, number] | null}>({zoom: 14, center: null});
+  const [shouldAutoFitFilteredMarkers, setShouldAutoFitFilteredMarkers] = useState(true);
   const lastLocateSignalRef = useRef(0);
   const lastSelectedShopIdRef = useRef<Shop['id'] | null>(null);
   const contributionPickModeRef = useRef(contributionPickMode);
@@ -314,7 +346,18 @@ export default function MapPlaceholder({
     return buildShopPinHtml('default');
   };
 
+  const topRankShopIds = useMemo(() => {
+    const isFilteredView = activeL1 !== 'all' && activeL1 !== 'region';
+    if (!isFilteredView) return new Set<Shop['id']>();
 
+    const map = mapRef.current;
+    const bounds = map?.getBounds?.() ?? null;
+    const validShops = shops.filter((shop) => shop.hasCoordinates);
+    const visibleInBounds = bounds ? validShops.filter((shop) => isShopInsideBounds(shop, bounds)) : validShops;
+
+    const top5 = [...visibleInBounds].sort(sortByRatingDesc).slice(0, 5);
+    return new Set(top5.map((shop) => shop.id));
+  }, [activeL1, shops, mapViewport]);
 
   const flyToLocation = (longitude: number, latitude: number) => {
     const map = mapRef.current;
@@ -374,6 +417,14 @@ export default function MapPlaceholder({
           onPickCoordinatesRef.current([lnglat.getLng(), lnglat.getLat()]);
         });
 
+        map.on('movestart', () => {
+          setShouldAutoFitFilteredMarkers(false);
+        });
+
+        map.on('zoomstart', () => {
+          setShouldAutoFitFilteredMarkers(false);
+        });
+
         map.on('moveend', () => {
           const currentZoom = map.getZoom?.() ?? 14;
           const currentCenter = map.getCenter?.();
@@ -425,15 +476,16 @@ export default function MapPlaceholder({
     markersRef.current.clear();
 
     const isFilteredView = activeL1 !== 'all' && activeL1 !== 'region';
-    
+
     const validShops = shops.filter((shop) => shop.hasCoordinates);
 
     const markers = validShops.map((shop) => {
+      const isTopRank = topRankShopIds.has(shop.id);
       const marker = new AMap.Marker({
         position: shop.coordinates,
         offset: new AMap.Pixel(0, 0),
-        content: isFilteredView ? buildFilteredMarkerHtml(shop) : buildMarkerHtml(false, false),
-        zIndex: isFilteredView ? 110 : 100,
+        content: isFilteredView ? (isTopRank ? buildTopRankMarkerHtml(shop) : buildMinorMarkerHtml()) : buildMarkerHtml(false, false),
+        zIndex: isFilteredView ? (isTopRank ? 120 : 90) : 100,
         extData: {shopId: shop.id}
       });
 
@@ -484,8 +536,7 @@ export default function MapPlaceholder({
           context.marker.setContent(div);
         }
       });
-    } else {
-      // In filtered view, set fitView with padding to ensure visibility
+    } else if (shouldAutoFitFilteredMarkers) {
       if (map.setFitView && markers.length > 0) {
         setTimeout(() => {
           if (mapRef.current?.setFitView) {
@@ -494,7 +545,7 @@ export default function MapPlaceholder({
         }, 100);
       }
     }
-  }, [shops, mapReady, onSelectShop, activeL1]);
+  }, [shops, mapReady, onSelectShop, activeL1, topRankShopIds, shouldAutoFitFilteredMarkers]);
 
   useEffect(() => {
     const map = mapRef.current;
