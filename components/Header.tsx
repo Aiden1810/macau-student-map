@@ -62,9 +62,9 @@ export default function Header({
               <button
                 type="button"
                 aria-label="Switch language"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent bg-transparent text-[#1A5C2E] transition hover:bg-[#1A5C2E]/8"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-white/92 text-[#1A5C2E] shadow-sm shadow-emerald-900/10 transition hover:bg-white hover:shadow-md hover:shadow-emerald-900/15"
               >
-                <Globe className="h-4 w-4" />
+                <Globe className="h-[17px] w-[17px] stroke-[2.2]" />
               </button>
               <div className="invisible absolute right-0 z-50 mt-1 min-w-[120px] rounded-lg border border-slate-200 bg-white p-1 opacity-0 shadow-md transition group-hover:visible group-hover:opacity-100">
                 {([
