@@ -577,7 +577,7 @@ export default function Page() {
         />
       </div>
 
-      <div className="hidden md:block">
+      <div className="hidden md:block md:bg-slate-50">
         <Header
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -596,8 +596,8 @@ export default function Page() {
           contributeLabel={tContribute('button')}
         />
 
-        <main className="relative mx-auto max-w-7xl px-4 pt-1.5 pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)] sm:px-6 sm:pt-2 md:h-[calc(100dvh-4rem)] md:pb-4 lg:px-8">
-          <div className="mb-0">
+        <main className="relative mx-auto max-w-[1380px] px-4 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] sm:px-6 md:h-[calc(100dvh-4rem)] md:pb-4 lg:px-8">
+          <div className="rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
             <FilterBar 
               activeL1={activeL1} 
               activeL2={activeL2} 
@@ -631,8 +631,8 @@ export default function Page() {
           )}
 
 
-          <section className="mt-2 rounded-2xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
-            <div className="mb-1.5 flex items-center justify-between">
+          <section className="mt-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
+            <div className="mb-2 flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-700">场景快捷筛选</p>
               {activeScenario && (
                 <button
@@ -654,8 +654,8 @@ export default function Page() {
                     onClick={() => setActiveScenario(active ? null : scenario.key)}
                     className={`shrink-0 rounded-xl border px-3 py-2 text-left transition ${
                       active
-                        ? 'border-[#006633] bg-[#006633]/5 text-[#006633]'
-                        : 'border-slate-200 bg-slate-50 text-slate-700'
+                        ? 'border-[#006633] bg-[#006633]/5 text-[#006633] shadow-sm'
+                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
                     }`}
                   >
                     <p className="text-xs font-semibold">{scenario.label}</p>
@@ -673,8 +673,8 @@ export default function Page() {
             <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 shadow-sm">{pageNotice}</p>
           )}
 
-          <div className="grid grid-cols-1 gap-0 md:h-[calc(100dvh-11rem)] md:grid-cols-12 md:gap-6">
-            <div className="order-1 h-[58dvh] min-h-[360px] md:order-2 md:col-span-8 md:h-full lg:col-span-8">
+          <div className="mt-3 grid grid-cols-1 gap-0 md:h-[calc(100dvh-12.5rem)] md:grid-cols-12 md:gap-5 lg:gap-6">
+            <div className="order-1 h-[56dvh] min-h-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:order-2 md:col-span-8 md:h-full lg:col-span-8">
               <MapPlaceholder
                 shops={displayedShops}
                 activeL1={activeL1}
@@ -689,7 +689,7 @@ export default function Page() {
               />
             </div>
 
-            <div className="order-2 min-h-0 md:order-1 md:col-span-4 lg:col-span-4">
+            <div className="order-2 min-h-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:order-1 md:col-span-4 md:p-3.5 lg:col-span-4">
               <ShopList
                 filteredShops={displayedShops}
                 loading={loading}

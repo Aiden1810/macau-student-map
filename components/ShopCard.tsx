@@ -66,10 +66,10 @@ export default function ShopCard({
 
   return (
     <div
-      className={`group cursor-pointer rounded-2xl border bg-white/95 p-4 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:shadow-xl ${
+      className={`group cursor-pointer rounded-2xl border bg-white p-4 transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] hover:-translate-y-0.5 hover:shadow-lg ${
         isLocateHighlighted
           ? 'border-[#006633]/45 shadow-[0_0_0_2px_rgba(0,102,51,0.16),0_12px_26px_rgba(2,30,18,0.16)]'
-          : 'border-slate-100/90 shadow-md'
+          : 'border-slate-200/80 shadow-sm'
       }`}
     >
       <div className="relative mb-3 overflow-hidden rounded-xl border border-slate-100">

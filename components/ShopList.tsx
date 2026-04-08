@@ -230,11 +230,12 @@ export default function ShopList({
         )}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      <div className="rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/50 px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[#1A5C2E]" />
             <span className="text-sm font-semibold text-[#0d2918]">高级过滤</span>
+            <span className="rounded-full bg-[#1A5C2E]/10 px-2 py-0.5 text-[11px] font-semibold text-[#1A5C2E]">共 {filteredShops.length} 家</span>
           </div>
           
           <div className="flex flex-wrap items-center gap-4">
@@ -309,7 +310,7 @@ export default function ShopList({
         {loading ? (
           Array.from({length: 6}).map((_, index) => <ShopCardSkeleton key={`skeleton-${index}`} />)
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {filteredShops.map((shop) => (
               <div key={shop.id}>
                 <ShopCard
