@@ -8,10 +8,19 @@ import FilterBar, {L2_TAGS} from '@/components/FilterBar';
 import Header from '@/components/Header';
 import MapPlaceholder from '@/components/MapPlaceholder';
 import ShopList from '@/components/ShopList';
-import {mapShopList} from '@/lib/mappers/shop';
+import {mapShopList, mapSingleShop} from '@/lib/mappers/shop';
 import {supabase} from '@/lib/supabase';
 import {useFavorites} from '@/lib/hooks/useFavorites';
 import {DrawerFiltersState, Shop, ShopCategoryKey, ShopRegion, ViewMode} from '@/types/shop';
+
+function mergeShopUpdate(prev: Shop[], incoming: Shop): Shop[] {
+  const index = prev.findIndex((item) => item.id === incoming.id);
+  if (index === -1) return [incoming, ...prev];
+
+  const next = [...prev];
+  next[index] = incoming;
+  return next;
+}
 
 const DEFAULT_DRAWER_FILTERS: DrawerFiltersState = {
   shopType: '全部',
@@ -202,6 +211,42 @@ export default function Page() {
   useEffect(() => {
     fetchShops();
   }, [fetchShops]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`shops-realtime-page-${userRole ?? 'guest'}`)
+      .on(
+        'postgres_changes',
+        {event: '*', schema: 'public', table: 'shops'},
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const oldRow = payload.old as Record<string, unknown> | null;
+            const deletedId = oldRow?.id ? String(oldRow.id) : null;
+            if (!deletedId) return;
+
+            setShops((prev) => prev.filter((shop) => shop.id !== deletedId));
+            return;
+          }
+
+          const row = payload.new as Record<string, unknown> | null;
+          if (!row) return;
+
+          const mapped = mapSingleShop(row);
+
+          if (userRole !== 'admin' && mapped.status !== 'verified') {
+            setShops((prev) => prev.filter((shop) => shop.id !== mapped.id));
+            return;
+          }
+
+          setShops((prev) => mergeShopUpdate(prev, mapped));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userRole]);
 
   const isAdmin = userRole === 'admin';
   const visibleShops = isAdmin ? shops : shops.filter((shop) => shop.status === 'verified');

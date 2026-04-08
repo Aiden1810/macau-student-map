@@ -79,6 +79,40 @@ type TrafficEventRow = {
   path: string | null;
 };
 
+function mergeAdminShop(prev: ShopRow[], incoming: ShopRow): ShopRow[] {
+  const index = prev.findIndex((item) => item.id === incoming.id);
+  if (index === -1) return [incoming, ...prev];
+
+  const next = [...prev];
+  next[index] = incoming;
+  return next;
+}
+
+function mapAdminRealtimeRow(row: Record<string, unknown>): ShopRow {
+  return {
+    id: String(row.id ?? ''),
+    name: String(row.name ?? ''),
+    address: typeof row.address === 'string' ? row.address : null,
+    longitude: typeof row.longitude === 'number' ? row.longitude : null,
+    latitude: typeof row.latitude === 'number' ? row.latitude : null,
+    category: (row.category as ShopCategory | null) ?? null,
+    tags: Array.isArray(row.tags) ? (row.tags as string[]) : null,
+    features: Array.isArray(row.features) ? (row.features as Feature[]) : null,
+    shop_type: (row.shop_type as ShopType | null) ?? null,
+    rating_label: (row.rating_label as RatingLabel | null) ?? null,
+    image_urls: Array.isArray(row.image_urls) ? (row.image_urls as string[]) : null,
+    review_text: typeof row.review_text === 'string' ? row.review_text : null,
+    student_discount: typeof row.student_discount === 'string' ? row.student_discount : null,
+    status: (row.status as ShopStatus | null) ?? null,
+    created_at: typeof row.created_at === 'string' ? row.created_at : null,
+    sub_tags: Array.isArray(row.sub_tags) ? (row.sub_tags as string[]) : null,
+    price_per_person: typeof row.price_per_person === 'number' ? row.price_per_person : null,
+    region: (row.region as ShopRegion | null) ?? null,
+    signature_dish: typeof row.signature_dish === 'string' ? row.signature_dish : null,
+    sharp_review: typeof row.sharp_review === 'string' ? row.sharp_review : null
+  };
+}
+
 const CATEGORY_OPTIONS: Array<{value: ShopCategory; label: string}> = [
   {value: 'food', label: '美食'},
   {value: 'drink', label: '饮品'},
@@ -485,6 +519,38 @@ export default function AdminModerationPage() {
   useEffect(() => {
     checkAdminRole();
   }, [checkAdminRole]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const channel = supabase
+      .channel('shops-realtime-admin')
+      .on(
+        'postgres_changes',
+        {event: '*', schema: 'public', table: 'shops'},
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            const oldRow = payload.old as Record<string, unknown> | null;
+            const deletedId = oldRow?.id ? String(oldRow.id) : null;
+            if (!deletedId) return;
+
+            setShops((prev) => prev.filter((shop) => shop.id !== deletedId));
+            return;
+          }
+
+          const row = payload.new as Record<string, unknown> | null;
+          if (!row) return;
+
+          const mapped = mapAdminRealtimeRow(row);
+          setShops((prev) => mergeAdminShop(prev, mapped));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAdmin]);
 
   const pendingCount = useMemo(() => shops.filter((item) => item.status === 'pending' || item.status === null).length, [shops]);
   const verifiedCount = useMemo(() => shops.filter((item) => item.status === 'verified').length, [shops]);
