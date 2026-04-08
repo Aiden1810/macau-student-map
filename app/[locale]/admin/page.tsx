@@ -63,7 +63,7 @@ type ShopFormValue = {
 };
 
 type BusyActionType = 'approve' | 'reject' | 'delete';
-type BusyAction = {shopId: string; action: BusyActionType} | null;
+type ActionLoadingById = Record<string, BusyActionType | null>;
 
 type AdminAuditAction = 'approve' | 'reject' | 'delete' | 'create' | 'edit';
 
@@ -80,6 +80,7 @@ type HealthStats = {
 };
 
 type TrafficRangeKey = '24h' | '7d' | '30d' | '365d' | 'all';
+type ShopSortKey = 'created_desc' | 'created_asc' | 'status' | 'name';
 
 type TrafficEventRow = {
   created_at: string;
@@ -476,7 +477,7 @@ function AdminShopForm({
 export default function AdminModerationPage() {
   const [shops, setShops] = useState<ShopRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busyAction, setBusyAction] = useState<BusyAction>(null);
+  const [actionLoadingById, setActionLoadingById] = useState<ActionLoadingById>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -484,6 +485,8 @@ export default function AdminModerationPage() {
   const [editingShop, setEditingShop] = useState<ShopRow | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [statusTab, setStatusTab] = useState<'pending' | 'verified' | 'rejected'>('pending');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortKey, setSortKey] = useState<ShopSortKey>('created_desc');
   const [newComments24h, setNewComments24h] = useState(0);
   const [trafficEvents, setTrafficEvents] = useState<TrafficEventRow[]>([]);
   const [trafficRange, setTrafficRange] = useState<TrafficRangeKey>('24h');
@@ -692,14 +695,42 @@ export default function AdminModerationPage() {
   }, [newComments24h, shops]);
 
   const visibleShops = useMemo(() => {
-    if (statusTab === 'pending') {
-      return shops.filter((shop) => shop.status === 'pending' || shop.status === null);
-    }
-    if (statusTab === 'verified') {
-      return shops.filter((shop) => shop.status === 'verified');
-    }
-    return shops.filter((shop) => shop.status === 'rejected');
-  }, [shops, statusTab]);
+    const tabFiltered =
+      statusTab === 'pending'
+        ? shops.filter((shop) => shop.status === 'pending' || shop.status === null)
+        : statusTab === 'verified'
+          ? shops.filter((shop) => shop.status === 'verified')
+          : shops.filter((shop) => shop.status === 'rejected');
+
+    const keyword = searchQuery.trim().toLowerCase();
+    const searched = keyword
+      ? tabFiltered.filter((shop) => {
+          const name = (shop.name ?? '').toLowerCase();
+          const address = (shop.address ?? '').toLowerCase();
+          return name.includes(keyword) || address.includes(keyword);
+        })
+      : tabFiltered;
+
+    const sorted = [...searched].sort((a, b) => {
+      if (sortKey === 'created_desc') {
+        const aTs = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTs = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bTs - aTs;
+      }
+      if (sortKey === 'created_asc') {
+        const aTs = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTs = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return aTs - bTs;
+      }
+      if (sortKey === 'status') {
+        const rank = (status: ShopStatus | null) => (status === 'pending' || status === null ? 0 : status === 'verified' ? 1 : 2);
+        return rank(a.status) - rank(b.status);
+      }
+      return (a.name || '').localeCompare(b.name || '', 'zh-CN');
+    });
+
+    return sorted;
+  }, [shops, statusTab, searchQuery, sortKey]);
 
   const trafficWindowStart = useMemo(() => {
     const now = Date.now();
@@ -760,13 +791,17 @@ export default function AdminModerationPage() {
   }, [filteredTrafficEvents, trafficRange]);
 
   const updateStatus = async (shopId: string, nextStatus: ShopStatus, action: BusyActionType) => {
-    if (!isAdmin || busyAction) return;
-    setBusyAction({shopId, action});
+    if (!isAdmin || actionLoadingById[shopId]) return;
+
+    const confirmed = window.confirm(nextStatus === 'verified' ? '确认通过审核并上线这家店铺吗？' : '确认驳回这家店铺吗？');
+    if (!confirmed) return;
+
+    setActionLoadingById((prev) => ({...prev, [shopId]: action}));
     const {error: updateError} = await supabase.from('shops').update({status: nextStatus}).eq('id', shopId);
     if (updateError) {
       setError(updateError.message);
       toast.error(`操作失败：${updateError.message}`);
-      setBusyAction(null);
+      setActionLoadingById((prev) => ({...prev, [shopId]: null}));
       return;
     }
 
@@ -778,20 +813,20 @@ export default function AdminModerationPage() {
     });
 
     toast.success(nextStatus === 'verified' ? '店铺已通过并上线' : '店铺已驳回');
-    await fetchAllShops();
-    setBusyAction(null);
+    await fetchAllShops({silent: true});
+    setActionLoadingById((prev) => ({...prev, [shopId]: null}));
   };
 
   const hardDelete = async (shopId: string) => {
-    if (!isAdmin || busyAction) return;
+    if (!isAdmin || actionLoadingById[shopId]) return;
     if (!window.confirm('确定永久删除这家店铺吗？此操作不可恢复。')) return;
 
-    setBusyAction({shopId, action: 'delete'});
+    setActionLoadingById((prev) => ({...prev, [shopId]: 'delete'}));
     const {error: deleteError} = await supabase.from('shops').delete().eq('id', shopId);
     if (deleteError) {
       setError(deleteError.message);
       toast.error(`删除失败：${deleteError.message}`);
-      setBusyAction(null);
+      setActionLoadingById((prev) => ({...prev, [shopId]: null}));
       return;
     }
 
@@ -802,8 +837,8 @@ export default function AdminModerationPage() {
     });
 
     toast.success('店铺已永久删除');
-    await fetchAllShops();
-    setBusyAction(null);
+    await fetchAllShops({silent: true});
+    setActionLoadingById((prev) => ({...prev, [shopId]: null}));
   };
 
   const handleCreate = async (payload: Record<string, unknown>) => {
@@ -923,6 +958,25 @@ export default function AdminModerationPage() {
               <button type="button" onClick={() => setStatusTab('pending')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'pending' ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-200' : 'bg-slate-100 text-slate-600'}`}>待审核：{pendingCount}</button>
               <button type="button" onClick={() => setStatusTab('verified')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'verified' ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' : 'bg-slate-100 text-slate-600'}`}>已审核通过：{verifiedCount}</button>
               <button type="button" onClick={() => setStatusTab('rejected')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'rejected' ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-200' : 'bg-slate-100 text-slate-600'}`}>已驳回：{rejectedCount}</button>
+
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索店名 / 地址"
+                className="w-44 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#006633]"
+              />
+
+              <select
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as ShopSortKey)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#006633]"
+              >
+                <option value="created_desc">最新创建</option>
+                <option value="created_asc">最早创建</option>
+                <option value="status">按状态</option>
+                <option value="name">按店名</option>
+              </select>
+
               <button type="button" onClick={() => fetchAllShops({silent: true})} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700">{refreshing ? '刷新中...' : '刷新列表'}</button>
               <button type="button" onClick={handleBackfillMissingFields} disabled={backfilling} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 disabled:opacity-60">{backfilling ? '补全中...' : '补全缺失字段'}</button>
               <button type="button" onClick={() => setShowCreateModal(true)} className="rounded-lg bg-[#006633] px-4 py-2 text-sm font-semibold text-white">新增店铺</button>
@@ -931,7 +985,30 @@ export default function AdminModerationPage() {
           </div>
         </div>
 
-        {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
+        {error && (
+          <div className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <div>
+              <p className="font-semibold">请求失败</p>
+              <p className="mt-1">{error}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fetchAllShops({silent: true})}
+                className="rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700"
+              >
+                重试
+              </button>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        )}
 
         <section className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1076,39 +1153,121 @@ export default function AdminModerationPage() {
           </div>
         )}
 
-        <div className="grid gap-4 md:grid-cols-2">
-          {visibleShops.map((shop) => {
-            const isApproving = busyAction?.shopId === shop.id && busyAction.action === 'approve';
-            const isRejecting = busyAction?.shopId === shop.id && busyAction.action === 'reject';
-            const isDeleting = busyAction?.shopId === shop.id && busyAction.action === 'delete';
-            const isBusy = busyAction?.shopId === shop.id;
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-600">店铺</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-600">状态</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-600">分类信息</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-600">质量检查</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-600">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {visibleShops.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                      当前筛选下暂无店铺记录。
+                    </td>
+                  </tr>
+                ) : (
+                  visibleShops.map((shop) => {
+                    const rowAction = actionLoadingById[shop.id];
+                    const isApproving = rowAction === 'approve';
+                    const isRejecting = rowAction === 'reject';
+                    const isDeleting = rowAction === 'delete';
+                    const isBusy = Boolean(rowAction);
+                    const missingFields = [
+                      !shop.category ? 'category' : null,
+                      !shop.shop_type ? 'shop_type' : null,
+                      !shop.rating_label ? 'rating_label' : null,
+                      !shop.address ? 'address' : null
+                    ].filter(Boolean) as string[];
 
-            return (
-              <div key={shop.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 className="truncate text-lg font-bold text-slate-900">{shop.name || '未命名店铺'}</h2>
-                <p className="mt-1 text-xs text-slate-500">{shop.address || '暂无地址'}</p>
-                <div className="mt-3 space-y-1 text-sm text-slate-600">
-                  <p>频道分类：<span className="font-medium text-slate-800">{shop.category ?? '-'}</span></p>
-                  <p>类型：<span className="font-medium text-slate-800">{shop.shop_type ?? '-'}</span></p>
-                  <p>口碑：<span className="font-medium text-slate-800">{shop.rating_label ?? '-'}</span></p>
-                  <p>特色：<span className="font-medium text-slate-800">{shop.features?.length ? shop.features.join('、') : '-'}</span></p>
-                  <p>标签：<span className="font-medium text-slate-800">{shop.tags?.length ? shop.tags.join('、') : '-'}</span></p>
-                  <p>区域：<span className="font-medium text-slate-800">{shop.region ?? '-'}</span></p>
-                  <p>人均：<span className="font-medium text-slate-800">{shop.price_per_person ?? '-'}</span></p>
-                  <p>招牌：<span className="font-medium text-slate-800">{shop.signature_dish ?? '-'}</span></p>
-                  <p>锐评：<span className="font-medium text-slate-800">{shop.sharp_review ?? '-'}</span></p>
-                  <p>legacy sub_tags：<span className="font-medium text-slate-800">{shop.sub_tags?.length ? shop.sub_tags.join('、') : '-'}</span></p>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {shop.status !== 'verified' && <button type="button" onClick={() => updateStatus(shop.id, 'verified', 'approve')} disabled={isBusy} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">{isApproving ? '处理中...' : '通过上线'}</button>}
-                  {shop.status !== 'rejected' && <button type="button" onClick={() => updateStatus(shop.id, 'rejected', 'reject')} disabled={isBusy} className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white">{isRejecting ? '处理中...' : '驳回'}</button>}
-                  <button type="button" onClick={() => setEditingShop(shop)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">编辑</button>
-                  <button type="button" onClick={() => hardDelete(shop.id)} disabled={isBusy} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white">{isDeleting ? '删除中...' : '永久删除'}</button>
-                </div>
-              </div>
-            );
-          })}
+                    return (
+                      <tr key={shop.id} className="align-top hover:bg-slate-50/70">
+                        <td className="px-4 py-4">
+                          <p className="font-semibold text-slate-900">{shop.name || '未命名店铺'}</p>
+                          <p className="mt-1 max-w-xs truncate text-xs text-slate-500">{shop.address || '暂无地址'}</p>
+                          <p className="mt-1 text-xs text-slate-500">区域：{shop.region ?? '-'}</p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            (shop.status === 'pending' || shop.status === null)
+                              ? 'bg-amber-100 text-amber-800'
+                              : shop.status === 'verified'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            {shop.status ?? 'pending'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-4 text-xs text-slate-600">
+                          <p>频道：<span className="font-medium text-slate-800">{shop.category ?? '-'}</span></p>
+                          <p className="mt-1">类型：<span className="font-medium text-slate-800">{shop.shop_type ?? '-'}</span></p>
+                          <p className="mt-1">口碑：<span className="font-medium text-slate-800">{shop.rating_label ?? '-'}</span></p>
+                          <p className="mt-1">标签：<span className="font-medium text-slate-800">{shop.tags?.length ? shop.tags.join('、') : '-'}</span></p>
+                        </td>
+                        <td className="px-4 py-4 text-xs text-slate-600">
+                          {missingFields.length > 0 ? (
+                            <span className="inline-flex rounded-md bg-rose-50 px-2 py-1 font-medium text-rose-700">缺失：{missingFields.join(', ')}</span>
+                          ) : (
+                            <span className="inline-flex rounded-md bg-emerald-50 px-2 py-1 font-medium text-emerald-700">字段完整</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            {shop.status !== 'verified' && (
+                              <button
+                                type="button"
+                                aria-label={`通过店铺 ${shop.name || shop.id}`}
+                                onClick={() => updateStatus(shop.id, 'verified', 'approve')}
+                                disabled={isBusy}
+                                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                              >
+                                {isApproving ? '处理中...' : '通过'}
+                              </button>
+                            )}
+                            {shop.status !== 'rejected' && (
+                              <button
+                                type="button"
+                                aria-label={`驳回店铺 ${shop.name || shop.id}`}
+                                onClick={() => updateStatus(shop.id, 'rejected', 'reject')}
+                                disabled={isBusy}
+                                className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                              >
+                                {isRejecting ? '处理中...' : '驳回'}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              aria-label={`编辑店铺 ${shop.name || shop.id}`}
+                              onClick={() => setEditingShop(shop)}
+                              disabled={isBusy}
+                              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 disabled:opacity-60"
+                            >
+                              编辑
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`删除店铺 ${shop.name || shop.id}`}
+                              onClick={() => hardDelete(shop.id)}
+                              disabled={isBusy}
+                              className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+                            >
+                              {isDeleting ? '删除中...' : '删除'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
