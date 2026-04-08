@@ -71,11 +71,12 @@ type HealthStats = {
   newComments24h: number;
 };
 
-type TrafficStats = {
-  pv24h: number;
-  pv7d: number;
-  uv24h: number;
-  uv7d: number;
+type TrafficRangeKey = '24h' | '7d' | '30d' | '365d' | 'all';
+
+type TrafficEventRow = {
+  created_at: string;
+  session_id: string | null;
+  path: string | null;
 };
 
 const CATEGORY_OPTIONS: Array<{value: ShopCategory; label: string}> = [
@@ -395,7 +396,8 @@ export default function AdminModerationPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [statusTab, setStatusTab] = useState<'pending' | 'verified' | 'rejected'>('pending');
   const [newComments24h, setNewComments24h] = useState(0);
-  const [trafficStats, setTrafficStats] = useState<TrafficStats>({pv24h: 0, pv7d: 0, uv24h: 0, uv7d: 0});
+  const [trafficEvents, setTrafficEvents] = useState<TrafficEventRow[]>([]);
+  const [trafficRange, setTrafficRange] = useState<TrafficRangeKey>('24h');
   const [backfilling, setBackfilling] = useState(false);
 
   const fetchAllShops = useCallback(async (opts?: {silent?: boolean}) => {
@@ -407,9 +409,7 @@ export default function AdminModerationPage() {
     }
     setError(null);
 
-    const now = Date.now();
-    const since24hIso = new Date(now - 24 * 60 * 60 * 1000).toISOString();
-    const since7dIso = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const since24hIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     const shopsRes = await supabase
       .from('shops')
@@ -423,17 +423,12 @@ export default function AdminModerationPage() {
         ? await supabase.from('comments').select('id', {count: 'exact', head: true}).gte('created_at', since24hIso)
         : primaryCommentsRes;
 
-    const trafficRes24h = await supabase
+    const trafficRes = await supabase
       .from('site_traffic_events')
-      .select('session_id', {count: 'exact'})
+      .select('created_at,session_id,path')
       .eq('event_type', 'page_view')
-      .gte('created_at', since24hIso);
-
-    const trafficRes7d = await supabase
-      .from('site_traffic_events')
-      .select('session_id', {count: 'exact'})
-      .eq('event_type', 'page_view')
-      .gte('created_at', since7dIso);
+      .order('created_at', {ascending: false})
+      .limit(20000);
 
     if (shopsRes.error) {
       setError(shopsRes.error.message);
@@ -453,24 +448,11 @@ export default function AdminModerationPage() {
       setNewComments24h(commentsRes.count ?? 0);
     }
 
-    if (trafficRes24h.error || trafficRes7d.error) {
-      if (trafficRes24h.error) {
-        console.warn('Failed to fetch 24h traffic metrics:', trafficRes24h.error.message);
-      }
-      if (trafficRes7d.error) {
-        console.warn('Failed to fetch 7d traffic metrics:', trafficRes7d.error.message);
-      }
-      setTrafficStats({pv24h: 0, pv7d: 0, uv24h: 0, uv7d: 0});
+    if (trafficRes.error) {
+      console.warn('Failed to fetch traffic metrics:', trafficRes.error.message);
+      setTrafficEvents([]);
     } else {
-      const uv24h = new Set((trafficRes24h.data ?? []).map((item) => item.session_id).filter(Boolean)).size;
-      const uv7d = new Set((trafficRes7d.data ?? []).map((item) => item.session_id).filter(Boolean)).size;
-
-      setTrafficStats({
-        pv24h: trafficRes24h.count ?? 0,
-        pv7d: trafficRes7d.count ?? 0,
-        uv24h,
-        uv7d
-      });
+      setTrafficEvents((trafficRes.data ?? []) as TrafficEventRow[]);
     }
 
     setShops((shopsRes.data ?? []).map((row) => ({...row, id: String(row.id)})) as ShopRow[]);
@@ -548,6 +530,64 @@ export default function AdminModerationPage() {
     }
     return shops.filter((shop) => shop.status === 'rejected');
   }, [shops, statusTab]);
+
+  const trafficWindowStart = useMemo(() => {
+    const now = Date.now();
+    if (trafficRange === '24h') return now - 24 * 60 * 60 * 1000;
+    if (trafficRange === '7d') return now - 7 * 24 * 60 * 60 * 1000;
+    if (trafficRange === '30d') return now - 30 * 24 * 60 * 60 * 1000;
+    if (trafficRange === '365d') return now - 365 * 24 * 60 * 60 * 1000;
+    return 0;
+  }, [trafficRange]);
+
+  const filteredTrafficEvents = useMemo(() => {
+    return trafficEvents.filter((event) => {
+      const ts = new Date(event.created_at).getTime();
+      return Number.isFinite(ts) && ts >= trafficWindowStart;
+    });
+  }, [trafficEvents, trafficWindowStart]);
+
+  const trafficSummary = useMemo(() => {
+    const pv = filteredTrafficEvents.length;
+    const uv = new Set(filteredTrafficEvents.map((event) => event.session_id).filter(Boolean)).size;
+
+    const bucketMap = new Map<string, number>();
+    const pathMap = new Map<string, number>();
+
+    for (const event of filteredTrafficEvents) {
+      const ts = new Date(event.created_at);
+      if (!Number.isFinite(ts.getTime())) continue;
+
+      const bucketLabel =
+        trafficRange === '24h'
+          ? `${String(ts.getHours()).padStart(2, '0')}:00`
+          : trafficRange === '7d' || trafficRange === '30d'
+            ? `${ts.getMonth() + 1}/${ts.getDate()}`
+            : `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}`;
+
+      bucketMap.set(bucketLabel, (bucketMap.get(bucketLabel) ?? 0) + 1);
+
+      const path = (event.path || '/').trim() || '/';
+      pathMap.set(path, (pathMap.get(path) ?? 0) + 1);
+    }
+
+    const timeline = Array.from(bucketMap.entries())
+      .map(([label, count]) => ({label, count}))
+      .sort((a, b) => a.label.localeCompare(b.label))
+      .slice(-24);
+
+    const topPages = Array.from(pathMap.entries())
+      .map(([path, count]) => ({path, count}))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    const peakPoint = timeline.reduce<{label: string; count: number} | null>((max, item) => {
+      if (!max || item.count > max.count) return item;
+      return max;
+    }, null);
+
+    return {pv, uv, timeline, topPages, peakPoint};
+  }, [filteredTrafficEvents, trafficRange]);
 
   const updateStatus = async (shopId: string, nextStatus: ShopStatus, action: BusyActionType) => {
     if (!isAdmin || busyAction) return;
@@ -697,7 +737,7 @@ export default function AdminModerationPage() {
 
         {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
-        <section className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <section className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold text-slate-500">店铺总数</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.total}</p>
@@ -709,16 +749,6 @@ export default function AdminModerationPage() {
             <p className="mt-1 text-xs text-slate-500">新增店铺，新增评论 {healthStats.newComments24h} 条</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold text-slate-500">网站流量（24h）</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">PV {trafficStats.pv24h}</p>
-            <p className="mt-1 text-xs text-slate-500">UV {trafficStats.uv24h}（按会话去重）</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold text-slate-500">网站流量（7d）</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">PV {trafficStats.pv7d}</p>
-            <p className="mt-1 text-xs text-slate-500">UV {trafficStats.uv7d}（按会话去重）</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold text-slate-500">字段缺失（分类）</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.missingCategory}</p>
             <p className="mt-1 text-xs text-slate-500">category 为空的店铺数</p>
@@ -727,6 +757,97 @@ export default function AdminModerationPage() {
             <p className="text-xs font-semibold text-slate-500">字段缺失（类型/口碑）</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.missingShopType + healthStats.missingRatingLabel}</p>
             <p className="mt-1 text-xs text-slate-500">shop_type {healthStats.missingShopType}，rating_label {healthStats.missingRatingLabel}</p>
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">网站流量分析面板</h2>
+              <p className="mt-1 text-xs text-slate-500">支持 24 小时 / 7 天 / 30 天 / 365 天 / 成立以来 的流量分析</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                {key: '24h', label: '24h'},
+                {key: '7d', label: '一周'},
+                {key: '30d', label: '一个月'},
+                {key: '365d', label: '一年'},
+                {key: 'all', label: '成立以来'}
+              ] as Array<{key: TrafficRangeKey; label: string}>).map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setTrafficRange(item.key)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    trafficRange === item.key
+                      ? 'bg-[#006633] text-white'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-500">PV（页面浏览）</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{trafficSummary.pv}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-500">UV（独立会话）</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{trafficSummary.uv}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-500">平均每会话浏览</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{trafficSummary.uv > 0 ? (trafficSummary.pv / trafficSummary.uv).toFixed(2) : '0.00'}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-500">流量峰值</p>
+              <p className="mt-1 text-base font-bold text-slate-900">{trafficSummary.peakPoint ? `${trafficSummary.peakPoint.label} (${trafficSummary.peakPoint.count})` : '-'}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 p-3">
+              <p className="mb-2 text-sm font-semibold text-slate-700">时间点趋势（最近 24 个桶）</p>
+              <div className="space-y-2">
+                {trafficSummary.timeline.length === 0 ? (
+                  <p className="text-xs text-slate-500">暂无流量数据</p>
+                ) : (
+                  trafficSummary.timeline.map((item) => {
+                    const max = Math.max(...trafficSummary.timeline.map((x) => x.count), 1);
+                    const widthPct = Math.max(6, Math.round((item.count / max) * 100));
+                    return (
+                      <div key={item.label} className="flex items-center gap-2 text-xs">
+                        <span className="w-20 shrink-0 text-slate-500">{item.label}</span>
+                        <div className="h-2 flex-1 rounded bg-slate-100">
+                          <div className="h-2 rounded bg-[#006633]" style={{width: `${widthPct}%`}} />
+                        </div>
+                        <span className="w-8 shrink-0 text-right font-semibold text-slate-700">{item.count}</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-3">
+              <p className="mb-2 text-sm font-semibold text-slate-700">Top 页面（PV）</p>
+              <div className="space-y-2">
+                {trafficSummary.topPages.length === 0 ? (
+                  <p className="text-xs text-slate-500">暂无页面数据</p>
+                ) : (
+                  trafficSummary.topPages.map((item, index) => (
+                    <div key={`${item.path}-${index}`} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs">
+                      <span className="truncate text-slate-700">{item.path}</span>
+                      <span className="ml-2 font-semibold text-slate-900">{item.count}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </section>
 
