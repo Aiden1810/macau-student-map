@@ -259,7 +259,15 @@ export default function Page() {
   const hasActiveDrawerFilters = hasDrawerFilters(drawerFilters);
   const hasActiveSearch = searchQuery.trim().length > 0;
   const hasActiveScenarioFilter = activeScenario !== null;
-  const hasActiveFilters = hasActiveTopFilters || hasActiveDrawerFilters || hasActiveSearch || hasActiveScenarioFilter;
+  const hasActiveRegionFilter = activeRegion !== 'all';
+  const hasActiveFavoriteFilter = showFavorites;
+  const hasActiveFilters =
+    hasActiveTopFilters ||
+    hasActiveDrawerFilters ||
+    hasActiveSearch ||
+    hasActiveScenarioFilter ||
+    hasActiveRegionFilter ||
+    hasActiveFavoriteFilter;
 
   const activeFilterLabels = useMemo(() => {
     const labels: string[] = [];
@@ -344,6 +352,8 @@ export default function Page() {
     setActiveL1('all');
     setActiveL2(null);
     setActiveScenario(null);
+    setActiveRegion('all');
+    setShowFavorites(false);
     setDrawerFilters(DEFAULT_DRAWER_FILTERS);
     setSearchQuery('');
   };

@@ -10,6 +10,7 @@ type ShopCategory = 'food' | 'drink' | 'vibe' | 'deal';
 type ShopType = '正餐' | '快餐小吃' | '饮品甜点' | '服务';
 type RatingLabel = '封神之作' | '强烈推荐' | '还行吧' | '建议避雷' | '暂无评分';
 type Feature = '有折扣' | '学生价' | '深夜营业' | '适合拍照' | '外卖可达';
+type ShopRegion = '澳门半岛' | '氹仔岛' | '路环岛' | '香洲区' | '横琴区' | '其它';
 
 type ShopRow = {
   id: string;
@@ -28,6 +29,10 @@ type ShopRow = {
   status: ShopStatus | null;
   created_at: string | null;
   sub_tags: string[] | null;
+  price_per_person: number | null;
+  region: ShopRegion | null;
+  signature_dish: string | null;
+  sharp_review: string | null;
 };
 
 type ShopFormValue = {
@@ -45,6 +50,10 @@ type ShopFormValue = {
   review_text: string;
   student_discount: string;
   status: ShopStatus;
+  price_per_person: string;
+  region: ShopRegion | '';
+  signature_dish: string;
+  sharp_review: string;
 };
 
 type BusyActionType = 'approve' | 'reject' | 'delete';
@@ -62,6 +71,13 @@ type HealthStats = {
   newComments24h: number;
 };
 
+type TrafficStats = {
+  pv24h: number;
+  pv7d: number;
+  uv24h: number;
+  uv7d: number;
+};
+
 const CATEGORY_OPTIONS: Array<{value: ShopCategory; label: string}> = [
   {value: 'food', label: '美食'},
   {value: 'drink', label: '饮品'},
@@ -72,6 +88,7 @@ const CATEGORY_OPTIONS: Array<{value: ShopCategory; label: string}> = [
 const SHOP_TYPE_OPTIONS: ShopType[] = ['正餐', '快餐小吃', '饮品甜点', '服务'];
 const RATING_OPTIONS: RatingLabel[] = ['封神之作', '强烈推荐', '还行吧', '建议避雷', '暂无评分'];
 const FEATURE_OPTIONS: Feature[] = ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'];
+const REGION_OPTIONS: ShopRegion[] = ['澳门半岛', '氹仔岛', '路环岛', '香洲区', '横琴区', '其它'];
 
 function toFormValue(shop?: ShopRow | null): ShopFormValue {
   if (!shop) {
@@ -89,7 +106,11 @@ function toFormValue(shop?: ShopRow | null): ShopFormValue {
       image_urls: '',
       review_text: '',
       student_discount: '',
-      status: 'verified'
+      status: 'verified',
+      price_per_person: '',
+      region: '',
+      signature_dish: '',
+      sharp_review: ''
     };
   }
 
@@ -107,7 +128,11 @@ function toFormValue(shop?: ShopRow | null): ShopFormValue {
     image_urls: (shop.image_urls ?? []).join('\n'),
     review_text: shop.review_text ?? '',
     student_discount: shop.student_discount ?? '',
-    status: shop.status ?? 'pending'
+    status: shop.status ?? 'pending',
+    price_per_person: shop.price_per_person?.toString() ?? '',
+    region: shop.region ?? '',
+    signature_dish: shop.signature_dish ?? '',
+    sharp_review: shop.sharp_review ?? ''
   };
 }
 
@@ -116,6 +141,23 @@ function parseList(input: string): string[] {
     .split(/[\n,]/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function dedupeTrimmedList(list: string[], limit?: number): string[] {
+  const normalized = Array.from(new Set(list.map((item) => item.trim()).filter(Boolean)));
+  return typeof limit === 'number' ? normalized.slice(0, limit) : normalized;
+}
+
+function parsePrice(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  return Number(parsed.toFixed(2));
+}
+
+function isLikelyMacauArea(lng: number, lat: number): boolean {
+  return lng >= 113 && lng <= 114.2 && lat >= 21.8 && lat <= 22.6;
 }
 
 function AdminShopForm({
@@ -163,7 +205,17 @@ function AdminShopForm({
     if (form.longitude.trim() && Number.isNaN(lng)) return toast.error('Longitude 必须是数字');
     if (form.latitude.trim() && Number.isNaN(lat)) return toast.error('Latitude 必须是数字');
 
-    const mergedTags = Array.from(new Set([...form.tags, ...parseList(form.custom_tags)])).slice(0, 5);
+    const mergedTags = dedupeTrimmedList([...form.tags, ...parseList(form.custom_tags)], 5);
+    const imageUrls = dedupeTrimmedList(parseList(form.image_urls));
+    const pricePerPerson = parsePrice(form.price_per_person);
+
+    if (form.price_per_person.trim() && pricePerPerson === null) {
+      return toast.error('人均消费必须是有效数字');
+    }
+
+    if (lng !== null && lat !== null && !isLikelyMacauArea(lng, lat)) {
+      return toast.error('经纬度不在澳门/珠海范围内，请确认坐标是否正确');
+    }
 
     const payload: Record<string, unknown> = {
       name,
@@ -173,12 +225,16 @@ function AdminShopForm({
       category: form.category,
       shop_type: form.shop_type,
       rating_label: form.rating_label,
-      features: form.features,
+      features: dedupeTrimmedList(form.features),
       tags: mergedTags,
-      image_urls: parseList(form.image_urls),
+      image_urls: imageUrls,
       review_text: form.review_text.trim() || null,
       student_discount: form.student_discount.trim() || null,
-      status: form.status
+      status: form.status,
+      price_per_person: pricePerPerson,
+      region: form.region || null,
+      signature_dish: form.signature_dish.trim() || null,
+      sharp_review: form.sharp_review.trim() || null
     };
 
     await onSubmit(payload);
@@ -282,6 +338,31 @@ function AdminShopForm({
           </label>
 
           <label>
+            <span className="mb-1 block text-sm font-medium text-slate-700">人均消费（MOP）</span>
+            <input value={form.price_per_person} onChange={(e) => setForm((prev) => ({...prev, price_per_person: e.target.value}))} placeholder="例如 68" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
+          </label>
+
+          <label>
+            <span className="mb-1 block text-sm font-medium text-slate-700">区域</span>
+            <select value={form.region} onChange={(e) => setForm((prev) => ({...prev, region: e.target.value as ShopRegion | ''}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]">
+              <option value="">未填写</option>
+              {REGION_OPTIONS.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span className="mb-1 block text-sm font-medium text-slate-700">招牌推荐</span>
+            <input value={form.signature_dish} onChange={(e) => setForm((prev) => ({...prev, signature_dish: e.target.value}))} placeholder="例如：葡式焗鸡饭" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
+          </label>
+
+          <label className="sm:col-span-2">
+            <span className="mb-1 block text-sm font-medium text-slate-700">一句话锐评</span>
+            <textarea rows={2} value={form.sharp_review} onChange={(e) => setForm((prev) => ({...prev, sharp_review: e.target.value}))} placeholder="例如：夜宵档口王者，出餐快且稳定" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
+          </label>
+
+          <label>
             <span className="mb-1 block text-sm font-medium text-slate-700">状态</span>
             <select value={form.status} onChange={(e) => setForm((prev) => ({...prev, status: e.target.value as ShopStatus}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]">
               <option value="pending">pending</option>
@@ -312,8 +393,9 @@ export default function AdminModerationPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingShop, setEditingShop] = useState<ShopRow | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [statusTab, setStatusTab] = useState<'pending' | 'verified'>('pending');
+  const [statusTab, setStatusTab] = useState<'pending' | 'verified' | 'rejected'>('pending');
   const [newComments24h, setNewComments24h] = useState(0);
+  const [trafficStats, setTrafficStats] = useState<TrafficStats>({pv24h: 0, pv7d: 0, uv24h: 0, uv7d: 0});
   const [backfilling, setBackfilling] = useState(false);
 
   const fetchAllShops = useCallback(async (opts?: {silent?: boolean}) => {
@@ -325,16 +407,33 @@ export default function AdminModerationPage() {
     }
     setError(null);
 
-    const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const now = Date.now();
+    const since24hIso = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+    const since7dIso = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const [shopsRes, commentsRes] = await Promise.all([
-      supabase
-        .from('shops')
-        .select('id,name,address,longitude,latitude,category,tags,features,shop_type,rating_label,image_urls,review_text,student_discount,status,created_at,sub_tags')
-        .or('status.in.(pending,verified,rejected),status.is.null')
-        .order('created_at', {ascending: false}),
-      supabase.from('comments').select('id', {count: 'exact', head: true}).gte('created_at', sinceIso)
-    ]);
+    const shopsRes = await supabase
+      .from('shops')
+      .select('id,name,address,longitude,latitude,category,tags,features,shop_type,rating_label,image_urls,review_text,student_discount,status,created_at,sub_tags,price_per_person,region,signature_dish,sharp_review')
+      .or('status.in.(pending,verified,rejected),status.is.null')
+      .order('created_at', {ascending: false});
+
+    const primaryCommentsRes = await supabase.from('shop_comments').select('id', {count: 'exact', head: true}).gte('created_at', since24hIso);
+    const commentsRes =
+      primaryCommentsRes.error
+        ? await supabase.from('comments').select('id', {count: 'exact', head: true}).gte('created_at', since24hIso)
+        : primaryCommentsRes;
+
+    const trafficRes24h = await supabase
+      .from('site_traffic_events')
+      .select('session_id', {count: 'exact'})
+      .eq('event_type', 'page_view')
+      .gte('created_at', since24hIso);
+
+    const trafficRes7d = await supabase
+      .from('site_traffic_events')
+      .select('session_id', {count: 'exact'})
+      .eq('event_type', 'page_view')
+      .gte('created_at', since7dIso);
 
     if (shopsRes.error) {
       setError(shopsRes.error.message);
@@ -352,6 +451,26 @@ export default function AdminModerationPage() {
       setNewComments24h(0);
     } else {
       setNewComments24h(commentsRes.count ?? 0);
+    }
+
+    if (trafficRes24h.error || trafficRes7d.error) {
+      if (trafficRes24h.error) {
+        console.warn('Failed to fetch 24h traffic metrics:', trafficRes24h.error.message);
+      }
+      if (trafficRes7d.error) {
+        console.warn('Failed to fetch 7d traffic metrics:', trafficRes7d.error.message);
+      }
+      setTrafficStats({pv24h: 0, pv7d: 0, uv24h: 0, uv7d: 0});
+    } else {
+      const uv24h = new Set((trafficRes24h.data ?? []).map((item) => item.session_id).filter(Boolean)).size;
+      const uv7d = new Set((trafficRes7d.data ?? []).map((item) => item.session_id).filter(Boolean)).size;
+
+      setTrafficStats({
+        pv24h: trafficRes24h.count ?? 0,
+        pv7d: trafficRes7d.count ?? 0,
+        uv24h,
+        uv7d
+      });
     }
 
     setShops((shopsRes.data ?? []).map((row) => ({...row, id: String(row.id)})) as ShopRow[]);
@@ -387,6 +506,7 @@ export default function AdminModerationPage() {
 
   const pendingCount = useMemo(() => shops.filter((item) => item.status === 'pending' || item.status === null).length, [shops]);
   const verifiedCount = useMemo(() => shops.filter((item) => item.status === 'verified').length, [shops]);
+  const rejectedCount = useMemo(() => shops.filter((item) => item.status === 'rejected').length, [shops]);
 
   const healthStats = useMemo<HealthStats>(() => {
     const total = shops.length;
@@ -419,10 +539,15 @@ export default function AdminModerationPage() {
     };
   }, [newComments24h, shops]);
 
-  const visibleShops = useMemo(
-    () => shops.filter((shop) => (statusTab === 'pending' ? shop.status === 'pending' || shop.status === null : shop.status === 'verified')),
-    [shops, statusTab]
-  );
+  const visibleShops = useMemo(() => {
+    if (statusTab === 'pending') {
+      return shops.filter((shop) => shop.status === 'pending' || shop.status === null);
+    }
+    if (statusTab === 'verified') {
+      return shops.filter((shop) => shop.status === 'verified');
+    }
+    return shops.filter((shop) => shop.status === 'rejected');
+  }, [shops, statusTab]);
 
   const updateStatus = async (shopId: string, nextStatus: ShopStatus, action: BusyActionType) => {
     if (!isAdmin || busyAction) return;
@@ -459,7 +584,7 @@ export default function AdminModerationPage() {
 
   const handleCreate = async (payload: Record<string, unknown>) => {
     setSaving(true);
-    const {error: insertError} = await supabase.from('shops').insert({...payload, status: 'verified'});
+    const {error: insertError} = await supabase.from('shops').insert(payload);
     if (insertError) {
       setError(insertError.message);
       toast.error(`新增失败：${insertError.message}`);
@@ -561,6 +686,7 @@ export default function AdminModerationPage() {
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => setStatusTab('pending')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'pending' ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-200' : 'bg-slate-100 text-slate-600'}`}>待审核：{pendingCount}</button>
               <button type="button" onClick={() => setStatusTab('verified')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'verified' ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' : 'bg-slate-100 text-slate-600'}`}>已审核通过：{verifiedCount}</button>
+              <button type="button" onClick={() => setStatusTab('rejected')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'rejected' ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-200' : 'bg-slate-100 text-slate-600'}`}>已驳回：{rejectedCount}</button>
               <button type="button" onClick={() => fetchAllShops({silent: true})} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700">{refreshing ? '刷新中...' : '刷新列表'}</button>
               <button type="button" onClick={handleBackfillMissingFields} disabled={backfilling} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 disabled:opacity-60">{backfilling ? '补全中...' : '补全缺失字段'}</button>
               <button type="button" onClick={() => setShowCreateModal(true)} className="rounded-lg bg-[#006633] px-4 py-2 text-sm font-semibold text-white">新增店铺</button>
@@ -571,7 +697,7 @@ export default function AdminModerationPage() {
 
         {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
-        <section className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold text-slate-500">店铺总数</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.total}</p>
@@ -581,6 +707,16 @@ export default function AdminModerationPage() {
             <p className="text-xs font-semibold text-slate-500">最近 24 小时</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">+{healthStats.newShops24h}</p>
             <p className="mt-1 text-xs text-slate-500">新增店铺，新增评论 {healthStats.newComments24h} 条</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold text-slate-500">网站流量（24h）</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">PV {trafficStats.pv24h}</p>
+            <p className="mt-1 text-xs text-slate-500">UV {trafficStats.uv24h}（按会话去重）</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-semibold text-slate-500">网站流量（7d）</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">PV {trafficStats.pv7d}</p>
+            <p className="mt-1 text-xs text-slate-500">UV {trafficStats.uv7d}（按会话去重）</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold text-slate-500">字段缺失（分类）</p>
@@ -617,6 +753,10 @@ export default function AdminModerationPage() {
                   <p>口碑：<span className="font-medium text-slate-800">{shop.rating_label ?? '-'}</span></p>
                   <p>特色：<span className="font-medium text-slate-800">{shop.features?.length ? shop.features.join('、') : '-'}</span></p>
                   <p>标签：<span className="font-medium text-slate-800">{shop.tags?.length ? shop.tags.join('、') : '-'}</span></p>
+                  <p>区域：<span className="font-medium text-slate-800">{shop.region ?? '-'}</span></p>
+                  <p>人均：<span className="font-medium text-slate-800">{shop.price_per_person ?? '-'}</span></p>
+                  <p>招牌：<span className="font-medium text-slate-800">{shop.signature_dish ?? '-'}</span></p>
+                  <p>锐评：<span className="font-medium text-slate-800">{shop.sharp_review ?? '-'}</span></p>
                   <p>legacy sub_tags：<span className="font-medium text-slate-800">{shop.sub_tags?.length ? shop.sub_tags.join('、') : '-'}</span></p>
                 </div>
 

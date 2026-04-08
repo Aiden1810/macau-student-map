@@ -2,6 +2,7 @@ import {NextIntlClientProvider, hasLocale} from 'next-intl';
 import {getMessages} from 'next-intl/server';
 import {notFound} from 'next/navigation';
 import {Toaster} from 'react-hot-toast';
+import TrafficTracker from '@/components/TrafficTracker';
 import {routing} from '@/i18n/routing';
 
 export default async function LocaleLayout({
@@ -21,6 +22,7 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider messages={messages}>
+      <TrafficTracker />
       {children}
       <Toaster
         position="bottom-center"
