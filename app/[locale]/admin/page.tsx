@@ -65,6 +65,8 @@ type ShopFormValue = {
 type BusyActionType = 'approve' | 'reject' | 'delete';
 type BusyAction = {shopId: string; action: BusyActionType} | null;
 
+type AdminAuditAction = 'approve' | 'reject' | 'delete' | 'create' | 'edit';
+
 type HealthStats = {
   total: number;
   pending: number;
@@ -83,6 +85,16 @@ type TrafficEventRow = {
   created_at: string;
   session_id: string | null;
   path: string | null;
+};
+
+type AdminAuditLogRow = {
+  id: string;
+  actor_user_id: string | null;
+  action: AdminAuditAction;
+  target_shop_id: string | null;
+  note: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
 };
 
 function mergeAdminShop(prev: ShopRow[], incoming: ShopRow): ShopRow[] {
@@ -476,6 +488,7 @@ export default function AdminModerationPage() {
   const [trafficEvents, setTrafficEvents] = useState<TrafficEventRow[]>([]);
   const [trafficRange, setTrafficRange] = useState<TrafficRangeKey>('24h');
   const [backfilling, setBackfilling] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<AdminAuditLogRow[]>([]);
 
   const fetchAllShops = useCallback(async (opts?: {silent?: boolean}) => {
     const silent = opts?.silent ?? false;
@@ -540,6 +553,44 @@ export default function AdminModerationPage() {
     }
   }, []);
 
+  const logAdminAudit = useCallback(async ({
+    action,
+    targetShopId,
+    note,
+    metadata
+  }: {
+    action: AdminAuditAction;
+    targetShopId?: string | null;
+    note?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }) => {
+    const {data: authData} = await supabase.auth.getUser();
+    const actorUserId = authData.user?.id ?? null;
+
+    const {error: logError} = await supabase.from('admin_audit_logs').insert({
+      actor_user_id: actorUserId,
+      action,
+      target_shop_id: targetShopId ?? null,
+      note: note ?? null,
+      metadata: metadata ?? null
+    });
+
+    if (logError) {
+      console.warn('admin_audit_logs insert skipped:', logError.message);
+      return;
+    }
+
+    const {data: latestLogs, error: logsError} = await supabase
+      .from('admin_audit_logs')
+      .select('id,actor_user_id,action,target_shop_id,note,metadata,created_at')
+      .order('created_at', {ascending: false})
+      .limit(8);
+
+    if (!logsError) {
+      setAuditLogs((latestLogs ?? []) as AdminAuditLogRow[]);
+    }
+  }, []);
+
   const checkAdminRole = useCallback(async () => {
     const {data: authData, error: authError} = await supabase.auth.getUser();
     if (authError || !authData.user) {
@@ -553,6 +604,16 @@ export default function AdminModerationPage() {
       setIsAdmin(false);
       setLoading(false);
       return;
+    }
+
+    const {data: latestLogs, error: logsError} = await supabase
+      .from('admin_audit_logs')
+      .select('id,actor_user_id,action,target_shop_id,note,metadata,created_at')
+      .order('created_at', {ascending: false})
+      .limit(8);
+
+    if (!logsError) {
+      setAuditLogs((latestLogs ?? []) as AdminAuditLogRow[]);
     }
 
     setIsAdmin(true);
@@ -708,6 +769,14 @@ export default function AdminModerationPage() {
       setBusyAction(null);
       return;
     }
+
+    await logAdminAudit({
+      action: nextStatus === 'verified' ? 'approve' : 'reject',
+      targetShopId: shopId,
+      note: nextStatus === 'verified' ? '审核通过并上线' : '审核驳回',
+      metadata: {nextStatus}
+    });
+
     toast.success(nextStatus === 'verified' ? '店铺已通过并上线' : '店铺已驳回');
     await fetchAllShops();
     setBusyAction(null);
@@ -726,6 +795,12 @@ export default function AdminModerationPage() {
       return;
     }
 
+    await logAdminAudit({
+      action: 'delete',
+      targetShopId: shopId,
+      note: '管理员永久删除店铺'
+    });
+
     toast.success('店铺已永久删除');
     await fetchAllShops();
     setBusyAction(null);
@@ -733,13 +808,19 @@ export default function AdminModerationPage() {
 
   const handleCreate = async (payload: Record<string, unknown>) => {
     setSaving(true);
-    const {error: insertError} = await supabase.from('shops').insert(payload);
+    const {data: createdRows, error: insertError} = await supabase.from('shops').insert(payload).select('id').limit(1);
     if (insertError) {
       setError(insertError.message);
       toast.error(`新增失败：${insertError.message}`);
       setSaving(false);
       return;
     }
+
+    await logAdminAudit({
+      action: 'create',
+      targetShopId: createdRows?.[0]?.id ? String(createdRows[0].id) : null,
+      note: '管理员后台直接新增店铺'
+    });
 
     toast.success('店铺已新增并上线');
     setShowCreateModal(false);
@@ -758,6 +839,12 @@ export default function AdminModerationPage() {
       setSaving(false);
       return;
     }
+
+    await logAdminAudit({
+      action: 'edit',
+      targetShopId: editingShop.id,
+      note: '管理员编辑店铺信息'
+    });
 
     toast.success('店铺信息已更新');
     setEditingShop(null);
@@ -957,6 +1044,29 @@ export default function AdminModerationPage() {
                 )}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-slate-900">关键操作审计日志</h2>
+            <p className="text-xs text-slate-500">最近 8 条管理员动作</p>
+          </div>
+          <div className="mt-3 space-y-2">
+            {auditLogs.length === 0 ? (
+              <p className="text-xs text-slate-500">暂无审计日志（请先执行 SQL 初始化 admin_audit_logs 表）</p>
+            ) : (
+              auditLogs.map((log) => (
+                <div key={log.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                  <div className="min-w-[220px] text-slate-700">
+                    <span className="font-semibold text-slate-900">{log.action}</span>
+                    <span className="mx-2 text-slate-400">·</span>
+                    <span className="break-all">shop: {log.target_shop_id ?? '-'}</span>
+                  </div>
+                  <div className="text-slate-500">{new Date(log.created_at).toLocaleString()}</div>
+                </div>
+              ))
+            )}
           </div>
         </section>
 
