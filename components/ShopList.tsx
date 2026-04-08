@@ -107,6 +107,7 @@ export default function ShopList({
   const dragStartYRef = useRef<number | null>(null);
   const dragStartHeightRef = useRef<number>(0);
   const locateHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setMobileExpanded(false);
@@ -121,6 +122,20 @@ export default function ShopList({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mobileSearchMode) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      mobileSearchInputRef.current?.focus();
+    }, 30);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [mobileSearchMode]);
 
   const getExpandedHeightPx = () => window.innerHeight * (SHEET_EXPANDED_VH / 100);
 
