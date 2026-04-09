@@ -81,7 +81,11 @@ function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
   return shops.filter((s) => s.category === tabKey);
 }
 
-function filterByL2(tag: string, shops: Shop[]): Shop[] {
+function filterByL2(tag: string, shops: Shop[], l1Key: ShopCategoryKey): Shop[] {
+  if (l1Key === 'region') {
+    return shops.filter((s) => s.region === tag);
+  }
+
   return shops.filter((s) => s.tags.includes(tag));
 }
 
@@ -271,7 +275,7 @@ export default function Page() {
           });
 
     const l1Filtered = filterByL1(activeL1, searched);
-    const l2Filtered = activeL2 ? filterByL2(activeL2, l1Filtered) : l1Filtered;
+    const l2Filtered = activeL2 ? filterByL2(activeL2, l1Filtered, activeL1) : l1Filtered;
     let drawerFiltered = applyDrawerFilters(l2Filtered, drawerFilters);
 
     if (showFavorites && isLoaded) {
