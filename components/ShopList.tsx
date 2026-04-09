@@ -5,7 +5,7 @@ import {L2_TAGS} from '@/components/FilterBar';
 import MobileShopDetailModal from '@/components/MobileShopDetailModal';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
-import {DrawerFiltersState, Shop, ShopCategoryKey, ShopFeature, ShopRegion} from '@/types/shop';
+import {DrawerFiltersState, Shop, ShopCategoryKey, ShopFeature} from '@/types/shop';
 
 interface ScenarioShortcut {
   key: 'student-deal' | 'top-rated' | 'delivery' | 'new-shop';
@@ -43,15 +43,12 @@ interface ShopListProps {
   onL2Change?: (l1: ShopCategoryKey, l2: string | null) => void;
   showFavorites?: boolean;
   setShowFavorites?: (next: boolean) => void;
-  activeRegion?: ShopRegion | 'all';
-  setActiveRegion?: (next: ShopRegion | 'all') => void;
   favorites?: string[];
   onToggleFavorite?: (shopId: string, e: React.MouseEvent) => void;
 }
 
 const SHEET_COLLAPSED_HEIGHT = 215;
 const SHEET_EXPANDED_VH = 85;
-const DESKTOP_REGION_OPTIONS: ShopRegion[] = ['澳门半岛', '氹仔岛', '路环岛', '香洲区', '横琴区', '其它'];
 
 const MOBILE_GLASS_STYLE: React.CSSProperties = {
   background: 'rgba(235, 245, 236, 0.75)',
@@ -91,8 +88,6 @@ export default function ShopList({
   onL2Change,
   showFavorites,
   setShowFavorites,
-  activeRegion,
-  setActiveRegion,
   favorites,
   onToggleFavorite
 }: ShopListProps) {
@@ -233,7 +228,7 @@ export default function ShopList({
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[#1A5C2E]" />
-            <span className="text-sm font-semibold text-[#0d2918]">高级过滤</span>
+            <span className="text-sm font-semibold text-[#0d2918]">快捷筛选</span>
             <span className="rounded-full bg-[#1A5C2E]/10 px-2 py-0.5 text-[11px] font-semibold text-[#1A5C2E]">共 {filteredShops.length} 家</span>
           </div>
 
@@ -242,97 +237,61 @@ export default function ShopList({
             onClick={onClearAllFilters}
             className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-50"
           >
-            一键清空全部筛选
+            清空筛选
           </button>
         </div>
 
-        <div className="mt-3 grid grid-cols-1 gap-2.5 lg:grid-cols-2">
-          <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-            <p className="mb-1 text-[11px] font-semibold text-slate-500">区域筛选</p>
-            <div className="hide-scrollbar flex items-center gap-1.5 overflow-x-auto pb-1">
-              <button
-                type="button"
-                onClick={() => setActiveRegion?.('all')}
-                className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                  activeRegion === 'all'
-                    ? 'border-[#006633] bg-[#006633] text-white'
-                    : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                全区域
-              </button>
-              {DESKTOP_REGION_OPTIONS.map((region) => (
-                <button
-                  key={region}
-                  type="button"
-                  onClick={() => setActiveRegion?.(region)}
-                  className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                    activeRegion === region
-                      ? 'border-[#006633] bg-[#006633] text-white'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  {region}
-                </button>
-              ))}
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+          {showFavorites !== undefined && setShowFavorites !== undefined && (
+            <label className="flex cursor-pointer items-center gap-2">
+              <span className="text-xs font-semibold text-rose-600 truncate">我的收藏</span>
+              <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-100 transition-colors duration-200 ease-in-out has-[:checked]:bg-rose-500">
+                <input
+                  type="checkbox"
+                  className="peer sr-only"
+                  checked={showFavorites}
+                  onChange={(e) => setShowFavorites(e.target.checked)}
+                />
+                <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
+              </div>
+            </label>
+          )}
+
+          <label className="flex cursor-pointer items-center gap-2">
+            <span className="text-xs font-semibold text-slate-600">外卖可达</span>
+            <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-200 transition-colors duration-200 ease-in-out has-[:checked]:bg-[#006633]">
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={drawerFilters.features.includes('外卖可达')}
+                onChange={(e) => {
+                  const next = e.target.checked
+                    ? [...drawerFilters.features, '外卖可达']
+                    : drawerFilters.features.filter((f) => f !== '外卖可达');
+                  onChangeDrawerFilters({...drawerFilters, features: next as ShopFeature[]});
+                }}
+              />
+              <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
             </div>
-          </div>
+          </label>
 
-          <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-            <p className="mb-1 text-[11px] font-semibold text-slate-500">快捷开关</p>
-            <div className="flex flex-wrap items-center gap-3">
-              {showFavorites !== undefined && setShowFavorites !== undefined && (
-                <label className="flex cursor-pointer items-center gap-2">
-                  <span className="text-xs font-semibold text-rose-600 truncate">我的收藏</span>
-                  <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-100 transition-colors duration-200 ease-in-out has-[:checked]:bg-rose-500">
-                    <input
-                      type="checkbox"
-                      className="peer sr-only"
-                      checked={showFavorites}
-                      onChange={(e) => setShowFavorites(e.target.checked)}
-                    />
-                    <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
-                  </div>
-                </label>
-              )}
-
-              <label className="flex cursor-pointer items-center gap-2">
-                <span className="text-xs font-semibold text-slate-600">外卖可达</span>
-                <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-200 transition-colors duration-200 ease-in-out has-[:checked]:bg-[#006633]">
-                  <input
-                    type="checkbox"
-                    className="peer sr-only"
-                    checked={drawerFilters.features.includes('外卖可达')}
-                    onChange={(e) => {
-                      const next = e.target.checked
-                        ? [...drawerFilters.features, '外卖可达']
-                        : drawerFilters.features.filter((f) => f !== '外卖可达');
-                      onChangeDrawerFilters({...drawerFilters, features: next as ShopFeature[]});
-                    }}
-                  />
-                  <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
-                </div>
-              </label>
-
-              <label className="flex cursor-pointer items-center gap-2">
-                <span className="text-xs font-semibold text-slate-600">深夜营业</span>
-                <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-200 transition-colors duration-200 ease-in-out has-[:checked]:bg-[#006633]">
-                  <input
-                    type="checkbox"
-                    className="peer sr-only"
-                    checked={drawerFilters.features.includes('深夜营业')}
-                    onChange={(e) => {
-                      const next = e.target.checked
-                        ? [...drawerFilters.features, '深夜营业']
-                        : drawerFilters.features.filter((f) => f !== '深夜营业');
-                      onChangeDrawerFilters({...drawerFilters, features: next as ShopFeature[]});
-                    }}
-                  />
-                  <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
-                </div>
-              </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <span className="text-xs font-semibold text-slate-600">深夜营业</span>
+            <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-200 transition-colors duration-200 ease-in-out has-[:checked]:bg-[#006633]">
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={drawerFilters.features.includes('深夜营业')}
+                onChange={(e) => {
+                  const next = e.target.checked
+                    ? [...drawerFilters.features, '深夜营业']
+                    : drawerFilters.features.filter((f) => f !== '深夜营业');
+                  onChangeDrawerFilters({...drawerFilters, features: next as ShopFeature[]});
+                }}
+              />
+              <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
             </div>
-          </div>
+          </label>
         </div>
 
         {activeFilterLabels.length > 0 && (
