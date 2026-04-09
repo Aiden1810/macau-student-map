@@ -565,7 +565,6 @@ export default function Page() {
           collapseMobileSheetSignal={collapseMobileSheetSignal}
           drawerFilters={drawerFilters}
           onChangeDrawerFilters={setDrawerFilters}
-          onResetDrawerFilters={() => setDrawerFilters(DEFAULT_DRAWER_FILTERS)}
           activeScenario={activeScenario}
           onChangeActiveScenario={setActiveScenario}
           scenarioShortcuts={SCENARIO_SHORTCUTS}
@@ -677,8 +676,8 @@ export default function Page() {
             <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 shadow-sm">{pageNotice}</p>
           )}
 
-          <div className="mt-3 grid grid-cols-1 gap-0 md:h-[calc(100dvh-12.5rem)] md:grid-cols-12 md:gap-5 lg:gap-6">
-            <div className="order-1 h-[56dvh] min-h-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:order-2 md:col-span-8 md:h-full lg:col-span-8">
+          <div className="mt-3 grid grid-cols-1 gap-0 md:h-[calc(100dvh-12.5rem)] md:grid-cols-12 md:gap-4 lg:gap-5">
+            <div className="order-1 h-[58dvh] min-h-[460px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:order-2 md:col-span-8 md:h-full lg:col-span-8">
               <MapPlaceholder
                 shops={displayedShops}
                 activeL1={activeL1}
@@ -716,7 +715,6 @@ export default function Page() {
                 collapseMobileSheetSignal={collapseMobileSheetSignal}
                 drawerFilters={drawerFilters}
                 onChangeDrawerFilters={setDrawerFilters}
-                onResetDrawerFilters={() => setDrawerFilters(DEFAULT_DRAWER_FILTERS)}
                 activeScenario={activeScenario}
                 onChangeActiveScenario={setActiveScenario}
                 scenarioShortcuts={SCENARIO_SHORTCUTS}
