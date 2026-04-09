@@ -2,7 +2,9 @@
 
 import {FormEvent, useCallback, useEffect, useMemo, useState} from 'react';
 import toast from 'react-hot-toast';
+import {L2_TAGS} from '@/components/FilterBar';
 import {Link} from '@/i18n/navigation';
+import {dedupeTrimmedList, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
 import {supabase} from '@/lib/supabase';
 
 type ShopStatus = 'pending' | 'verified' | 'rejected';
@@ -17,6 +19,7 @@ type ShopRow = {
   name: string;
   name_i18n: Record<string, string> | null;
   address: string | null;
+  amap_poi_id: string | null;
   longitude: number | null;
   latitude: number | null;
   category: ShopCategory | null;
@@ -31,6 +34,7 @@ type ShopRow = {
   student_discount: string | null;
   status: ShopStatus | null;
   created_at: string | null;
+  main_category: string | null;
   sub_tags: string[] | null;
   price_per_person: number | null;
   region: ShopRegion | null;
@@ -41,6 +45,7 @@ type ShopRow = {
 type ShopFormValue = {
   name: string;
   address: string;
+  amap_poi_id: string;
   longitude: string;
   latitude: string;
   category: ShopCategory;
@@ -48,6 +53,7 @@ type ShopFormValue = {
   rating_label: RatingLabel;
   features: Feature[];
   tags: string[];
+  main_category: string;
   custom_tags: string;
   name_en: string;
   image_urls: string;
@@ -108,13 +114,17 @@ function mergeAdminShop(prev: ShopRow[], incoming: ShopRow): ShopRow[] {
 }
 
 function mapAdminRealtimeRow(row: Record<string, unknown>): ShopRow {
+  const longitude = typeof row.longitude === 'number' ? row.longitude : null;
+  const latitude = typeof row.latitude === 'number' ? row.latitude : null;
+
   return {
     id: String(row.id ?? ''),
     name: String(row.name ?? ''),
     name_i18n: row.name_i18n && typeof row.name_i18n === 'object' ? (row.name_i18n as Record<string, string>) : null,
     address: typeof row.address === 'string' ? row.address : null,
-    longitude: typeof row.longitude === 'number' ? row.longitude : null,
-    latitude: typeof row.latitude === 'number' ? row.latitude : null,
+    amap_poi_id: typeof row.amap_poi_id === 'string' ? row.amap_poi_id : null,
+    longitude,
+    latitude,
     category: (row.category as ShopCategory | null) ?? null,
     tags: Array.isArray(row.tags) ? (row.tags as string[]) : null,
     tags_i18n: row.tags_i18n && typeof row.tags_i18n === 'object' ? (row.tags_i18n as Record<string, string[]>) : null,
@@ -127,9 +137,10 @@ function mapAdminRealtimeRow(row: Record<string, unknown>): ShopRow {
     student_discount: typeof row.student_discount === 'string' ? row.student_discount : null,
     status: (row.status as ShopStatus | null) ?? null,
     created_at: typeof row.created_at === 'string' ? row.created_at : null,
+    main_category: typeof row.main_category === 'string' ? row.main_category : null,
     sub_tags: Array.isArray(row.sub_tags) ? (row.sub_tags as string[]) : null,
     price_per_person: typeof row.price_per_person === 'number' ? row.price_per_person : null,
-    region: (row.region as ShopRegion | null) ?? null,
+    region: (row.region as ShopRegion | null) ?? deriveRegionFromCoordinates(longitude, latitude),
     signature_dish: typeof row.signature_dish === 'string' ? row.signature_dish : null,
     sharp_review: typeof row.sharp_review === 'string' ? row.sharp_review : null
   };
@@ -152,6 +163,7 @@ function toFormValue(shop?: ShopRow | null): ShopFormValue {
     return {
       name: '',
       address: '',
+      amap_poi_id: '',
       longitude: '',
       latitude: '',
       category: 'food',
@@ -159,6 +171,7 @@ function toFormValue(shop?: ShopRow | null): ShopFormValue {
       rating_label: '暂无评分',
       features: [],
       tags: [],
+      main_category: '',
       custom_tags: '',
       name_en: '',
       image_urls: '',
@@ -177,6 +190,7 @@ function toFormValue(shop?: ShopRow | null): ShopFormValue {
   return {
     name: shop.name ?? '',
     address: shop.address ?? '',
+    amap_poi_id: shop.amap_poi_id ?? '',
     longitude: shop.longitude?.toString() ?? '',
     latitude: shop.latitude?.toString() ?? '',
     category: shop.category ?? 'food',
@@ -184,6 +198,7 @@ function toFormValue(shop?: ShopRow | null): ShopFormValue {
     rating_label: shop.rating_label ?? '暂无评分',
     features: shop.features ?? [],
     tags: shop.tags ?? [],
+    main_category: shop.main_category ?? shop.tags?.[0] ?? '',
     custom_tags: '',
     name_en: shop.name_i18n?.en ?? '',
     image_urls: (shop.image_urls ?? []).join('\n'),
@@ -206,11 +221,6 @@ function parseList(input: string): string[] {
     .filter(Boolean);
 }
 
-function dedupeTrimmedList(list: string[], limit?: number): string[] {
-  const normalized = Array.from(new Set(list.map((item) => item.trim()).filter(Boolean)));
-  return typeof limit === 'number' ? normalized.slice(0, limit) : normalized;
-}
-
 function parsePrice(value: string): number | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -222,6 +232,10 @@ function parsePrice(value: string): number | null {
 function isLikelyMacauArea(lng: number, lat: number): boolean {
   return lng >= 113 && lng <= 114.2 && lat >= 21.8 && lat <= 22.6;
 }
+
+const ADMIN_ALL_PRESET_TAGS: string[] = Object.values(L2_TAGS)
+  .flatMap((group) => Object.values(group).flat())
+  .filter((tag, index, arr) => arr.indexOf(tag) === index);
 
 function AdminShopForm({
   mode,
@@ -272,6 +286,9 @@ function AdminShopForm({
     const englishTags = dedupeTrimmedList(parseList(form.tags_en), 5);
     const imageUrls = dedupeTrimmedList(parseList(form.image_urls));
     const pricePerPerson = parsePrice(form.price_per_person);
+    const normalizedMainCategory = form.main_category.trim() || mergedTags[0] || null;
+    const normalizedSubTags = mergedTags.filter((tag) => tag !== normalizedMainCategory);
+    const normalizedRegion = form.region || deriveRegionFromCoordinates(lng, lat);
 
     if (form.price_per_person.trim() && pricePerPerson === null) {
       return toast.error('人均消费必须是有效数字');
@@ -288,6 +305,7 @@ function AdminShopForm({
         en: form.name_en.trim() || name
       },
       address: form.address.trim() || null,
+      amap_poi_id: form.amap_poi_id.trim() || null,
       longitude: lng,
       latitude: lat,
       category: form.category,
@@ -299,6 +317,8 @@ function AdminShopForm({
         'zh-CN': mergedTags,
         en: englishTags.length > 0 ? englishTags : mergedTags
       },
+      main_category: normalizedMainCategory,
+      sub_tags: normalizedSubTags,
       image_urls: imageUrls,
       review_text: form.review_text.trim() || null,
       review_text_i18n: {
@@ -308,7 +328,7 @@ function AdminShopForm({
       student_discount: form.student_discount.trim() || null,
       status: form.status,
       price_per_person: pricePerPerson,
-      region: form.region || null,
+      region: normalizedRegion,
       signature_dish: form.signature_dish.trim() || null,
       sharp_review: form.sharp_review.trim() || null
     };
@@ -356,6 +376,11 @@ function AdminShopForm({
           </label>
 
           <label>
+            <span className="mb-1 block text-sm font-medium text-slate-700">AMap POI ID</span>
+            <input value={form.amap_poi_id} onChange={(e) => setForm((prev) => ({...prev, amap_poi_id: e.target.value}))} placeholder="可选，例如 B0FF..." className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
+          </label>
+
+          <label>
             <span className="mb-1 block text-sm font-medium text-slate-700">Longitude</span>
             <input value={form.longitude} onChange={(e) => setForm((prev) => ({...prev, longitude: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
           </label>
@@ -390,13 +415,18 @@ function AdminShopForm({
           <div className="sm:col-span-2">
             <p className="mb-1 text-sm font-medium text-slate-700">标签（最多5个）</p>
             <div className="flex flex-wrap gap-2">
-              {['正餐', '快餐小吃', '奶茶', '咖啡', '适合拍照', '手打柠檬茶', '炸鸡', '葡挞'].map((tag) => (
+              {ADMIN_ALL_PRESET_TAGS.map((tag) => (
                 <button key={tag} type="button" onClick={() => toggleTag(tag)} className={`rounded-full border px-3 py-1 text-xs font-medium ${form.tags.includes(tag) ? 'border-[#006633] bg-[#006633] text-white' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
                   {tag}
                 </button>
               ))}
             </div>
           </div>
+
+          <label>
+            <span className="mb-1 block text-sm font-medium text-slate-700">主标签（main_category）</span>
+            <input value={form.main_category} onChange={(e) => setForm((prev) => ({...prev, main_category: e.target.value}))} placeholder="留空则自动取第一个标签" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
+          </label>
 
           <label className="sm:col-span-2">
             <span className="mb-1 block text-sm font-medium text-slate-700">补充标签（中文，逗号/换行）</span>
@@ -506,7 +536,7 @@ export default function AdminModerationPage() {
 
     const shopsRes = await supabase
       .from('shops')
-      .select('id,name,name_i18n,address,longitude,latitude,category,tags,tags_i18n,features,shop_type,rating_label,image_urls,review_text,review_text_i18n,student_discount,status,created_at,sub_tags,price_per_person,region,signature_dish,sharp_review')
+      .select('id,name,name_i18n,address,amap_poi_id,longitude,latitude,category,tags,tags_i18n,features,shop_type,rating_label,image_urls,review_text,review_text_i18n,student_discount,status,created_at,main_category,sub_tags,price_per_person,region,signature_dish,sharp_review')
       .or('status.in.(pending,verified,rejected),status.is.null')
       .order('created_at', {ascending: false});
 

@@ -6,6 +6,7 @@ import {Star} from 'lucide-react';
 import {L2_TAGS} from '@/components/FilterBar';
 import ImageUpload from '@/components/ImageUpload';
 import {useDebounce} from '@/lib/hooks/useDebounce';
+import {deriveRatingLabelFromScore, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
 import {supabase} from '@/lib/supabase';
 
 type GeocodeOption = {
@@ -391,7 +392,7 @@ export default function ContributionForm({
       main_category: normalizedPresetTags[0] ?? null,
       sub_tags: normalizedCustomTags,
       shop_type: derivedShopType,
-      rating_label: ratingScore === 5 ? '封神之作' : ratingScore === 4 ? '强烈推荐' : ratingScore >= 2 ? '还行吧' : '建议避雷',
+      rating_label: deriveRatingLabelFromScore(ratingScore),
       rating: ratingScore,
       image_urls: imageUrls,
       review_text: normalizedReviewText || null,
@@ -415,9 +416,11 @@ export default function ContributionForm({
             'zh-CN': selectedPlace!.name,
             en: selectedPlace!.name
           },
+          address: selectedPlace!.fullAddress || null,
           amap_poi_id: selectedPlace!.placeId,
           longitude: selectedPlace!.coordinates[0],
-          latitude: selectedPlace!.coordinates[1]
+          latitude: selectedPlace!.coordinates[1],
+          region: deriveRegionFromCoordinates(selectedPlace!.coordinates[0], selectedPlace!.coordinates[1])
         }
       : {
           ...payloadBase,
@@ -426,9 +429,11 @@ export default function ContributionForm({
             'zh-CN': manualShopName.trim(),
             en: manualShopName.trim()
           },
+          address: null,
           amap_poi_id: null,
           longitude: manualCoordinates![0],
-          latitude: manualCoordinates![1]
+          latitude: manualCoordinates![1],
+          region: deriveRegionFromCoordinates(manualCoordinates![0], manualCoordinates![1])
         };
 
     const {error} = await supabase.from('shops').insert(payload);

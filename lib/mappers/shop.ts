@@ -11,6 +11,7 @@ import {
   ShopStatus,
   ShopType
 } from '@/types/shop';
+import {deriveRegionFromCoordinates} from '@/lib/shops/normalization';
 
 type LocaleKey = 'zh-CN' | 'zh-MO' | 'en';
 
@@ -534,7 +535,10 @@ export function mapSingleShop(row: Record<string, unknown>, locale: LocaleKey = 
     reviewText: finalReviewText,
     status: normalizeShopStatus(rawShopStatus),
     pricePerPerson: parseMaybeNumber(rawPricePerPerson),
-    region: typeof rawRegion === 'string' && rawRegion.trim().length > 0 ? (rawRegion.trim() as Shop['region']) : null,
+    region:
+      typeof rawRegion === 'string' && rawRegion.trim().length > 0
+        ? (rawRegion.trim() as Shop['region'])
+        : deriveRegionFromCoordinates(normalizedCoordinates?.[0] ?? null, normalizedCoordinates?.[1] ?? null),
     signatureDish: typeof rawSignatureDish === 'string' && rawSignatureDish.trim().length > 0 ? rawSignatureDish.trim() : null,
     sharpReview: typeof rawSharpReview === 'string' && rawSharpReview.trim().length > 0 ? rawSharpReview.trim() : null
   };
