@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import {L2_TAGS} from '@/components/FilterBar';
 import {Link} from '@/i18n/navigation';
 import {dedupeTrimmedList, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
+import {buildNormalizedShopPayload} from '@/lib/shops/payload';
 import {supabase} from '@/lib/supabase';
 
 type ShopStatus = 'pending' | 'verified' | 'rejected';
@@ -282,13 +283,10 @@ function AdminShopForm({
     if (form.longitude.trim() && Number.isNaN(lng)) return toast.error('Longitude 必须是数字');
     if (form.latitude.trim() && Number.isNaN(lat)) return toast.error('Latitude 必须是数字');
 
-    const mergedTags = dedupeTrimmedList([...form.tags, ...parseList(form.custom_tags)], 5);
+    const customTags = parseList(form.custom_tags);
     const englishTags = dedupeTrimmedList(parseList(form.tags_en), 5);
     const imageUrls = dedupeTrimmedList(parseList(form.image_urls));
     const pricePerPerson = parsePrice(form.price_per_person);
-    const normalizedMainCategory = form.main_category.trim() || mergedTags[0] || null;
-    const normalizedSubTags = mergedTags.filter((tag) => tag !== normalizedMainCategory);
-    const normalizedRegion = form.region || deriveRegionFromCoordinates(lng, lat);
 
     if (form.price_per_person.trim() && pricePerPerson === null) {
       return toast.error('人均消费必须是有效数字');
@@ -298,40 +296,31 @@ function AdminShopForm({
       return toast.error('经纬度不在澳门/珠海范围内，请确认坐标是否正确');
     }
 
-    const payload: Record<string, unknown> = {
+    const payload = buildNormalizedShopPayload({
       name,
-      name_i18n: {
-        'zh-CN': name,
-        en: form.name_en.trim() || name
-      },
-      address: form.address.trim() || null,
-      amap_poi_id: form.amap_poi_id.trim() || null,
+      nameEn: form.name_en.trim() || null,
+      address: form.address,
+      amapPoiId: form.amap_poi_id,
       longitude: lng,
       latitude: lat,
       category: form.category,
-      shop_type: form.shop_type,
-      rating_label: form.rating_label,
-      features: dedupeTrimmedList(form.features),
-      tags: mergedTags,
-      tags_i18n: {
-        'zh-CN': mergedTags,
-        en: englishTags.length > 0 ? englishTags : mergedTags
-      },
-      main_category: normalizedMainCategory,
-      sub_tags: normalizedSubTags,
-      image_urls: imageUrls,
-      review_text: form.review_text.trim() || null,
-      review_text_i18n: {
-        'zh-CN': form.review_text.trim() || '',
-        en: form.review_text_en.trim() || form.review_text.trim() || ''
-      },
-      student_discount: form.student_discount.trim() || null,
+      selectedPresetTags: form.tags,
+      customTags,
+      mainCategoryInput: form.main_category,
+      ratingLabel: form.rating_label,
+      shopType: form.shop_type,
+      imageUrls,
+      reviewText: form.review_text,
+      reviewTextEn: form.review_text_en,
+      tagsEn: englishTags,
+      features: form.features,
+      studentDiscount: form.student_discount,
       status: form.status,
-      price_per_person: pricePerPerson,
-      region: normalizedRegion,
-      signature_dish: form.signature_dish.trim() || null,
-      sharp_review: form.sharp_review.trim() || null
-    };
+      pricePerPerson,
+      region: form.region || deriveRegionFromCoordinates(lng, lat),
+      signatureDish: form.signature_dish,
+      sharpReview: form.sharp_review
+    });
 
     await onSubmit(payload);
   };
@@ -827,7 +816,21 @@ export default function AdminModerationPage() {
     if (!confirmed) return;
 
     setActionLoadingById((prev) => ({...prev, [shopId]: action}));
-    const {error: updateError} = await supabase.from('shops').update({status: nextStatus}).eq('id', shopId);
+
+    let updatePayload: Record<string, unknown> = {status: nextStatus};
+
+    if (nextStatus === 'verified') {
+      const currentShop = shops.find((shop) => shop.id === shopId);
+      const derivedRegion = deriveRegionFromCoordinates(currentShop?.longitude ?? null, currentShop?.latitude ?? null);
+      if (currentShop && !currentShop.region && derivedRegion) {
+        updatePayload = {
+          ...updatePayload,
+          region: derivedRegion
+        };
+      }
+    }
+
+    const {error: updateError} = await supabase.from('shops').update(updatePayload).eq('id', shopId);
     if (updateError) {
       setError(updateError.message);
       toast.error(`操作失败：${updateError.message}`);

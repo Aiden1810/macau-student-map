@@ -6,7 +6,7 @@ import {Star} from 'lucide-react';
 import {L2_TAGS} from '@/components/FilterBar';
 import ImageUpload from '@/components/ImageUpload';
 import {useDebounce} from '@/lib/hooks/useDebounce';
-import {deriveRatingLabelFromScore, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
+import {buildNormalizedShopPayload} from '@/lib/shops/payload';
 import {supabase} from '@/lib/supabase';
 
 type GeocodeOption = {
@@ -367,74 +367,42 @@ export default function ContributionForm({
       .map((item) => item.trim())
       .filter(Boolean);
 
-    const mergedTags = Array.from(new Set([...selectedPresetTags, ...customTags])).slice(0, 5);
-    const normalizedCustomTags = mergedTags.filter((tag) => customTags.includes(tag));
-    const normalizedPresetTags = mergedTags.filter((tag) => selectedPresetTags.includes(tag));
-
-    let derivedShopType: '正餐' | '快餐小吃' | '饮品甜点' | '服务' = '服务';
-    if (category === 'food') {
-      const isSnack = mergedTags.some((t) =>
-        [...L2_TAGS.food['日常简餐'], ...L2_TAGS.food['街头小吃']].some((snackTag) => snackTag === t)
-      );
-      derivedShopType = isSnack ? '快餐小吃' : '正餐';
-    } else if (category === 'drink') {
-      derivedShopType = '饮品甜点';
-    }
-
+    const normalizedPresetTags = Array.from(new Set(selectedPresetTags)).slice(0, 5);
     const normalizedReviewText = reviewText.trim();
 
-    const payloadBase = {
-      tags: mergedTags,
-      tags_i18n: {
-        'zh-CN': mergedTags,
-        en: mergedTags
-      },
-      main_category: normalizedPresetTags[0] ?? null,
-      sub_tags: normalizedCustomTags,
-      shop_type: derivedShopType,
-      rating_label: deriveRatingLabelFromScore(ratingScore),
-      rating: ratingScore,
-      image_urls: imageUrls,
-      review_text: normalizedReviewText || null,
-      review_text_i18n: {
-        'zh-CN': normalizedReviewText,
-        en: normalizedReviewText
-      },
-      category,
-      status: 'pending',
-      total_sum: ratingScore,
-      rating_count: 1,
-      review_count: 1,
-      price_per_person: pricePerPerson.trim() ? Number(pricePerPerson) : null
-    };
-
     const payload = canSubmitFromSearch
-      ? {
-          ...payloadBase,
+      ? buildNormalizedShopPayload({
           name: selectedPlace!.name,
-          name_i18n: {
-            'zh-CN': selectedPlace!.name,
-            en: selectedPlace!.name
-          },
           address: selectedPlace!.fullAddress || null,
-          amap_poi_id: selectedPlace!.placeId,
+          amapPoiId: selectedPlace!.placeId,
           longitude: selectedPlace!.coordinates[0],
           latitude: selectedPlace!.coordinates[1],
-          region: deriveRegionFromCoordinates(selectedPlace!.coordinates[0], selectedPlace!.coordinates[1])
-        }
-      : {
-          ...payloadBase,
+          category,
+          selectedPresetTags,
+          customTags,
+          mainCategoryInput: normalizedPresetTags[0] ?? null,
+          ratingScore,
+          imageUrls,
+          reviewText: normalizedReviewText,
+          status: 'pending',
+          pricePerPerson: pricePerPerson.trim() ? Number(pricePerPerson) : null
+        })
+      : buildNormalizedShopPayload({
           name: manualShopName.trim(),
-          name_i18n: {
-            'zh-CN': manualShopName.trim(),
-            en: manualShopName.trim()
-          },
           address: null,
-          amap_poi_id: null,
+          amapPoiId: null,
           longitude: manualCoordinates![0],
           latitude: manualCoordinates![1],
-          region: deriveRegionFromCoordinates(manualCoordinates![0], manualCoordinates![1])
-        };
+          category,
+          selectedPresetTags,
+          customTags,
+          mainCategoryInput: normalizedPresetTags[0] ?? null,
+          ratingScore,
+          imageUrls,
+          reviewText: normalizedReviewText,
+          status: 'pending',
+          pricePerPerson: pricePerPerson.trim() ? Number(pricePerPerson) : null
+        });
 
     const {error} = await supabase.from('shops').insert(payload);
 
