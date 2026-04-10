@@ -1,8 +1,14 @@
-const CACHE_VERSION = 'macau-pulse-v1';
+const CACHE_VERSION = 'macau-pulse-v2';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 
-const APP_SHELL_ASSETS = ['/', '/manifest.webmanifest', '/icon', '/apple-icon'];
+const ICON_VERSION = '20260410m2';
+const APP_SHELL_ASSETS = [
+  '/',
+  '/manifest.webmanifest',
+  `/icon?v=${ICON_VERSION}`,
+  `/apple-icon?v=${ICON_VERSION}`
+];
 
 self.addEventListener('install', event => {
   event.waitUntil(
