@@ -1,5 +1,7 @@
 import type {MetadataRoute} from 'next';
 
+const ICON_VERSION = '20260410m';
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'Macau Pulse',
@@ -12,12 +14,12 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: 'zh-CN',
     icons: [
       {
-        src: '/icon',
+        src: `/icon?v=${ICON_VERSION}`,
         sizes: '512x512',
         type: 'image/png'
       },
       {
-        src: '/apple-icon',
+        src: `/apple-icon?v=${ICON_VERSION}`,
         sizes: '180x180',
         type: 'image/png'
       }
