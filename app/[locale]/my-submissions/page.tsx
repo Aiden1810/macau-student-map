@@ -72,7 +72,13 @@ export default function MySubmissionsPage() {
       if (cancelled) return;
 
       if (result.error) {
-        setError(result.error.message);
+        const missingColumn = /submitted_by/i.test(result.error.message) && /does not exist/i.test(result.error.message);
+
+        setError(
+          missingColumn
+            ? '投稿记录功能正在升级中，请稍后再试。'
+            : result.error.message
+        );
         setSubmissions([]);
         setLoading(false);
         return;

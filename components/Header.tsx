@@ -94,21 +94,19 @@ export default function Header({
             >
               {contributeLabel}
             </button>
+            <Link
+              href={mySubmissionsHref}
+              className="inline-flex items-center rounded-2xl border border-[#1A5C2E]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5 sm:text-sm"
+            >
+              {mySubmissionsLabel}
+            </Link>
             {!userEmail && (
-              <>
-                <Link
-                  href={mySubmissionsHref}
-                  className="inline-flex items-center rounded-2xl border border-[#1A5C2E]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5 sm:text-sm"
-                >
-                  {mySubmissionsLabel}
-                </Link>
-                <Link
-                  href={loginHref}
-                  className="inline-flex items-center rounded-2xl border border-[#1A5C2E]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5 sm:text-sm"
-                >
-                  {tAuth('login')}
-                </Link>
-              </>
+              <Link
+                href={loginHref}
+                className="inline-flex items-center rounded-2xl border border-[#1A5C2E]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5 sm:text-sm"
+              >
+                {tAuth('login')}
+              </Link>
             )}
           </div>
         </div>
