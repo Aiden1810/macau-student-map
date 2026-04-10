@@ -1,4 +1,5 @@
 import type {Metadata, Viewport} from 'next';
+import PwaRegister from '@/components/PwaRegister';
 import './globals.css';
 
 export const viewport: Viewport = {
@@ -6,12 +7,18 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  themeColor: '#ffffff'
+  themeColor: '#006633'
 };
 
 export const metadata: Metadata = {
-  title: 'MU Map',
-  description: 'Macau University Student Map MVP'
+  applicationName: 'Macau Pulse',
+  title: 'Macau Pulse',
+  description: '澳门学生美食地图与探店推荐',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Macau Pulse'
+  }
 };
 
 export default function RootLayout({
@@ -21,7 +28,10 @@ export default function RootLayout({
 }>) {
   return (
     <html suppressHydrationWarning>
-      <body>{children}</body>
+      <body>
+        <PwaRegister />
+        {children}
+      </body>
     </html>
   );
 }
