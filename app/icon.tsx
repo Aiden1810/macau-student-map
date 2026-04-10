@@ -19,27 +19,14 @@ export default function Icon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #006633 0%, #0A7A46 100%)'
+          background: '#007A3D',
+          color: '#FFFFFF',
+          fontSize: Math.round(side * 0.42),
+          fontWeight: 800,
+          fontFamily: 'Arial, sans-serif'
         }}
       >
-        <div
-          style={{
-            width: Math.round(side * 0.58),
-            height: Math.round(side * 0.58),
-            borderRadius: Math.round(side * 0.14),
-            background: '#FFFFFF',
-            color: '#006633',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: Math.round(side * 0.34),
-            fontWeight: 800,
-            fontFamily: 'Arial, sans-serif',
-            boxShadow: '0 10px 28px rgba(0, 0, 0, 0.18)'
-          }}
-        >
-          M
-        </div>
+        M
       </div>
     ),
     size
