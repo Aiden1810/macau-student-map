@@ -11,13 +11,18 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  applicationName: 'Lumen Map',
-  title: 'Lumen Map',
-  description: 'Discover great places around you',
+  applicationName: 'Macau Pulse',
+  title: 'Macau Pulse',
+  description: '澳门学生美食地图与探店推荐',
+  manifest: '/manifest.webmanifest',
+  icons: {
+    icon: '/icon',
+    apple: '/apple-icon'
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Lumen Map'
+    title: 'Macau Pulse'
   }
 };
 

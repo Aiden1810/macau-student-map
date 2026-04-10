@@ -7,6 +7,7 @@ import {L2_TAGS} from '@/components/FilterBar';
 import ImageUpload from '@/components/ImageUpload';
 import {useDebounce} from '@/lib/hooks/useDebounce';
 import {buildNormalizedShopPayload} from '@/lib/shops/payload';
+import {appendLocalSubmission, markLocalSubmissionServerId} from '@/lib/submissions/local';
 import {supabase} from '@/lib/supabase';
 
 type GeocodeOption = {
@@ -414,18 +415,22 @@ export default function ContributionForm({
     };
 
     let insertError: {message: string} | null = null;
+    let insertedShopId: string | null = null;
 
-    const insertWithAuthor = await supabase.from('shops').insert(payloadWithAuthor);
+    const insertWithAuthor = await supabase.from('shops').insert(payloadWithAuthor).select('id').single();
 
     if (insertWithAuthor.error) {
       const canFallback = /submitted_by|column/i.test(insertWithAuthor.error.message);
 
       if (canFallback) {
-        const fallbackInsert = await supabase.from('shops').insert(payload);
+        const fallbackInsert = await supabase.from('shops').insert(payload).select('id').single();
         insertError = fallbackInsert.error ? {message: fallbackInsert.error.message} : null;
+        insertedShopId = fallbackInsert.data?.id ? String(fallbackInsert.data.id) : null;
       } else {
         insertError = {message: insertWithAuthor.error.message};
       }
+    } else {
+      insertedShopId = insertWithAuthor.data?.id ? String(insertWithAuthor.data.id) : null;
     }
 
     setSubmitLoading(false);
@@ -433,6 +438,22 @@ export default function ContributionForm({
     if (insertError) {
       setContributeError(insertError.message);
       return;
+    }
+
+    const submittedShopName = canSubmitFromSearch ? selectedPlace!.name : manualShopName.trim();
+    const localSubmissionId = `local_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+    appendLocalSubmission({
+      id: localSubmissionId,
+      name: submittedShopName,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      isAnonymous: !user,
+      serverId: insertedShopId
+    });
+
+    if (insertedShopId) {
+      markLocalSubmissionServerId(localSubmissionId, insertedShopId);
     }
 
     setContributeMessage(tContribute('submitSuccess'));

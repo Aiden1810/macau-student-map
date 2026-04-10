@@ -5,7 +5,8 @@
     "searchPlaceholder": "Search stores, food or tips...",
     "mobileSearchPlaceholder": "Search stores...",
     "emptyResult": "No stores matched your filters",
-    "language": "Language"
+    "language": "Language",
+    "mine": "Me"
   },
   "Map": {
     "selectShop": "Select shop {name}",
@@ -60,6 +61,7 @@
   "Auth": {
     "login": "Log in",
     "logout": "Log out",
+    "notLoggedIn": "Not logged in",
     "loginTitle": "Log in",
     "loginSubtitle": "Sign in with email and password.",
     "otpLoginSubtitle": "Enter your email and we'll send a one-time sign-in link.",

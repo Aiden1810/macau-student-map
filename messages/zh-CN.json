@@ -5,7 +5,8 @@
     "searchPlaceholder": "搜索店铺、美食或避雷指南...",
     "mobileSearchPlaceholder": "搜索店铺...",
     "emptyResult": "没有找到符合条件的店铺",
-    "language": "语言"
+    "language": "语言",
+    "mine": "我的"
   },
   "Map": {
     "selectShop": "选择店铺 {name}",
@@ -59,7 +60,8 @@
   },
   "Auth": {
     "login": "登录",
-    "logout": "退出",
+    "logout": "退出登录",
+    "notLoggedIn": "未登录",
     "loginTitle": "登录",
     "loginSubtitle": "输入邮箱和密码登录。",
     "otpLoginSubtitle": "输入邮箱后，我们会发送一次性登录链接。",

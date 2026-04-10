@@ -5,7 +5,8 @@
     "searchPlaceholder": "搜尋店鋪、美食或避雷指南...",
     "mobileSearchPlaceholder": "搜尋店鋪...",
     "emptyResult": "沒有找到符合條件的店鋪",
-    "language": "語言"
+    "language": "語言",
+    "mine": "我的"
   },
   "Map": {
     "selectShop": "選擇店鋪 {name}",
@@ -59,7 +60,8 @@
   },
   "Auth": {
     "login": "登入",
-    "logout": "登出",
+    "logout": "退出登入",
+    "notLoggedIn": "未登入",
     "loginTitle": "登入",
     "loginSubtitle": "輸入郵箱和密碼登入。",
     "otpLoginSubtitle": "輸入郵箱後，我們會發送一次性登入連結。",

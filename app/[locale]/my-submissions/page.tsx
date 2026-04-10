@@ -3,6 +3,7 @@
 import {useEffect, useMemo, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
 import {Link} from '@/i18n/navigation';
+import {readLocalSubmissions} from '@/lib/submissions/local';
 import {supabase} from '@/lib/supabase';
 
 type SubmissionStatus = 'pending' | 'verified' | 'rejected';
@@ -13,6 +14,8 @@ type SubmissionRow = {
   name_i18n?: Record<string, string> | null;
   status: SubmissionStatus;
   created_at?: string | null;
+  source?: 'remote' | 'local';
+  localServerId?: string | null;
 };
 
 function formatTime(value: string | null | undefined): string {
@@ -36,7 +39,6 @@ export default function MySubmissionsPage() {
   const locale = useLocale() as 'zh-CN' | 'zh-MO' | 'en';
 
   const [loading, setLoading] = useState(true);
-  const [requireLogin, setRequireLogin] = useState(false);
   const [submissions, setSubmissions] = useState<SubmissionRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,14 +56,21 @@ export default function MySubmissionsPage() {
 
       if (cancelled) return;
 
+      const localRecords = readLocalSubmissions();
+      const localRows: SubmissionRow[] = localRecords.map((item) => ({
+        id: item.id,
+        name: item.name,
+        status: item.status,
+        created_at: item.createdAt,
+        source: 'local',
+        localServerId: item.serverId ?? null
+      }));
+
       if (userError || !user) {
-        setRequireLogin(true);
-        setSubmissions([]);
+        setSubmissions(localRows);
         setLoading(false);
         return;
       }
-
-      setRequireLogin(false);
 
       const result = await supabase
         .from('shops')
@@ -79,12 +88,26 @@ export default function MySubmissionsPage() {
             ? '投稿记录功能正在升级中，请稍后再试。'
             : result.error.message
         );
-        setSubmissions([]);
+        setSubmissions(localRows);
         setLoading(false);
         return;
       }
 
-      setSubmissions((result.data ?? []) as SubmissionRow[]);
+      const remoteRows = ((result.data ?? []) as SubmissionRow[]).map((row) => ({
+        ...row,
+        source: 'remote' as const
+      }));
+
+      const remoteIdSet = new Set(remoteRows.map((row) => row.id));
+      const dedupedLocalRows = localRows.filter((row) => !row.localServerId || !remoteIdSet.has(row.localServerId));
+
+      const mergedRows = [...remoteRows, ...dedupedLocalRows].sort((a, b) => {
+        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bTime - aTime;
+      });
+
+      setSubmissions(mergedRows);
       setLoading(false);
     };
 
@@ -130,24 +153,15 @@ export default function MySubmissionsPage() {
 
           {loading && <p className="text-sm text-slate-500">Loading...</p>}
 
-          {!loading && requireLogin && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <p>{tContribute('mySubmissionsLoginHint')}</p>
-              <Link href="/login" locale={locale} className="mt-2 inline-flex font-medium text-amber-900 underline">
-                {tAuth('login')}
-              </Link>
-            </div>
-          )}
-
-          {!loading && !requireLogin && error && (
+          {!loading && error && (
             <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
           )}
 
-          {!loading && !requireLogin && !error && rows.length === 0 && (
+          {!loading && !error && rows.length === 0 && (
             <p className="text-sm text-slate-600">{tContribute('mySubmissionsEmpty')}</p>
           )}
 
-          {!loading && !requireLogin && !error && rows.length > 0 && (
+          {!loading && !error && rows.length > 0 && (
             <div className="overflow-hidden rounded-xl border border-slate-200">
               <table className="min-w-full divide-y divide-slate-200">
                 <thead className="bg-slate-50">
