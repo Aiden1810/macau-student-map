@@ -54,7 +54,7 @@ export default function Header({
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#FFCC00]/60 bg-[#0c4b2f] text-white shadow-md shadow-[#003a24]/35">
               <span className="text-xs font-extrabold tracking-wide">M</span>
             </div>
-            <h1 className="truncate text-base font-bold text-[#0d2918] md:text-xl md:text-[#0c4b2f]">Macau Pulse</h1>
+            <h1 className="truncate text-base font-bold text-[#0d2918] md:text-xl md:text-[#0c4b2f]">Lumen Map</h1>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">

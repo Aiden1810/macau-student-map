@@ -11,13 +11,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  applicationName: 'Macau Pulse',
-  title: 'Macau Pulse',
-  description: '澳门学生美食地图与探店推荐',
+  applicationName: 'Lumen Map',
+  title: 'Lumen Map',
+  description: 'Discover great places around you',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Macau Pulse'
+    title: 'Lumen Map'
   }
 };
 
