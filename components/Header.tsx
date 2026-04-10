@@ -10,9 +10,11 @@ interface HeaderProps {
   isAdmin: boolean;
   userEmail: string | null;
   loginHref: string;
+  mySubmissionsHref: string;
   onLogout: () => void;
   onToggleContribute: () => void;
   contributeLabel: string;
+  mySubmissionsLabel: string;
 }
 
 const GLASS_STYLE: CSSProperties = {
@@ -30,9 +32,11 @@ export default function Header({
   isAdmin,
   userEmail,
   loginHref,
+  mySubmissionsHref,
   onLogout,
   onToggleContribute,
-  contributeLabel
+  contributeLabel,
+  mySubmissionsLabel
 }: HeaderProps) {
   const tAuth = useTranslations('Auth');
   const locale = useLocale();
@@ -91,12 +95,20 @@ export default function Header({
               {contributeLabel}
             </button>
             {!userEmail && (
-              <Link
-                href={loginHref}
-                className="inline-flex items-center rounded-2xl border border-[#1A5C2E]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5 sm:text-sm"
-              >
-                {tAuth('login')}
-              </Link>
+              <>
+                <Link
+                  href={mySubmissionsHref}
+                  className="inline-flex items-center rounded-2xl border border-[#1A5C2E]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5 sm:text-sm"
+                >
+                  {mySubmissionsLabel}
+                </Link>
+                <Link
+                  href={loginHref}
+                  className="inline-flex items-center rounded-2xl border border-[#1A5C2E]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5 sm:text-sm"
+                >
+                  {tAuth('login')}
+                </Link>
+              </>
             )}
           </div>
         </div>
@@ -115,6 +127,13 @@ export default function Header({
         </div>
 
         <div className="hidden items-center gap-2 md:flex">
+          <Link
+            href={mySubmissionsHref}
+            className="inline-flex items-center rounded-full border border-white/35 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/15"
+          >
+            {mySubmissionsLabel}
+          </Link>
+
           {!userEmail && (
             <Link
               href={loginHref}

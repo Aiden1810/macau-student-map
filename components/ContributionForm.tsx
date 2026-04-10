@@ -404,12 +404,34 @@ export default function ContributionForm({
           pricePerPerson: pricePerPerson.trim() ? Number(pricePerPerson) : null
         });
 
-    const {error} = await supabase.from('shops').insert(payload);
+    const {
+      data: {user}
+    } = await supabase.auth.getUser();
+
+    const payloadWithAuthor = {
+      ...payload,
+      submitted_by: user?.id ?? null
+    };
+
+    let insertError: {message: string} | null = null;
+
+    const insertWithAuthor = await supabase.from('shops').insert(payloadWithAuthor);
+
+    if (insertWithAuthor.error) {
+      const canFallback = /submitted_by|column/i.test(insertWithAuthor.error.message);
+
+      if (canFallback) {
+        const fallbackInsert = await supabase.from('shops').insert(payload);
+        insertError = fallbackInsert.error ? {message: fallbackInsert.error.message} : null;
+      } else {
+        insertError = {message: insertWithAuthor.error.message};
+      }
+    }
 
     setSubmitLoading(false);
 
-    if (error) {
-      setContributeError(error.message);
+    if (insertError) {
+      setContributeError(insertError.message);
       return;
     }
 

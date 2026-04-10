@@ -106,6 +106,16 @@
     "tagsPlaceholder": "例如：便宜, 安静, 出餐快",
     "submit": "提交审核",
     "submitting": "提交中...",
-    "submitSuccess": "提交成功，等待管理员审核。"
+    "submitSuccess": "提交成功，预计2天内完成审核，通过后会在主页显示。",
+    "submitFollowupHint": "你可以在“我的投稿记录”查看审核进度。",
+    "mySubmissions": "我的投稿记录",
+    "mySubmissionsTitle": "我的投稿记录",
+    "mySubmissionsSubtitle": "查看你提交过的店铺及当前审核状态。",
+    "mySubmissionsLoginHint": "请先登录后查看投稿记录。",
+    "mySubmissionsEmpty": "你还没有投稿记录，去发现页提交第一条吧。",
+    "statusPending": "待审核",
+    "statusVerified": "已通过",
+    "statusRejected": "未通过",
+    "submittedAt": "提交时间"
   }
 }

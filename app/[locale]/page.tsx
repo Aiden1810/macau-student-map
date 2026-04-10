@@ -3,6 +3,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
 import toast from 'react-hot-toast';
+import {Link} from '@/i18n/navigation';
 import ContributionForm from '@/components/ContributionForm';
 import FilterBar, {L2_TAGS} from '@/components/FilterBar';
 import Header from '@/components/Header';
@@ -137,6 +138,7 @@ export default function Page() {
   const [manualCoordinates, setManualCoordinates] = useState<[number, number] | null>(null);
 
   const [pageNotice, setPageNotice] = useState<string | null>(null);
+  const [showSubmissionFollowup, setShowSubmissionFollowup] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const hasFetchedRef = useRef(false);
 
@@ -511,6 +513,7 @@ export default function Page() {
               isAdmin={isAdmin}
               userEmail={userEmail}
               loginHref="/login"
+              mySubmissionsHref="/my-submissions"
               onLogout={handleLogout}
               onToggleContribute={() => {
                 setIsContributeOpen((prev) => !prev);
@@ -518,8 +521,10 @@ export default function Page() {
                 setManualCoordinates(null);
                 setPageError(null);
                 setPageNotice(null);
+                setShowSubmissionFollowup(false);
               }}
               contributeLabel={tContribute('button')}
+              mySubmissionsLabel={tContribute('mySubmissions')}
             />
           </div>
 
@@ -538,9 +543,19 @@ export default function Page() {
           </p>
         )}
         {pageNotice && (
-          <p className="pointer-events-none absolute left-[14px] right-[14px] top-[168px] z-40 rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-sm text-emerald-700 shadow-sm">
-            {pageNotice}
-          </p>
+          <div className="pointer-events-none absolute left-[14px] right-[14px] top-[168px] z-40 space-y-2">
+            <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-sm text-emerald-700 shadow-sm">
+              {pageNotice}
+            </p>
+            {showSubmissionFollowup && (
+              <div className="pointer-events-auto rounded-xl border border-emerald-200/80 bg-white/95 px-3 py-2 text-sm text-slate-700 shadow-sm">
+                <p>{tContribute('submitFollowupHint')}</p>
+                <Link href="/my-submissions" locale={locale} className="mt-1 inline-flex font-medium text-emerald-700 underline">
+                  {tContribute('mySubmissions')}
+                </Link>
+              </div>
+            )}
+          </div>
         )}
 
         <ShopList
@@ -586,6 +601,7 @@ export default function Page() {
           isAdmin={isAdmin}
           userEmail={userEmail}
           loginHref="/admin-login"
+          mySubmissionsHref="/my-submissions"
           onLogout={handleLogout}
           onToggleContribute={() => {
             setIsContributeOpen((prev) => !prev);
@@ -593,8 +609,10 @@ export default function Page() {
             setManualCoordinates(null);
             setPageError(null);
             setPageNotice(null);
+            setShowSubmissionFollowup(false);
           }}
           contributeLabel={tContribute('button')}
+          mySubmissionsLabel={tContribute('mySubmissions')}
         />
 
         <main className="relative mx-auto max-w-[1380px] px-4 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] sm:px-6 md:h-[calc(100dvh-4rem)] md:pb-4 lg:px-8">
@@ -622,6 +640,7 @@ export default function Page() {
                 onSuccess={async () => {
                   await fetchShops();
                   setPageNotice(tContribute('submitSuccess'));
+                  setShowSubmissionFollowup(true);
                   setPageError(null);
                   setIsContributeOpen(false);
                   setMapPickMode(false);
@@ -671,7 +690,17 @@ export default function Page() {
             <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 shadow-sm">{pageError}</p>
           )}
           {pageNotice && (
-            <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 shadow-sm">{pageNotice}</p>
+            <div className="mb-4 space-y-2">
+              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 shadow-sm">{pageNotice}</p>
+              {showSubmissionFollowup && (
+                <div className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
+                  <p>{tContribute('submitFollowupHint')}</p>
+                  <Link href="/my-submissions" locale={locale} className="mt-1 inline-flex font-medium text-emerald-700 underline">
+                    {tContribute('mySubmissions')}
+                  </Link>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="mt-3 grid grid-cols-1 gap-0 md:h-[calc(100dvh-12.5rem)] md:grid-cols-12 md:gap-4 lg:gap-5">
@@ -742,6 +771,7 @@ export default function Page() {
             onSuccess={async () => {
               await fetchShops();
               setPageNotice(tContribute('submitSuccess'));
+              setShowSubmissionFollowup(true);
               setPageError(null);
               setIsContributeOpen(false);
               setMapPickMode(false);

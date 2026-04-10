@@ -106,6 +106,16 @@
     "tagsPlaceholder": "例如：便宜, 安靜, 出餐快",
     "submit": "提交審核",
     "submitting": "提交中...",
-    "submitSuccess": "提交成功，等待管理員審核。"
+    "submitSuccess": "提交成功，通常1-3天內完成審核，上線後會顯示在地圖上。",
+    "submitFollowupHint": "你可以在「我的投稿記錄」查看審核進度。",
+    "mySubmissions": "我的投稿記錄",
+    "mySubmissionsTitle": "我的投稿記錄",
+    "mySubmissionsSubtitle": "查看你提交過的店鋪及當前審核狀態。",
+    "mySubmissionsLoginHint": "請先登入後查看投稿記錄。",
+    "mySubmissionsEmpty": "你還沒有投稿記錄，去發現頁提交第一條吧。",
+    "statusPending": "待審核",
+    "statusVerified": "已通過",
+    "statusRejected": "未通過",
+    "submittedAt": "提交時間"
   }
 }
