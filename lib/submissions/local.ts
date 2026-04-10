@@ -19,26 +19,28 @@ function safeParse(value: string | null): LocalSubmissionRecord[] {
     const parsed = JSON.parse(value) as unknown;
     if (!Array.isArray(parsed)) return [];
 
-    return parsed
-      .map((item) => {
-        if (!item || typeof item !== 'object') return null;
+    const records: LocalSubmissionRecord[] = [];
 
-        const record = item as Partial<LocalSubmissionRecord>;
+    for (const item of parsed) {
+      if (!item || typeof item !== 'object') continue;
 
-        if (!record.id || !record.name || !record.status || !record.createdAt) {
-          return null;
-        }
+      const record = item as Partial<LocalSubmissionRecord>;
 
-        return {
-          id: String(record.id),
-          name: String(record.name),
-          status: record.status,
-          createdAt: String(record.createdAt),
-          isAnonymous: Boolean(record.isAnonymous),
-          serverId: record.serverId ? String(record.serverId) : null
-        } satisfies LocalSubmissionRecord;
-      })
-      .filter((item): item is LocalSubmissionRecord => item !== null);
+      if (!record.id || !record.name || !record.status || !record.createdAt) {
+        continue;
+      }
+
+      records.push({
+        id: String(record.id),
+        name: String(record.name),
+        status: record.status,
+        createdAt: String(record.createdAt),
+        isAnonymous: Boolean(record.isAnonymous),
+        serverId: record.serverId ? String(record.serverId) : null
+      });
+    }
+
+    return records;
   } catch {
     return [];
   }
