@@ -235,7 +235,7 @@ function isLikelyMacauArea(lng: number, lat: number): boolean {
 }
 
 const ADMIN_ALL_PRESET_TAGS: string[] = Object.values(L2_TAGS)
-  .flatMap((group) => Object.values(group).flat())
+  .flatMap((groups) => groups.flatMap((group) => group.options.map((option) => option.value)))
   .filter((tag, index, arr) => arr.indexOf(tag) === index);
 
 function AdminShopForm({

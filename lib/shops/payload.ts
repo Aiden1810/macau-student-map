@@ -34,7 +34,9 @@ export type ShopPayloadBuildInput = {
 
 function deriveShopTypeFromCategoryAndTags(category: ShopCategory, mergedTags: string[]): ShopType {
   if (category === 'food') {
-    const snackTags: string[] = [...L2_TAGS.food['日常简餐'], ...L2_TAGS.food['街头小吃']];
+    const snackTags: string[] = L2_TAGS.food
+      .filter((group) => group.groupKey === 'dailyMeals' || group.groupKey === 'streetSnacks')
+      .flatMap((group) => group.options.map((option) => option.value));
     const isSnack = mergedTags.some((tag) => snackTags.includes(tag));
     return isSnack ? '快餐小吃' : '正餐';
   }

@@ -5,7 +5,7 @@ import {useLocale, useTranslations} from 'next-intl';
 import toast from 'react-hot-toast';
 import {Link} from '@/i18n/navigation';
 import ContributionForm from '@/components/ContributionForm';
-import FilterBar, {L2_TAGS} from '@/components/FilterBar';
+import FilterBar, {getL2ValuesByCategory} from '@/components/FilterBar';
 import Header from '@/components/Header';
 import MapPlaceholder from '@/components/MapPlaceholder';
 import ShopList from '@/components/ShopList';
@@ -48,21 +48,19 @@ function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
   }
 
   if (tabKey === 'deal') {
-    const dealTags = Object.values(L2_TAGS.deal || {}).flat();
+    const dealTags = getL2ValuesByCategory('deal');
     return shops.filter(
       (s) =>
         s.category === 'deal' ||
         s.features.includes('有折扣') ||
         s.features.includes('学生价') ||
-        s.tags.some((t) => dealTags.some((gt) => gt === t))
+        s.tags.some((t) => dealTags.includes(t))
     );
   }
 
   if (tabKey === 'food' || tabKey === 'drink' || tabKey === 'vibe') {
-    const groupTags = Object.values(L2_TAGS[tabKey]).flat();
-    return shops.filter(
-      (s) => s.category === tabKey || s.tags.some((t) => groupTags.some((gt) => gt === t))
-    );
+    const groupTags = getL2ValuesByCategory(tabKey);
+    return shops.filter((s) => s.category === tabKey || s.tags.some((t) => groupTags.includes(t)));
   }
 
   return shops.filter((s) => s.category === tabKey);

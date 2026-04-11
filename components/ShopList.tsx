@@ -397,32 +397,32 @@ export default function ShopList({
               onClick={onClearSearch}
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-white/55 px-2 py-1 text-[11px] font-medium text-[#1A5C2E]"
             >
-              清除
+              {tHome('common.clear')}
             </button>
           )}
         </div>
 
         {/* L2 sub-tags strip — shown in drawer when a category is selected */}
         {activeL1 !== 'all' && onL2Change && (() => {
-          const groupMap = (L2_TAGS as Partial<Record<Exclude<ShopCategoryKey, 'all'>, Record<string, readonly string[]>>>)[activeL1 as Exclude<ShopCategoryKey, 'all'>] ?? {};
-          const allTags = Object.values(groupMap).flat();
+          const groups = L2_TAGS[activeL1 as Exclude<ShopCategoryKey, 'all'>] ?? [];
+          const allTags = groups.flatMap((group) => group.options);
           if (allTags.length === 0) return null;
           return (
             <div className="hide-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-1">
               {allTags.map((tag) => {
-                const isActive = activeL2 === tag;
+                const isActive = activeL2 === tag.value;
                 return (
                   <button
-                    key={tag}
+                    key={tag.value}
                     type="button"
-                    onClick={() => onL2Change(activeL1, isActive ? null : tag)}
+                    onClick={() => onL2Change(activeL1, isActive ? null : tag.value)}
                     className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
                       isActive
                         ? 'bg-[#006633] text-white'
                         : 'bg-white/60 text-[#0d2918]'
                     }`}
                   >
-                    {tag}
+                    {tFilters(`l2Tags.${tag.labelKey}`)}
                   </button>
                 );
               })}

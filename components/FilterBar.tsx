@@ -13,32 +13,137 @@ export const L1_TABS: Array<{key: ShopCategoryKey; labelKey: string}> = [
   {key: 'review', labelKey: 'topPicks'}
 ];
 
-export const L2_TAGS = {
-  food: {
-    日常简餐: ['茶餐厅 / 冰室', '烧腊 / 快餐', '粉面 / 粥店', '汉堡 / 炸鸡'],
-    聚会正餐: ['火锅 / 焖锅', '烧烤 / 烤肉', '葡国菜', '粤菜 / 早茶', '日韩料理', '东南亚菜', '西餐 / 简餐'],
-    街头小吃: ['炸物 / 小食', '牛杂 / 串串', '葡挞 / 烘焙']
-  },
-  drink: {
-    提神解渴: ['柠茶 / 果汁', '咖啡'],
-    甜蜜解馋: ['传统糖水', '西式甜品', '冰品 / 雪糕'],
-    夜间社交: ['清吧 / 微醺']
-  },
-  vibe: {
-    热门场景: ['🍜 一人食友好', '🍻 聚餐 / 团建', '💻 适合赶Due', '📸 拍照出片', '💕 约会 / 生日', '🌙 深夜夜宵']
-  },
-  deal: {
-    优惠类型: ['学生证折扣', '买一送一', '限时特惠', '满减', '新店开业']
-  },
-  review: {
-    榜单: ['封神之作', '强烈推荐', '高性价比', '隐藏好店', '本周新上']
-  },
-  region: {
-    区域: ['澳门半岛', '氹仔岛', '路环岛', '香洲区', '横琴区', '其它']
-  }
-} as const;
+type L2Option = {
+  value: string;
+  labelKey: string;
+};
 
-export type L2GroupMap = typeof L2_TAGS;
+type L2Group = {
+  groupKey: string;
+  options: readonly L2Option[];
+};
+
+export const L2_TAGS: Record<Exclude<ShopCategoryKey, 'all'>, readonly L2Group[]> = {
+  food: [
+    {
+      groupKey: 'dailyMeals',
+      options: [
+        {value: '茶餐厅 / 冰室', labelKey: 'chaChaanTeng'},
+        {value: '烧腊 / 快餐', labelKey: 'siuMeiFastFood'},
+        {value: '粉面 / 粥店', labelKey: 'noodlesCongee'},
+        {value: '汉堡 / 炸鸡', labelKey: 'burgerFriedChicken'}
+      ]
+    },
+    {
+      groupKey: 'groupDining',
+      options: [
+        {value: '火锅 / 焖锅', labelKey: 'hotPot'},
+        {value: '烧烤 / 烤肉', labelKey: 'bbqGrill'},
+        {value: '葡国菜', labelKey: 'portugueseCuisine'},
+        {value: '粤菜 / 早茶', labelKey: 'cantoneseDimSum'},
+        {value: '日韩料理', labelKey: 'japaneseKorean'},
+        {value: '东南亚菜', labelKey: 'southeastAsian'},
+        {value: '西餐 / 简餐', labelKey: 'westernBistro'}
+      ]
+    },
+    {
+      groupKey: 'streetSnacks',
+      options: [
+        {value: '炸物 / 小食', labelKey: 'friedSnacks'},
+        {value: '牛杂 / 串串', labelKey: 'offalSkewers'},
+        {value: '葡挞 / 烘焙', labelKey: 'eggTartBakery'}
+      ]
+    }
+  ],
+  drink: [
+    {
+      groupKey: 'refreshing',
+      options: [
+        {value: '柠茶 / 果汁', labelKey: 'lemonTeaJuice'},
+        {value: '咖啡', labelKey: 'coffee'}
+      ]
+    },
+    {
+      groupKey: 'sweetTooth',
+      options: [
+        {value: '传统糖水', labelKey: 'traditionalDessertSoup'},
+        {value: '西式甜品', labelKey: 'westernDessert'},
+        {value: '冰品 / 雪糕', labelKey: 'iceCream'}
+      ]
+    },
+    {
+      groupKey: 'nightSocial',
+      options: [{value: '清吧 / 微醺', labelKey: 'chillBar'}]
+    }
+  ],
+  vibe: [
+    {
+      groupKey: 'hotScenarios',
+      options: [
+        {value: '🍜 一人食友好', labelKey: 'soloFriendly'},
+        {value: '🍻 聚餐 / 团建', labelKey: 'groupGathering'},
+        {value: '💻 适合赶Due', labelKey: 'studyWork'},
+        {value: '📸 拍照出片', labelKey: 'photoSpot'},
+        {value: '💕 约会 / 生日', labelKey: 'dateBirthday'},
+        {value: '🌙 深夜夜宵', labelKey: 'lateNight'}
+      ]
+    }
+  ],
+  deal: [
+    {
+      groupKey: 'dealTypes',
+      options: [
+        {value: '学生证折扣', labelKey: 'studentIdDiscount'},
+        {value: '买一送一', labelKey: 'buyOneGetOne'},
+        {value: '限时特惠', labelKey: 'limitedOffer'},
+        {value: '满减', labelKey: 'thresholdDiscount'},
+        {value: '新店开业', labelKey: 'newlyOpened'}
+      ]
+    }
+  ],
+  review: [
+    {
+      groupKey: 'rankings',
+      options: [
+        {value: '封神之作', labelKey: 'legendary'},
+        {value: '强烈推荐', labelKey: 'highlyRecommended'},
+        {value: '高性价比', labelKey: 'greatValue'},
+        {value: '隐藏好店', labelKey: 'hiddenGem'},
+        {value: '本周新上', labelKey: 'newThisWeek'}
+      ]
+    }
+  ],
+  region: [
+    {
+      groupKey: 'regions',
+      options: [
+        {value: '澳门半岛', labelKey: 'macauPeninsula'},
+        {value: '氹仔岛', labelKey: 'taipa'},
+        {value: '路环岛', labelKey: 'coloane'},
+        {value: '香洲区', labelKey: 'xiangzhou'},
+        {value: '横琴区', labelKey: 'hengqin'},
+        {value: '其它', labelKey: 'others'}
+      ]
+    }
+  ]
+};
+
+export function getL2ValuesByCategory(category: Exclude<ShopCategoryKey, 'all'>): string[] {
+  return L2_TAGS[category].flatMap((group) => group.options.map((option) => option.value));
+}
+
+export function getL2LabelKeyByValue(value: string): string | null {
+  for (const groups of Object.values(L2_TAGS)) {
+    for (const group of groups) {
+      const matched = group.options.find((option) => option.value === value);
+      if (matched) {
+        return matched.labelKey;
+      }
+    }
+  }
+
+  return null;
+}
 
 interface FilterBarProps {
   activeL1: ShopCategoryKey;
@@ -46,16 +151,15 @@ interface FilterBarProps {
   onChange: (l1: ShopCategoryKey, l2: string | null) => void;
 }
 
-
 export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps) {
   const tFilters = useTranslations('Filters');
 
   const groupedL2Tags = useMemo(() => {
     if (activeL1 === 'all') {
-      return {} as Record<string, readonly string[]>;
+      return [] as readonly L2Group[];
     }
 
-    return (L2_TAGS as Partial<Record<Exclude<ShopCategoryKey, 'all'>, Record<string, readonly string[]>>>)[activeL1] ?? {};
+    return L2_TAGS[activeL1] ?? [];
   }, [activeL1]);
 
   return (
@@ -85,24 +189,24 @@ export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps
 
       {activeL1 !== 'all' && (
         <div className="mt-2 hidden space-y-2 md:block">
-          {Object.entries(groupedL2Tags).map(([group, tags]) => (
-            <div key={group} className="space-y-1">
-              <p className="px-1 text-xs font-semibold text-slate-500">{group}</p>
+          {groupedL2Tags.map((group) => (
+            <div key={group.groupKey} className="space-y-1">
+              <p className="px-1 text-xs font-semibold text-slate-500">{tFilters(`l2Groups.${group.groupKey}`)}</p>
               <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
-                {tags.map((tag) => {
-                  const isActive = activeL2 === tag;
+                {group.options.map((option) => {
+                  const isActive = activeL2 === option.value;
                   return (
                     <button
-                      key={tag}
+                      key={option.value}
                       type="button"
-                      onClick={() => onChange(activeL1, isActive ? null : tag)}
+                      onClick={() => onChange(activeL1, isActive ? null : option.value)}
                       className={`min-h-9 shrink-0 rounded-full border px-3 text-xs font-medium transition ${
                         isActive
                           ? 'border-[#FFCC00] bg-[#FFF9E6] text-[#006633]'
                           : 'border-slate-200 bg-white text-slate-600 active:scale-[0.99]'
                       }`}
                     >
-                      {tag}
+                      {tFilters(`l2Tags.${option.labelKey}`)}
                     </button>
                   );
                 })}

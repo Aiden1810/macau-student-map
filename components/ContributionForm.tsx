@@ -160,11 +160,10 @@ export default function ContributionForm({
     };
 
     return Object.entries(L2_TAGS)
-      .filter(([l1Key]) => l1Key !== 'all')
-      .map(([l1Key, groupMap]) => ({
+      .map(([l1Key, groups]) => ({
         id: l1Key,
         title: groupTitleMap[l1Key] ?? `${l1Key} 标签`,
-        tags: Object.values(groupMap).flat()
+        tags: groups.flatMap((group) => group.options.map((option) => option.value))
       }))
       .filter((group) => group.tags.length > 0);
   }, []);
