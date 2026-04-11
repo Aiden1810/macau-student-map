@@ -103,22 +103,33 @@ export default function Header({
 
   return (
     <header className={`pointer-events-auto z-50 md:sticky md:top-0 md:border-b md:border-slate-200 md:text-slate-800 md:shadow-sm md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)] ${isCompact ? 'md:bg-white/95' : 'md:bg-white'}`}>
-      <div className="mx-auto flex max-w-[1380px] flex-col md:flex-row md:items-center md:justify-between md:gap-3 md:px-4 md:py-1 sm:px-6 lg:px-8">
-        <div className="relative flex items-center justify-between gap-2 px-0 py-0.5 md:bg-transparent md:px-0 md:py-0" style={GLASS_STYLE}>
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#FFCC00]/60 bg-[#0c4b2f] text-white shadow-md shadow-[#003a24]/35">
-              <span className="text-xs font-extrabold tracking-wide">M</span>
-            </div>
-            <h1 className="truncate text-base font-bold text-[#0d2918] md:text-xl md:text-[#0c4b2f]">Lumen Map</h1>
+      <div className="mx-auto flex max-w-[1380px] items-center gap-3 px-3 py-2 sm:px-6 md:px-4 lg:px-8">
+        <div className="flex min-w-0 items-center gap-2" style={GLASS_STYLE}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#FFCC00]/60 bg-[#0c4b2f] text-white shadow-md shadow-[#003a24]/35">
+            <span className="text-xs font-extrabold tracking-wide">M</span>
           </div>
+          <h1 className="hidden truncate text-base font-bold text-[#0d2918] sm:block md:text-lg md:text-[#0c4b2f]">Lumen Map</h1>
+        </div>
 
-          <div ref={mobileMenuRef} className="relative flex shrink-0 items-center md:hidden">
+        <div className="relative flex min-w-0 flex-1 items-center">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder={searchPlaceholder}
+            className="h-10 w-full rounded-full border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition-all focus:border-[#006633] focus:ring-2 focus:ring-[#006633]/20"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2">
+          <div ref={mobileMenuRef} className="relative flex items-center md:hidden">
             <button
               type="button"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="inline-flex items-center gap-1 rounded-2xl border border-[#1A5C2E]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5"
+              className="inline-flex items-center gap-1 rounded-2xl border border-[#1A5C2E]/25 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5"
               aria-expanded={mobileMenuOpen}
-              aria-label={tCommon('title')}
+              aria-label={tCommon('mine')}
             >
               <span>{tCommon('mine')}</span>
               {mobileMenuOpen ? <X className="h-3.5 w-3.5" /> : <Menu className="h-3.5 w-3.5" />}
@@ -185,7 +196,7 @@ export default function Header({
             )}
           </div>
 
-          <div ref={desktopMenuRef} className="relative hidden shrink-0 items-center md:flex">
+          <div ref={desktopMenuRef} className="relative hidden items-center md:flex">
             <button
               type="button"
               onClick={() => setDesktopMenuOpen((prev) => !prev)}
@@ -257,20 +268,6 @@ export default function Header({
             )}
           </div>
         </div>
-
-        <div className="mx-4 hidden max-w-md flex-1 md:block">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder={searchPlaceholder}
-              className="w-full rounded-full border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition-all focus:border-[#006633] focus:ring-2 focus:ring-[#006633]/20"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-
       </div>
     </header>
   );
