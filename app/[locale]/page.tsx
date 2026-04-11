@@ -510,7 +510,6 @@ export default function Page() {
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               searchPlaceholder={t('searchPlaceholder')}
-              isAdmin={isAdmin}
               userEmail={userEmail}
               loginHref="/login"
               mySubmissionsHref="/my-submissions"
@@ -598,9 +597,8 @@ export default function Page() {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           searchPlaceholder={t('searchPlaceholder')}
-          isAdmin={isAdmin}
           userEmail={userEmail}
-          loginHref="/admin-login"
+          loginHref="/login"
           mySubmissionsHref="/my-submissions"
           onLogout={handleLogout}
           onToggleContribute={() => {

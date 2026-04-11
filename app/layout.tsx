@@ -14,10 +14,10 @@ export const metadata: Metadata = {
   applicationName: 'Macau Pulse',
   title: 'Macau Pulse',
   description: '澳门学生美食地图与探店推荐',
-  manifest: '/manifest.webmanifest',
+  manifest: '/manifest.webmanifest?v=20260410m3',
   icons: {
-    icon: '/icon',
-    apple: '/apple-icon'
+    icon: '/icon?v=20260410m3',
+    apple: '/apple-icon?v=20260410m3'
   },
   appleWebApp: {
     capable: true,
