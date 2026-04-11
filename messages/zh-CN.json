@@ -19,10 +19,18 @@
   },
   "Filters": {
     "all": "全部",
-    "food": "餐饮",
-    "service": "服务",
-    "discount": "有折扣",
-    "recommend": "强推"
+    "food": "美食",
+    "drinksDesserts": "饮品/甜点",
+    "scenario": "场景",
+    "area": "区域",
+    "topPicks": "榜单",
+    "quickFilters": "快捷筛选",
+    "clearFilters": "清空筛选",
+    "myFavorites": "我的收藏",
+    "deliveryAvailable": "外卖可达",
+    "openLate": "深夜营业",
+    "nearbyCount": "附近 {count} 家",
+    "currentTotal": "当前共 {count} 家"
   },
   "ShopCard": {
     "recommend": "强推",
@@ -119,5 +127,62 @@
     "statusVerified": "已通过",
     "statusRejected": "未通过",
     "submittedAt": "提交时间"
+  },
+  "Home": {
+    "common": {"clear": "清除"},
+    "toast": {
+      "loadFailed": "加载失败，请检查网络",
+      "updated": "已更新点位",
+      "noCoordinates": "该店铺暂无坐标，请先补充地址/经纬度",
+      "deleted": "店铺已删除"
+    },
+    "confirm": {"deleteShop": "确定要永久删除该店铺及其所有相关评论吗？"},
+    "errors": {
+      "deleteFailed": "删除失败",
+      "deleteNotEffective": "删除未生效：请检查 Supabase RLS 的 DELETE 权限策略。"
+    },
+    "scenario": {
+      "quickFilterTitle": "场景快捷筛选",
+      "clearScenario": "清除场景",
+      "student-deal": {"label": "💰 学生党必看", "helper": "学生价 / 有折扣"},
+      "top-rated": {"label": "🏆 闭眼冲", "helper": "封神之作 / 强推"},
+      "delivery": {"label": "🛵 外卖宅家", "helper": "外卖可达"},
+      "new-shop": {"label": "🆕 新店尝鲜", "helper": "本周新上"}
+    },
+    "activeFilter": {
+      "scenarioPrefix": "场景",
+      "areaPrefix": "区域",
+      "channelPrefix": "频道",
+      "l2Prefix": "二级",
+      "typePrefix": "类型",
+      "ratingPrefix": "口碑",
+      "featurePrefix": "特色",
+      "searchPrefix": "搜索"
+    },
+    "empty": {
+      "noShopsTitle": "还没有店铺数据",
+      "noShopsDescription": "你目前是空库状态，后续添加店铺后会在这里展示。可以先通过投稿或管理员后台新增第一批店铺。",
+      "noMatchTitle": "没有匹配结果",
+      "noMatchDescription": "请尝试放宽筛选条件，或清除搜索关键词后重试。",
+      "clearAllAction": "清空搜索与筛选",
+      "noDisplayTitle": "暂无可展示店铺"
+    },
+    "mobile": {
+      "expandCollapseDrawerAria": "展开或收起店铺抽屉",
+      "searchPlaceholder": "搜索店铺、美食、地点…",
+      "scenarioFilterTitle": "场景筛选",
+      "favoritesOn": "❤️ 已藏",
+      "favoritesOff": "🤍 收藏",
+      "pullUpHint": "上拉查看附近店铺列表",
+      "favorited": "已收藏",
+      "favorite": "收藏"
+    }
+  },
+  "ShopDetail": {
+    "avgSpend": "人均 {value}",
+    "notAvailable": "暂无",
+    "reviewsCount": "{count}条评论",
+    "viewReviews": "查看评论",
+    "viewLocation": "查看位置"
   }
 }

@@ -20,9 +20,17 @@
   "Filters": {
     "all": "All",
     "food": "Food",
-    "service": "Service",
-    "discount": "Discount",
-    "recommend": "Recommended"
+    "drinksDesserts": "Drinks & Desserts",
+    "scenario": "Scenario",
+    "area": "Area",
+    "topPicks": "Top Picks",
+    "quickFilters": "Quick Filters",
+    "clearFilters": "Clear Filters",
+    "myFavorites": "My Favorites",
+    "deliveryAvailable": "Delivery Available",
+    "openLate": "Open Late",
+    "nearbyCount": "{count} nearby",
+    "currentTotal": "{count} total"
   },
   "ShopCard": {
     "recommend": "Recommended",
@@ -119,5 +127,62 @@
     "statusVerified": "Approved",
     "statusRejected": "Rejected",
     "submittedAt": "Submitted at"
+  },
+  "Home": {
+    "common": {"clear": "Clear"},
+    "toast": {
+      "loadFailed": "Failed to load shops. Please check your network.",
+      "updated": "Map spots updated",
+      "noCoordinates": "This shop has no coordinates yet. Please add an address/lat-lng first.",
+      "deleted": "Shop deleted"
+    },
+    "confirm": {"deleteShop": "Are you sure you want to permanently delete this shop and all related comments?"},
+    "errors": {
+      "deleteFailed": "Delete failed",
+      "deleteNotEffective": "Delete did not take effect. Please check Supabase RLS DELETE policy."
+    },
+    "scenario": {
+      "quickFilterTitle": "Scenario Quick Filters",
+      "clearScenario": "Clear Scenario",
+      "student-deal": {"label": "Student Deals", "helper": "Student price / Discount"},
+      "top-rated": {"label": "Top Rated", "helper": "Best picks / Highly recommended"},
+      "delivery": {"label": "Delivery", "helper": "Delivery available"},
+      "new-shop": {"label": "New This Week", "helper": "Freshly listed"}
+    },
+    "activeFilter": {
+      "scenarioPrefix": "Scenario",
+      "areaPrefix": "Area",
+      "channelPrefix": "Category",
+      "l2Prefix": "Tag",
+      "typePrefix": "Type",
+      "ratingPrefix": "Rating",
+      "featurePrefix": "Feature",
+      "searchPrefix": "Search"
+    },
+    "empty": {
+      "noShopsTitle": "No shop data yet",
+      "noShopsDescription": "Your database is currently empty. Add shops by contribution or admin tools first.",
+      "noMatchTitle": "No matching results",
+      "noMatchDescription": "Try broader filters or clear the search keyword and retry.",
+      "clearAllAction": "Clear search and filters",
+      "noDisplayTitle": "No shops to display"
+    },
+    "mobile": {
+      "expandCollapseDrawerAria": "Expand or collapse shop drawer",
+      "searchPlaceholder": "Search shops, food, places...",
+      "scenarioFilterTitle": "Scenario Filters",
+      "favoritesOn": "Favorited",
+      "favoritesOff": "Favorite",
+      "pullUpHint": "Swipe up to view nearby shops",
+      "favorited": "Saved",
+      "favorite": "Save"
+    }
+  },
+  "ShopDetail": {
+    "avgSpend": "Avg {value}",
+    "notAvailable": "N/A",
+    "reviewsCount": "{count} reviews",
+    "viewReviews": "View Reviews",
+    "viewLocation": "View Location"
   }
 }

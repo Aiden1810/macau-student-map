@@ -33,25 +33,11 @@ function hasDrawerFilters(filters: DrawerFiltersState): boolean {
   return filters.shopType !== '全部' || filters.ratingLabel !== null || filters.features.length > 0;
 }
 
-const L1_LABELS: Record<ShopCategoryKey, string> = {
-  all: '全部',
-  food: '美食',
-  drink: '饮品/甜点',
-  vibe: '场景',
-  region: '区域',
-  deal: '优惠',
-  review: '榜单'
-};
-
-const SCENARIO_SHORTCUTS: Array<{
-  key: 'student-deal' | 'top-rated' | 'delivery' | 'new-shop';
-  label: string;
-  helper: string;
-}> = [
-  {key: 'student-deal', label: '💰 学生党必看', helper: '学生价 / 有折扣'},
-  {key: 'top-rated', label: '🏆 闭眼冲', helper: '封神之作 / 强推'},
-  {key: 'delivery', label: '🛵 外卖宅家', helper: '外卖可达'},
-  {key: 'new-shop', label: '🆕 新店尝鲜', helper: '本周新上'}
+const SCENARIO_KEYS: Array<'student-deal' | 'top-rated' | 'delivery' | 'new-shop'> = [
+  'student-deal',
+  'top-rated',
+  'delivery',
+  'new-shop'
 ];
 
 function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
@@ -112,6 +98,8 @@ export default function Page() {
   const t = useTranslations('Common');
   const tContribute = useTranslations('Contribute');
   const tShopCard = useTranslations('ShopCard');
+  const tFilters = useTranslations('Filters');
+  const tHome = useTranslations('Home');
   const locale = useLocale() as 'zh-CN' | 'zh-MO' | 'en';
 
   const [, setViewMode] = useState<ViewMode>('list');
@@ -132,6 +120,16 @@ export default function Page() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [approvingShopId, setApprovingShopId] = useState<Shop['id'] | null>(null);
   const [deletingShopId, setDeletingShopId] = useState<Shop['id'] | null>(null);
+
+  const scenarioShortcuts = useMemo(
+    () =>
+      SCENARIO_KEYS.map((key) => ({
+        key,
+        label: tHome(`scenario.${key}.label`),
+        helper: tHome(`scenario.${key}.helper`)
+      })),
+    [tHome]
+  );
 
   const [isContributeOpen, setIsContributeOpen] = useState(false);
   const [mapPickMode, setMapPickMode] = useState(false);
@@ -158,7 +156,7 @@ export default function Page() {
       if (error) {
         console.error('Failed to fetch shops:', error.message);
         setShops([]);
-        toast.error('加载失败，请检查网络');
+        toast.error(tHome('toast.loadFailed'));
         return;
       }
 
@@ -166,14 +164,14 @@ export default function Page() {
       setShops(mappedShops);
 
       if (hasFetchedRef.current) {
-        toast.success('已更新点位');
+        toast.success(tHome('toast.updated'));
       }
 
       hasFetchedRef.current = true;
     } finally {
       setLoading(false);
     }
-  }, [locale, userRole]);
+  }, [locale, tHome, userRole]);
 
   const fetchCurrentUserRole = useCallback(async () => {
     const {data: authData, error: authError} = await supabase.auth.getUser();
@@ -325,46 +323,46 @@ export default function Page() {
     const labels: string[] = [];
 
     if (showFavorites) {
-      labels.push('我的收藏');
+      labels.push(tFilters('myFavorites'));
     }
 
     if (activeRegion !== 'all') {
-      labels.push(`区域: ${activeRegion}`);
+      labels.push(`${tHome('activeFilter.areaPrefix')}: ${activeRegion}`);
     }
 
     if (activeL1 !== 'all') {
-      labels.push(`频道: ${L1_LABELS[activeL1]}`);
+      labels.push(`${tHome('activeFilter.channelPrefix')}: ${tFilters(activeL1 === 'drink' ? 'drinksDesserts' : activeL1 === 'vibe' ? 'scenario' : activeL1 === 'region' ? 'area' : activeL1 === 'review' ? 'topPicks' : activeL1)}`);
     }
 
     if (activeL2) {
-      labels.push(`二级: ${activeL2}`);
+      labels.push(`${tHome('activeFilter.l2Prefix')}: ${activeL2}`);
     }
 
     if (drawerFilters.shopType !== '全部') {
-      labels.push(`类型: ${drawerFilters.shopType}`);
+      labels.push(`${tHome('activeFilter.typePrefix')}: ${drawerFilters.shopType}`);
     }
 
     if (drawerFilters.ratingLabel) {
-      labels.push(`口碑: ${drawerFilters.ratingLabel}`);
+      labels.push(`${tHome('activeFilter.ratingPrefix')}: ${drawerFilters.ratingLabel}`);
     }
 
     if (drawerFilters.features.length > 0) {
-      labels.push(...drawerFilters.features.map((feature) => `特色: ${feature}`));
+      labels.push(...drawerFilters.features.map((feature) => `${tHome('activeFilter.featurePrefix')}: ${feature}`));
     }
 
     if (hasActiveSearch) {
-      labels.push(`搜索: ${searchQuery.trim()}`);
+      labels.push(`${tHome('activeFilter.searchPrefix')}: ${searchQuery.trim()}`);
     }
 
     if (activeScenario) {
-      const scenario = SCENARIO_SHORTCUTS.find((item) => item.key === activeScenario);
+      const scenario = scenarioShortcuts.find((item) => item.key === activeScenario);
       if (scenario) {
-        labels.push(`场景: ${scenario.label}`);
+        labels.push(`${tHome('activeFilter.scenarioPrefix')}: ${scenario.label}`);
       }
     }
 
     return labels;
-  }, [activeL1, activeL2, activeScenario, drawerFilters, hasActiveSearch, searchQuery]);
+  }, [activeL1, activeL2, activeScenario, activeRegion, drawerFilters, hasActiveSearch, scenarioShortcuts, searchQuery, showFavorites, tFilters, tHome]);
 
   useEffect(() => {
     if (displayedShops.length === 0) {
@@ -414,7 +412,7 @@ export default function Page() {
     const targetShop = displayedShops.find((shop) => shop.id === shopId);
 
     if (!targetShop?.hasCoordinates) {
-      toast.error('该店铺暂无坐标，请先补充地址/经纬度');
+      toast.error(tHome('toast.noCoordinates'));
       return false;
     }
 
@@ -452,7 +450,7 @@ export default function Page() {
       return;
     }
 
-    const confirmed = window.confirm('确定要永久删除该店铺及其所有相关评论吗？');
+    const confirmed = window.confirm(tHome('confirm.deleteShop'));
     if (!confirmed) {
       return;
     }
@@ -466,18 +464,18 @@ export default function Page() {
     setDeletingShopId(null);
 
     if (error) {
-      setPageError(`删除失败: ${error.message}`);
+      setPageError(`${tHome('errors.deleteFailed')}: ${error.message}`);
       return;
     }
 
     if (!data || data.length === 0) {
-      setPageError('删除未生效：请检查 Supabase RLS 的 DELETE 权限策略。');
+      setPageError(tHome('errors.deleteNotEffective'));
       await fetchShops();
       return;
     }
 
     setShops((prev) => prev.filter((shop) => shop.id !== shopId));
-    setPageNotice('店铺已删除');
+    setPageNotice(tHome('toast.deleted'));
   };
 
   const handleLogout = async () => {
@@ -581,7 +579,7 @@ export default function Page() {
           onChangeDrawerFilters={setDrawerFilters}
           activeScenario={activeScenario}
           onChangeActiveScenario={setActiveScenario}
-          scenarioShortcuts={SCENARIO_SHORTCUTS}
+          scenarioShortcuts={scenarioShortcuts}
           activeL1={activeL1}
           activeL2={activeL2}
           onL2Change={handleTopFilterChange}
@@ -651,19 +649,19 @@ export default function Page() {
 
           <section className="mt-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-700">场景快捷筛选</p>
+              <p className="text-sm font-semibold text-slate-700">{tHome('scenario.quickFilterTitle')}</p>
               {activeScenario && (
                 <button
                   type="button"
                   onClick={() => setActiveScenario(null)}
                   className="text-xs font-medium text-slate-500 hover:text-slate-700"
                 >
-                  清除场景
+                  {tHome('scenario.clearScenario')}
                 </button>
               )}
             </div>
             <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
-              {SCENARIO_SHORTCUTS.map((scenario) => {
+              {scenarioShortcuts.map((scenario) => {
                 const active = activeScenario === scenario.key;
                 return (
                   <button
@@ -742,7 +740,7 @@ export default function Page() {
                 onChangeDrawerFilters={setDrawerFilters}
                 activeScenario={activeScenario}
                 onChangeActiveScenario={setActiveScenario}
-                scenarioShortcuts={SCENARIO_SHORTCUTS}
+                scenarioShortcuts={scenarioShortcuts}
                 showFavorites={showFavorites}
                 setShowFavorites={setShowFavorites}
                 favorites={favorites}

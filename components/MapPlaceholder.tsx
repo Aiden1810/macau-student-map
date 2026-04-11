@@ -350,12 +350,17 @@ export default function MapPlaceholder({
     const isFilteredView = activeL1 !== 'all' && activeL1 !== 'region';
     if (!isFilteredView) return new Set<Shop['id']>();
 
+    const {zoom, center} = mapViewport;
     const map = mapRef.current;
     const bounds = map?.getBounds?.() ?? null;
-    const validShops = shops.filter((shop) => shop.hasCoordinates);
-    const visibleInBounds = bounds ? validShops.filter((shop) => isShopInsideBounds(shop, bounds)) : validShops;
 
-    const top5 = [...visibleInBounds].sort(sortByRatingDesc).slice(0, 5);
+    const validShops = shops.filter((shop) => shop.hasCoordinates);
+    const shouldFilterByBounds = Boolean(bounds && center);
+    const visibleInBounds = shouldFilterByBounds
+      ? validShops.filter((shop) => isShopInsideBounds(shop, bounds))
+      : validShops;
+
+    const top5 = [...visibleInBounds].sort(sortByRatingDesc).slice(0, Math.max(1, Math.min(5, Math.round(zoom / 3.2))));
     return new Set(top5.map((shop) => shop.id));
   }, [activeL1, shops, mapViewport]);
 

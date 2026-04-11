@@ -19,10 +19,18 @@
   },
   "Filters": {
     "all": "全部",
-    "food": "餐飲",
-    "service": "服務",
-    "discount": "有折扣",
-    "recommend": "強推"
+    "food": "美食",
+    "drinksDesserts": "飲品/甜點",
+    "scenario": "場景",
+    "area": "區域",
+    "topPicks": "榜單",
+    "quickFilters": "快捷篩選",
+    "clearFilters": "清空篩選",
+    "myFavorites": "我的收藏",
+    "deliveryAvailable": "外賣可達",
+    "openLate": "深夜營業",
+    "nearbyCount": "附近 {count} 家",
+    "currentTotal": "當前共 {count} 家"
   },
   "ShopCard": {
     "recommend": "強推",
@@ -40,7 +48,7 @@
     "approveFailed": "審批失敗"
   },
   "Admin": {
-    "badge": "審核後台",
+    "badge": "審核後臺",
     "title": "店鋪投稿審核",
     "subtitle": "查看待審核店鋪投稿，決定發佈或駁回。",
     "pendingCount": "待審核 {count} 條",
@@ -119,5 +127,62 @@
     "statusVerified": "已通過",
     "statusRejected": "未通過",
     "submittedAt": "提交時間"
+  },
+  "Home": {
+    "common": {"clear": "清除"},
+    "toast": {
+      "loadFailed": "加載失敗，請檢查網絡",
+      "updated": "已更新點位",
+      "noCoordinates": "該店鋪暫無座標，請先補充地址/經緯度",
+      "deleted": "店鋪已刪除"
+    },
+    "confirm": {"deleteShop": "確定要永久刪除該店鋪及其所有相關評論嗎？"},
+    "errors": {
+      "deleteFailed": "刪除失敗",
+      "deleteNotEffective": "刪除未生效：請檢查 Supabase RLS 的 DELETE 權限策略。"
+    },
+    "scenario": {
+      "quickFilterTitle": "場景快捷篩選",
+      "clearScenario": "清除場景",
+      "student-deal": {"label": "💰 學生黨必看", "helper": "學生價 / 有折扣"},
+      "top-rated": {"label": "🏆 閉眼衝", "helper": "封神之作 / 強推"},
+      "delivery": {"label": "🛵 外賣宅家", "helper": "外賣可達"},
+      "new-shop": {"label": "🆕 新店嘗鮮", "helper": "本週新上"}
+    },
+    "activeFilter": {
+      "scenarioPrefix": "場景",
+      "areaPrefix": "區域",
+      "channelPrefix": "頻道",
+      "l2Prefix": "二級",
+      "typePrefix": "類型",
+      "ratingPrefix": "口碑",
+      "featurePrefix": "特色",
+      "searchPrefix": "搜尋"
+    },
+    "empty": {
+      "noShopsTitle": "還沒有店鋪數據",
+      "noShopsDescription": "你目前是空庫狀態，後續添加店鋪後會在這裡展示。可以先透過投稿或管理員後臺新增第一批店鋪。",
+      "noMatchTitle": "沒有匹配結果",
+      "noMatchDescription": "請嘗試放寬篩選條件，或清除搜尋關鍵詞後重試。",
+      "clearAllAction": "清空搜尋與篩選",
+      "noDisplayTitle": "暫無可展示店鋪"
+    },
+    "mobile": {
+      "expandCollapseDrawerAria": "展開或收起店鋪抽屜",
+      "searchPlaceholder": "搜尋店鋪、美食、地點…",
+      "scenarioFilterTitle": "場景篩選",
+      "favoritesOn": "❤️ 已藏",
+      "favoritesOff": "🤍 收藏",
+      "pullUpHint": "上拉查看附近店鋪列表",
+      "favorited": "已收藏",
+      "favorite": "收藏"
+    }
+  },
+  "ShopDetail": {
+    "avgSpend": "人均 {value}",
+    "notAvailable": "暫無",
+    "reviewsCount": "{count}條評論",
+    "viewReviews": "查看評論",
+    "viewLocation": "查看位置"
   }
 }

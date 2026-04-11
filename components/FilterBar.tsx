@@ -1,15 +1,16 @@
 'use client';
 
 import {useMemo} from 'react';
-import {ShopCategoryKey, ShopRegion} from '@/types/shop';
+import {useTranslations} from 'next-intl';
+import {ShopCategoryKey} from '@/types/shop';
 
-export const L1_TABS: Array<{key: ShopCategoryKey; label: string}> = [
-  {key: 'all', label: '全部'},
-  {key: 'food', label: '美食'},
-  {key: 'drink', label: '饮品/甜点'},
-  {key: 'vibe', label: '场景'},
-  {key: 'region', label: '区域'},
-  {key: 'review', label: '榜单'}
+export const L1_TABS: Array<{key: ShopCategoryKey; labelKey: string}> = [
+  {key: 'all', labelKey: 'all'},
+  {key: 'food', labelKey: 'food'},
+  {key: 'drink', labelKey: 'drinksDesserts'},
+  {key: 'vibe', labelKey: 'scenario'},
+  {key: 'region', labelKey: 'area'},
+  {key: 'review', labelKey: 'topPicks'}
 ];
 
 export const L2_TAGS = {
@@ -47,6 +48,8 @@ interface FilterBarProps {
 
 
 export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps) {
+  const tFilters = useTranslations('Filters');
+
   const groupedL2Tags = useMemo(() => {
     if (activeL1 === 'all') {
       return {} as Record<string, readonly string[]>;
@@ -72,7 +75,7 @@ export default function FilterBar({activeL1, activeL2, onChange}: FilterBarProps
                     : 'border-[rgba(0,0,0,0.08)] bg-[rgba(255,255,255,0.55)] text-[#0d2918] shadow-[0_1px_3px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.7)] backdrop-blur-[16px]'
                 }`}
               >
-                {tab.label}
+                {tFilters(tab.labelKey)}
               </button>
             );
           })}

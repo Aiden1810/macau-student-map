@@ -1,13 +1,12 @@
 'use client';
 
 import {useEffect, useMemo, useState} from 'react';
-import {useLocale, useTranslations} from 'next-intl';
+import {useTranslations} from 'next-intl';
 import {useRouter} from '@/i18n/navigation';
 import {supabase} from '@/lib/supabase';
 
 export default function AuthCallbackPage() {
   const tAuth = useTranslations('Auth');
-  const locale = useLocale();
   const router = useRouter();
 
   const [error, setError] = useState<string | null>(null);

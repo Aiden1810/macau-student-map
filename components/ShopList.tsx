@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import {MessageCircle, Navigation, Search, SlidersHorizontal, Star, StarHalf} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState} from 'react';
+import {useTranslations} from 'next-intl';
 import {L2_TAGS} from '@/components/FilterBar';
 import MobileShopDetailModal from '@/components/MobileShopDetailModal';
 import ShopCard from '@/components/ShopCard';
@@ -91,6 +92,10 @@ export default function ShopList({
   favorites,
   onToggleFavorite
 }: ShopListProps) {
+  const tFilters = useTranslations('Filters');
+  const tHome = useTranslations('Home');
+  const tShopDetail = useTranslations('ShopDetail');
+
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -161,8 +166,8 @@ export default function ShopList({
   const emptyState = useMemo(() => {
     if (!hasAnyShops) {
       return {
-        title: '还没有店铺数据',
-        description: '你目前是空库状态，后续添加店铺后会在这里展示。可以先通过投稿或管理员后台新增第一批店铺。',
+        title: tHome('empty.noShopsTitle'),
+        description: tHome('empty.noShopsDescription'),
         actionLabel: null as string | null,
         action: null as (() => void) | null
       };
@@ -170,20 +175,20 @@ export default function ShopList({
 
     if (hasActiveFilters || searchQuery.trim().length > 0) {
       return {
-        title: '没有匹配结果',
-        description: '请尝试放宽筛选条件，或清除搜索关键词后重试。',
-        actionLabel: '清空搜索与筛选',
+        title: tHome('empty.noMatchTitle'),
+        description: tHome('empty.noMatchDescription'),
+        actionLabel: tHome('empty.clearAllAction'),
         action: onClearAllFilters
       };
     }
 
     return {
-      title: '暂无可展示店铺',
+      title: tHome('empty.noDisplayTitle'),
       description: emptyText,
       actionLabel: null as string | null,
       action: null as (() => void) | null
     };
-  }, [emptyText, hasActiveFilters, hasAnyShops, onClearAllFilters, searchQuery]);
+  }, [emptyText, hasActiveFilters, hasAnyShops, onClearAllFilters, searchQuery, tHome]);
 
   const handleLocateWithHighlight = (shopId: Shop['id']) => {
     const located = onLocateShop(shopId);
@@ -219,7 +224,7 @@ export default function ShopList({
             onClick={onClearSearch}
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600"
           >
-            清除
+            {tHome('common.clear')}
           </button>
         )}
       </div>
@@ -228,8 +233,8 @@ export default function ShopList({
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[#1A5C2E]" />
-            <span className="text-sm font-semibold text-[#0d2918]">快捷筛选</span>
-            <span className="rounded-full bg-[#1A5C2E]/10 px-2 py-0.5 text-[11px] font-semibold text-[#1A5C2E]">共 {filteredShops.length} 家</span>
+            <span className="text-sm font-semibold text-[#0d2918]">{tFilters('quickFilters')}</span>
+            <span className="rounded-full bg-[#1A5C2E]/10 px-2 py-0.5 text-[11px] font-semibold text-[#1A5C2E]">{tFilters('currentTotal', {count: filteredShops.length})}</span>
           </div>
 
           <button
@@ -237,14 +242,14 @@ export default function ShopList({
             onClick={onClearAllFilters}
             className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-50"
           >
-            清空筛选
+            {tFilters('clearFilters')}
           </button>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
           {showFavorites !== undefined && setShowFavorites !== undefined && (
             <label className="flex cursor-pointer items-center gap-2">
-              <span className="text-xs font-semibold text-rose-600 truncate">我的收藏</span>
+              <span className="text-xs font-semibold text-rose-600 truncate">{tFilters('myFavorites')}</span>
               <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-100 transition-colors duration-200 ease-in-out has-[:checked]:bg-rose-500">
                 <input
                   type="checkbox"
@@ -258,7 +263,7 @@ export default function ShopList({
           )}
 
           <label className="flex cursor-pointer items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600">外卖可达</span>
+            <span className="text-xs font-semibold text-slate-600">{tFilters('deliveryAvailable')}</span>
             <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-200 transition-colors duration-200 ease-in-out has-[:checked]:bg-[#006633]">
               <input
                 type="checkbox"
@@ -276,7 +281,7 @@ export default function ShopList({
           </label>
 
           <label className="flex cursor-pointer items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600">深夜营业</span>
+            <span className="text-xs font-semibold text-slate-600">{tFilters('openLate')}</span>
             <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-200 transition-colors duration-200 ease-in-out has-[:checked]:bg-[#006633]">
               <input
                 type="checkbox"
@@ -304,7 +309,7 @@ export default function ShopList({
               ))}
             </div>
             <button type="button" onClick={onClearAllFilters} className="ml-2 whitespace-nowrap text-[11px] font-medium text-emerald-700 hover:underline">
-              清空
+              {tHome('common.clear')}
             </button>
           </div>
         )}
@@ -363,7 +368,7 @@ export default function ShopList({
         <div
           role="button"
           tabIndex={0}
-          aria-label="展开或收起店铺抽屉"
+          aria-label={tHome('mobile.expandCollapseDrawerAria')}
           onClick={() => setMobileExpanded((prev) => !prev)}
           onTouchStart={(e) => startDrag(e.touches[0].clientY)}
           onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
@@ -381,7 +386,7 @@ export default function ShopList({
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1A5C2E]/75" />
           <input
             type="text"
-            placeholder="搜索店铺、美食、地点…"
+            placeholder={tHome('mobile.searchPlaceholder')}
             className="h-[37px] w-full rounded-[13px] appearance-none bg-[rgba(255,255,255,0.55)] py-2 pl-10 pr-16 text-sm text-[#0d2918] placeholder:text-[#1A5C2E]/60 shadow-[0_0_0_1px_rgba(255,255,255,0.6)] outline-none focus:outline-none focus:ring-0"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -427,7 +432,7 @@ export default function ShopList({
 
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-[#0d2918]">场景筛选</p>
+            <p className="text-sm font-semibold text-[#0d2918]">{tHome('mobile.scenarioFilterTitle')}</p>
             {showFavorites !== undefined && setShowFavorites !== undefined && (
               <button
                 onClick={() => setShowFavorites(!showFavorites)}
@@ -437,11 +442,11 @@ export default function ShopList({
                     : 'bg-rose-50/80 text-rose-600 border border-rose-100'
                 }`}
               >
-                {showFavorites ? '❤️ 已藏' : '🤍 收藏'}
+                {showFavorites ? tHome('mobile.favoritesOn') : tHome('mobile.favoritesOff')}
               </button>
             )}
           </div>
-          <span className="rounded-2xl bg-[rgba(26,92,46,0.10)] px-2.5 py-1 text-xs font-semibold text-[#1A5C2E]">附近 {filteredShops.length} 家</span>
+          <span className="rounded-2xl bg-[rgba(26,92,46,0.10)] px-2.5 py-1 text-xs font-semibold text-[#1A5C2E]">{tFilters('nearbyCount', {count: filteredShops.length})}</span>
         </div>
 
         <div className="hide-scrollbar mb-2 flex gap-2 overflow-x-auto pb-1">
@@ -478,8 +483,8 @@ export default function ShopList({
             onMouseLeave={() => endDrag()}
             className="w-full touch-none cursor-grab rounded-2xl bg-white/25 px-3 py-2 text-left active:cursor-grabbing"
           >
-            <p className="text-sm font-semibold text-[#0d2918]">上拉查看附近店铺列表</p>
-            <p className="mt-0.5 text-xs text-[#1A5C2E]/80">当前共 {filteredShops.length} 家</p>
+            <p className="text-sm font-semibold text-[#0d2918]">{tHome('mobile.pullUpHint')}</p>
+            <p className="mt-0.5 text-xs text-[#1A5C2E]/80">{tFilters('currentTotal', {count: filteredShops.length})}</p>
           </button>
         ) : (
           <div className="mt-1 h-[calc(100%-145px)] overflow-y-auto pb-[max(env(safe-area-inset-bottom,0px),72px)]">
@@ -543,7 +548,7 @@ export default function ShopList({
                           <p className="truncate text-xs text-[#1A5C2E]/80 mt-0.5">
                             {shop.shopType}
                             <span className="mx-1 text-[#1A5C2E]/30">|</span>
-                            人均 {shop.pricePerPerson ? `MOP ${shop.pricePerPerson}` : '暂无'}
+                            {tShopDetail('avgSpend', {value: shop.pricePerPerson ? `MOP ${shop.pricePerPerson}` : tShopDetail('notAvailable')})}
                           </p>
 
                           {/* Stars */}
@@ -558,7 +563,7 @@ export default function ShopList({
                               ))}
                             </div>
                             <span className="text-xs font-semibold text-[#0d2918]">{safeRating.toFixed(1)}</span>
-                            <span className="text-[11px] text-[#1A5C2E]/60">({shop.reviews}条评论)</span>
+                            <span className="text-[11px] text-[#1A5C2E]/60">({tShopDetail('reviewsCount', {count: shop.reviews})})</span>
                           </div>
 
                           {/* Actions */}
@@ -572,7 +577,7 @@ export default function ShopList({
                               className="inline-flex items-center gap-1 rounded-lg border border-[rgba(26,92,46,0.20)] bg-[rgba(26,92,46,0.06)] px-2 py-1 text-[11px] font-semibold text-[#1A5C2E] transition active:bg-[rgba(26,92,46,0.12)]"
                             >
                               <MessageCircle className="h-3 w-3" />
-                              查看评论
+                              {tShopDetail('viewReviews')}
                             </button>
                             <button
                               type="button"
@@ -583,7 +588,7 @@ export default function ShopList({
                               className="inline-flex items-center gap-1 text-[11px] font-medium text-[#1A5C2E]/70 transition active:text-[#1A5C2E]"
                             >
                               <Navigation className="h-3 w-3" />
-                              查看位置
+                              {tShopDetail('viewLocation')}
                             </button>
                             {onToggleFavorite && (
                               <button
@@ -595,7 +600,7 @@ export default function ShopList({
                                     : 'border border-rose-200 bg-white/70 text-rose-600'
                                 }`}
                               >
-                                {favorites?.includes(shop.id) ? '已收藏' : '收藏'}
+                                {favorites?.includes(shop.id) ? tHome('mobile.favorited') : tHome('mobile.favorite')}
                               </button>
                             )}
                           </div>
