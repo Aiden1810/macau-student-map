@@ -15,7 +15,6 @@ export type ShopPayloadBuildInput = {
   category: ShopCategory;
   selectedPresetTags?: string[];
   customTags?: string[];
-  mainCategoryInput?: string | null;
   ratingScore?: number | null;
   ratingLabel?: ShopRatingLabel | null;
   shopType?: ShopType | null;
@@ -24,12 +23,9 @@ export type ShopPayloadBuildInput = {
   reviewTextEn?: string | null;
   tagsEn?: string[];
   features?: string[];
-  studentDiscount?: string | null;
   status?: 'pending' | 'verified' | 'rejected';
   pricePerPerson?: number | null;
   region?: ShopRegion | null;
-  signatureDish?: string | null;
-  sharpReview?: string | null;
 };
 
 function deriveShopTypeFromCategoryAndTags(category: ShopCategory, mergedTags: string[]): ShopType {
@@ -60,7 +56,7 @@ export function buildNormalizedShopPayload(input: ShopPayloadBuildInput): Record
   const longitude = Number.isFinite(input.longitude) ? Number(input.longitude) : null;
   const latitude = Number.isFinite(input.latitude) ? Number(input.latitude) : null;
 
-  const normalizedMainCategory = input.mainCategoryInput?.trim() || normalizedPresetTags[0] || mergedTags[0] || null;
+  const normalizedMainCategory = normalizedPresetTags[0] || mergedTags[0] || null;
   const normalizedSubTags = mergedTags.filter((tag) => tag !== normalizedMainCategory);
 
   const ratingScore = typeof input.ratingScore === 'number' && Number.isFinite(input.ratingScore)
@@ -105,11 +101,8 @@ export function buildNormalizedShopPayload(input: ShopPayloadBuildInput): Record
       'zh-CN': reviewText,
       en: reviewTextEn || reviewText
     },
-    student_discount: input.studentDiscount?.trim() || null,
     status: input.status ?? 'pending',
     price_per_person: input.pricePerPerson ?? null,
-    region: normalizedRegion,
-    signature_dish: input.signatureDish?.trim() || null,
-    sharp_review: input.sharpReview?.trim() || null
+    region: normalizedRegion
   };
 }

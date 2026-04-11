@@ -54,19 +54,15 @@ type ShopFormValue = {
   rating_label: RatingLabel;
   features: Feature[];
   tags: string[];
-  main_category: string;
   custom_tags: string;
   name_en: string;
   image_urls: string;
   review_text: string;
   review_text_en: string;
   tags_en: string;
-  student_discount: string;
   status: ShopStatus;
   price_per_person: string;
   region: ShopRegion | '';
-  signature_dish: string;
-  sharp_review: string;
 };
 
 type BusyActionType = 'approve' | 'reject' | 'delete';
@@ -172,19 +168,15 @@ function toFormValue(shop?: ShopRow | null): ShopFormValue {
       rating_label: '暂无评分',
       features: [],
       tags: [],
-      main_category: '',
       custom_tags: '',
       name_en: '',
       image_urls: '',
       review_text: '',
       review_text_en: '',
       tags_en: '',
-      student_discount: '',
       status: 'verified',
       price_per_person: '',
-      region: '',
-      signature_dish: '',
-      sharp_review: ''
+      region: ''
     };
   }
 
@@ -199,19 +191,15 @@ function toFormValue(shop?: ShopRow | null): ShopFormValue {
     rating_label: shop.rating_label ?? '暂无评分',
     features: shop.features ?? [],
     tags: shop.tags ?? [],
-    main_category: shop.main_category ?? shop.tags?.[0] ?? '',
     custom_tags: '',
     name_en: shop.name_i18n?.en ?? '',
     image_urls: (shop.image_urls ?? []).join('\n'),
     review_text: shop.review_text ?? '',
     review_text_en: shop.review_text_i18n?.en ?? '',
     tags_en: (shop.tags_i18n?.en ?? []).join(', '),
-    student_discount: shop.student_discount ?? '',
     status: shop.status ?? 'pending',
     price_per_person: shop.price_per_person?.toString() ?? '',
-    region: shop.region ?? '',
-    signature_dish: shop.signature_dish ?? '',
-    sharp_review: shop.sharp_review ?? ''
+    region: shop.region ?? ''
   };
 }
 
@@ -306,7 +294,6 @@ function AdminShopForm({
       category: form.category,
       selectedPresetTags: form.tags,
       customTags,
-      mainCategoryInput: form.main_category,
       ratingLabel: form.rating_label,
       shopType: form.shop_type,
       imageUrls,
@@ -314,12 +301,9 @@ function AdminShopForm({
       reviewTextEn: form.review_text_en,
       tagsEn: englishTags,
       features: form.features,
-      studentDiscount: form.student_discount,
       status: form.status,
       pricePerPerson,
-      region: form.region || deriveRegionFromCoordinates(lng, lat),
-      signatureDish: form.signature_dish,
-      sharpReview: form.sharp_review
+      region: form.region || deriveRegionFromCoordinates(lng, lat)
     });
 
     await onSubmit(payload);
@@ -412,11 +396,6 @@ function AdminShopForm({
             </div>
           </div>
 
-          <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">主标签（main_category）</span>
-            <input value={form.main_category} onChange={(e) => setForm((prev) => ({...prev, main_category: e.target.value}))} placeholder="留空则自动取第一个标签" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
           <label className="sm:col-span-2">
             <span className="mb-1 block text-sm font-medium text-slate-700">补充标签（中文，逗号/换行）</span>
             <textarea rows={2} value={form.custom_tags} onChange={(e) => setForm((prev) => ({...prev, custom_tags: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
@@ -443,11 +422,6 @@ function AdminShopForm({
           </label>
 
           <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">学生优惠文案</span>
-            <input value={form.student_discount} onChange={(e) => setForm((prev) => ({...prev, student_discount: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label>
             <span className="mb-1 block text-sm font-medium text-slate-700">人均消费（MOP）</span>
             <input value={form.price_per_person} onChange={(e) => setForm((prev) => ({...prev, price_per_person: e.target.value}))} placeholder="例如 68" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
           </label>
@@ -460,16 +434,6 @@ function AdminShopForm({
                 <option key={item} value={item}>{item}</option>
               ))}
             </select>
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">招牌推荐</span>
-            <input value={form.signature_dish} onChange={(e) => setForm((prev) => ({...prev, signature_dish: e.target.value}))} placeholder="例如：葡式焗鸡饭" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">一句话锐评</span>
-            <textarea rows={2} value={form.sharp_review} onChange={(e) => setForm((prev) => ({...prev, sharp_review: e.target.value}))} placeholder="例如：夜宵档口王者，出餐快且稳定" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
           </label>
 
           <label>
