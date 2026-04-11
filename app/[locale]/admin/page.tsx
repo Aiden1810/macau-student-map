@@ -82,6 +82,16 @@ type HealthStats = {
   newComments24h: number;
 };
 
+type AlertLevel = 'P1' | 'P2' | 'P3';
+
+type OpsAlert = {
+  id: string;
+  level: AlertLevel;
+  title: string;
+  reason: string;
+  action: string;
+};
+
 type TrafficRangeKey = '24h' | '7d' | '30d' | '365d' | 'all';
 type ShopSortKey = 'created_desc' | 'created_asc' | 'status' | 'name';
 
@@ -773,6 +783,66 @@ export default function AdminModerationPage() {
     return {pv, uv, timeline, topPages, peakPoint};
   }, [filteredTrafficEvents, trafficRange]);
 
+  const opsAlerts = useMemo<OpsAlert[]>(() => {
+    const alerts: OpsAlert[] = [];
+
+    if (healthStats.pending >= 20) {
+      alerts.push({
+        id: 'pending-overload',
+        level: 'P1',
+        title: '待审核积压过高',
+        reason: `当前待审核 ${healthStats.pending} 条，可能影响内容上新时效。`,
+        action: '优先清理待审核队列，必要时先批量通过可信来源内容。'
+      });
+    } else if (healthStats.pending >= 8) {
+      alerts.push({
+        id: 'pending-growing',
+        level: 'P2',
+        title: '待审核队列增长',
+        reason: `当前待审核 ${healthStats.pending} 条。`,
+        action: '今天内完成一次审核清理，避免明日堆积。'
+      });
+    }
+
+    const dataQualityMissing =
+      healthStats.missingCategory + healthStats.missingShopType + healthStats.missingRatingLabel;
+
+    if (dataQualityMissing >= 10) {
+      alerts.push({
+        id: 'data-quality-high-risk',
+        level: 'P2',
+        title: '数据质量风险偏高',
+        reason: `分类/类型/口碑缺失累计 ${dataQualityMissing} 项。`,
+        action: '执行“补全缺失字段”，并在新增/编辑流程强制校验必填字段。'
+      });
+    }
+
+    if (trafficRange === '24h' && trafficSummary.pv > 0 && trafficSummary.uv > 0) {
+      const pvPerUv = trafficSummary.pv / trafficSummary.uv;
+      if (pvPerUv < 1.2) {
+        alerts.push({
+          id: 'retention-risk',
+          level: 'P3',
+          title: '会话深度偏低',
+          reason: `近24小时人均浏览 ${pvPerUv.toFixed(2)} 页，可能存在内容吸引力或路径问题。`,
+          action: '优先检查首页首屏内容与热门店铺卡片点击路径。'
+        });
+      }
+    }
+
+    if (healthStats.newShops24h === 0 && healthStats.newComments24h === 0 && trafficSummary.pv > 30) {
+      alerts.push({
+        id: 'supply-stagnation',
+        level: 'P3',
+        title: '内容供给停滞',
+        reason: '近24小时无新增店铺且无新增评论。',
+        action: '安排今日最少 1 家店铺新增或 3 条评论补充，保持内容新鲜度。'
+      });
+    }
+
+    return alerts;
+  }, [healthStats, trafficRange, trafficSummary.pv, trafficSummary.uv]);
+
   const updateStatus = async (shopId: string, nextStatus: ShopStatus, action: BusyActionType) => {
     if (!isAdmin || actionLoadingById[shopId]) return;
 
@@ -1027,6 +1097,35 @@ export default function AdminModerationPage() {
             <p className="text-xs font-semibold text-slate-500">字段缺失（类型/口碑）</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.missingShopType + healthStats.missingRatingLabel}</p>
             <p className="mt-1 text-xs text-slate-500">shop_type {healthStats.missingShopType}，rating_label {healthStats.missingRatingLabel}</p>
+          </div>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">运营告警与处置建议</h2>
+              <p className="mt-1 text-xs text-slate-500">针对单人运营，自动给出今日最优先处理项（P1/P2/P3）</p>
+            </div>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">当前告警 {opsAlerts.length}</span>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {opsAlerts.length === 0 ? (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">当前无显著运营风险，可按计划推进内容与质量优化。</div>
+            ) : (
+              opsAlerts.map((alert) => (
+                <div key={alert.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className={`rounded-full px-2 py-0.5 font-semibold ${alert.level === 'P1' ? 'bg-rose-100 text-rose-700' : alert.level === 'P2' ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-700'}`}>
+                      {alert.level}
+                    </span>
+                    <span className="font-semibold text-slate-900">{alert.title}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">原因：{alert.reason}</p>
+                  <p className="mt-1 text-xs font-medium text-slate-800">建议动作：{alert.action}</p>
+                </div>
+              ))
+            )}
           </div>
         </section>
 
