@@ -111,6 +111,22 @@ type AdminAuditLogRow = {
   created_at: string;
 };
 
+function shortenUuid(uuid: string): string {
+  const trimmed = uuid.trim();
+  if (!trimmed) return '-';
+  return trimmed.length <= 8 ? trimmed : `${trimmed.slice(0, 8)}...`;
+}
+
+function readAuditShopName(metadata: Record<string, unknown> | null): string | null {
+  const value = metadata?.shop_name;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function readPayloadShopName(payload: Record<string, unknown>): string | null {
+  const value = payload.name;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 function mergeAdminShop(prev: ShopRow[], incoming: ShopRow): ShopRow[] {
   const index = prev.findIndex((item) => item.id === incoming.id);
   if (index === -1) return [incoming, ...prev];
@@ -656,6 +672,16 @@ export default function AdminModerationPage() {
   const verifiedCount = useMemo(() => shops.filter((item) => item.status === 'verified').length, [shops]);
   const rejectedCount = useMemo(() => shops.filter((item) => item.status === 'rejected').length, [shops]);
 
+  const shopNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    shops.forEach((shop) => {
+      const id = shop.id?.trim();
+      const name = shop.name?.trim();
+      if (id && name) map.set(id, name);
+    });
+    return map;
+  }, [shops]);
+
   const healthStats = useMemo<HealthStats>(() => {
     const total = shops.length;
     const pending = shops.filter((item) => item.status === 'pending' || item.status === null).length;
@@ -872,11 +898,16 @@ export default function AdminModerationPage() {
       return;
     }
 
+    const targetShop = shops.find((shop) => shop.id === shopId);
+
     await logAdminAudit({
       action: nextStatus === 'verified' ? 'approve' : 'reject',
       targetShopId: shopId,
       note: nextStatus === 'verified' ? '审核通过并上线' : '审核驳回',
-      metadata: {nextStatus}
+      metadata: {
+        nextStatus,
+        shop_name: targetShop?.name ?? null
+      }
     });
 
     toast.success(nextStatus === 'verified' ? '店铺已通过并上线' : '店铺已驳回');
@@ -897,10 +928,15 @@ export default function AdminModerationPage() {
       return;
     }
 
+    const targetShop = shops.find((shop) => shop.id === shopId);
+
     await logAdminAudit({
       action: 'delete',
       targetShopId: shopId,
-      note: '管理员永久删除店铺'
+      note: '管理员永久删除店铺',
+      metadata: {
+        shop_name: targetShop?.name ?? null
+      }
     });
 
     toast.success('店铺已永久删除');
@@ -921,7 +957,10 @@ export default function AdminModerationPage() {
     await logAdminAudit({
       action: 'create',
       targetShopId: createdRows?.[0]?.id ? String(createdRows[0].id) : null,
-      note: '管理员后台直接新增店铺'
+      note: '管理员后台直接新增店铺',
+      metadata: {
+        shop_name: readPayloadShopName(payload)
+      }
     });
 
     toast.success('店铺已新增并上线');
@@ -945,7 +984,10 @@ export default function AdminModerationPage() {
     await logAdminAudit({
       action: 'edit',
       targetShopId: editingShop.id,
-      note: '管理员编辑店铺信息'
+      note: '管理员编辑店铺信息',
+      metadata: {
+        shop_name: readPayloadShopName(payload) ?? editingShop.name
+      }
     });
 
     toast.success('店铺信息已更新');
@@ -1229,16 +1271,30 @@ export default function AdminModerationPage() {
             {auditLogs.length === 0 ? (
               <p className="text-xs text-slate-500">暂无审计日志（请先执行 SQL 初始化 admin_audit_logs 表）</p>
             ) : (
-              auditLogs.map((log) => (
-                <div key={log.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
-                  <div className="min-w-[220px] text-slate-700">
-                    <span className="font-semibold text-slate-900">{log.action}</span>
-                    <span className="mx-2 text-slate-400">·</span>
-                    <span className="break-all">shop: {log.target_shop_id ?? '-'}</span>
+              auditLogs.map((log) => {
+                const shopNameFromMetadata = readAuditShopName(log.metadata);
+                const shopId = log.target_shop_id?.trim() || null;
+                const hasShopId = Boolean(shopId);
+                const shopNameFromMap = shopId ? shopNameById.get(shopId) ?? null : null;
+                const shopLabel = shopNameFromMetadata ?? shopNameFromMap ?? (hasShopId ? '未知店铺' : '-');
+                const shopTooltip = hasShopId ? `UUID: ${shopId}` : undefined;
+                const shortShopId = hasShopId ? shortenUuid(shopId) : null;
+
+                return (
+                  <div key={log.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                    <div className="min-w-[220px] text-slate-700">
+                      <span className="font-semibold text-slate-900">{log.action}</span>
+                      <span className="mx-2 text-slate-400">·</span>
+                      <span className="inline-flex max-w-full items-center gap-1.5 align-middle" title={shopTooltip}>
+                        <span className="text-slate-500">shop:</span>
+                        <span className="max-w-[180px] truncate font-medium text-slate-800">{shopLabel}</span>
+                        {shortShopId ? <span className="text-slate-400">({shortShopId})</span> : null}
+                      </span>
+                    </div>
+                    <div className="text-slate-500">{new Date(log.created_at).toLocaleString()}</div>
                   </div>
-                  <div className="text-slate-500">{new Date(log.created_at).toLocaleString()}</div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </section>
