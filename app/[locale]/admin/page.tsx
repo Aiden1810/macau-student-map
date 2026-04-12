@@ -94,11 +94,32 @@ type OpsAlert = {
 
 type TrafficRangeKey = '24h' | '7d' | '30d' | '365d' | 'all';
 type ShopSortKey = 'created_desc' | 'created_asc' | 'status' | 'name';
+type AnalyticsRangeKey = '7d' | '30d' | 'custom';
+type AnalyticsSortKey = 'favorites' | 'clicks' | 'favorite_rate' | 'shares' | 'complaints' | 'conversion_rate';
+type AnalyticsPriceBand = 'all' | '0-50' | '51-100' | '101-200' | '200+';
 
 type TrafficEventRow = {
   created_at: string;
   session_id: string | null;
   path: string | null;
+};
+
+type FavoriteEventRow = {
+  shop_id: string;
+  created_at: string;
+};
+
+type ShopActionEventRow = {
+  shop_id: string;
+  action_type: 'locate_click' | 'share_click' | 'complaint_submit';
+  source: string | null;
+  created_at: string;
+};
+
+type CommentMetricRow = {
+  shop_id: string;
+  rating: number;
+  created_at: string;
 };
 
 type AdminAuditLogRow = {
@@ -246,6 +267,19 @@ function parsePrice(value: string): number | null {
 
 function isLikelyMacauArea(lng: number, lat: number): boolean {
   return lng >= 113 && lng <= 114.2 && lat >= 21.8 && lat <= 22.6;
+}
+
+function inTimeRange(ts: string, startMs: number, endMs: number): boolean {
+  const ms = new Date(ts).getTime();
+  return Number.isFinite(ms) && ms >= startMs && ms < endMs;
+}
+
+function getPriceBand(price: number | null): AnalyticsPriceBand {
+  if (price === null || !Number.isFinite(price)) return 'all';
+  if (price <= 50) return '0-50';
+  if (price <= 100) return '51-100';
+  if (price <= 200) return '101-200';
+  return '200+';
 }
 
 const ADMIN_ALL_PRESET_TAGS: string[] = Object.values(L2_TAGS)
@@ -498,7 +532,20 @@ export default function AdminModerationPage() {
   const [sortKey, setSortKey] = useState<ShopSortKey>('created_desc');
   const [newComments24h, setNewComments24h] = useState(0);
   const [trafficEvents, setTrafficEvents] = useState<TrafficEventRow[]>([]);
+  const [favoriteEvents, setFavoriteEvents] = useState<FavoriteEventRow[]>([]);
+  const [shopActionEvents, setShopActionEvents] = useState<ShopActionEventRow[]>([]);
+  const [commentMetrics, setCommentMetrics] = useState<CommentMetricRow[]>([]);
   const [trafficRange, setTrafficRange] = useState<TrafficRangeKey>('24h');
+  const [analyticsRange, setAnalyticsRange] = useState<AnalyticsRangeKey>('7d');
+  const [analyticsCustomStart, setAnalyticsCustomStart] = useState<string>('');
+  const [analyticsCustomEnd, setAnalyticsCustomEnd] = useState<string>('');
+  const [analyticsSort, setAnalyticsSort] = useState<AnalyticsSortKey>('favorites');
+  const [analyticsRegion, setAnalyticsRegion] = useState<ShopRegion | 'all'>('all');
+  const [analyticsCategory, setAnalyticsCategory] = useState<ShopCategory | 'all'>('all');
+  const [analyticsPriceBand, setAnalyticsPriceBand] = useState<AnalyticsPriceBand>('all');
+  const [analyticsOnlyNew, setAnalyticsOnlyNew] = useState(false);
+  const [analyticsStatus, setAnalyticsStatus] = useState<ShopStatus | 'all'>('verified');
+  const [selectedAnalyticsShopId, setSelectedAnalyticsShopId] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogRow[]>([]);
 
@@ -532,6 +579,24 @@ export default function AdminModerationPage() {
       .order('created_at', {ascending: false})
       .limit(20000);
 
+    const favoritesRes = await supabase
+      .from('favorites')
+      .select('shop_id,created_at')
+      .order('created_at', {ascending: false})
+      .limit(20000);
+
+    const actionsRes = await supabase
+      .from('shop_action_events')
+      .select('shop_id,action_type,source,created_at')
+      .order('created_at', {ascending: false})
+      .limit(40000);
+
+    const commentsMetricRes = await supabase
+      .from('comments')
+      .select('shop_id,rating,created_at')
+      .order('created_at', {ascending: false})
+      .limit(40000);
+
     if (shopsRes.error) {
       setError(shopsRes.error.message);
       setShops([]);
@@ -555,6 +620,44 @@ export default function AdminModerationPage() {
       setTrafficEvents([]);
     } else {
       setTrafficEvents((trafficRes.data ?? []) as TrafficEventRow[]);
+    }
+
+    if (favoritesRes.error) {
+      console.warn('Failed to fetch favorite metrics:', favoritesRes.error.message);
+      setFavoriteEvents([]);
+    } else {
+      setFavoriteEvents(
+        ((favoritesRes.data ?? []) as Array<{shop_id: string | null; created_at: string}> )
+          .filter((row) => Boolean(row.shop_id))
+          .map((row) => ({shop_id: String(row.shop_id), created_at: row.created_at}))
+      );
+    }
+
+    if (actionsRes.error) {
+      console.warn('Failed to fetch shop action metrics:', actionsRes.error.message);
+      setShopActionEvents([]);
+    } else {
+      setShopActionEvents(
+        ((actionsRes.data ?? []) as Array<{shop_id: string | null; action_type: 'locate_click' | 'share_click' | 'complaint_submit'; source: string | null; created_at: string}>)
+          .filter((row) => Boolean(row.shop_id))
+          .map((row) => ({
+            shop_id: String(row.shop_id),
+            action_type: row.action_type,
+            source: row.source,
+            created_at: row.created_at
+          }))
+      );
+    }
+
+    if (commentsMetricRes.error) {
+      console.warn('Failed to fetch comment metrics:', commentsMetricRes.error.message);
+      setCommentMetrics([]);
+    } else {
+      setCommentMetrics(
+        ((commentsMetricRes.data ?? []) as Array<{shop_id: string | null; rating: number | null; created_at: string}>)
+          .filter((row) => Boolean(row.shop_id))
+          .map((row) => ({shop_id: String(row.shop_id), rating: Number(row.rating ?? 0), created_at: row.created_at}))
+      );
     }
 
     setShops((shopsRes.data ?? []).map((row) => ({...row, id: String(row.id)})) as ShopRow[]);
@@ -869,6 +972,154 @@ export default function AdminModerationPage() {
     return alerts;
   }, [healthStats, trafficRange, trafficSummary.pv, trafficSummary.uv]);
 
+  const analyticsRangeWindow = useMemo(() => {
+    const now = Date.now();
+    if (analyticsRange === '7d') return {startMs: now - 7 * 24 * 60 * 60 * 1000, endMs: now};
+    if (analyticsRange === '30d') return {startMs: now - 30 * 24 * 60 * 60 * 1000, endMs: now};
+
+    const startMs = analyticsCustomStart ? new Date(`${analyticsCustomStart}T00:00:00`).getTime() : now - 7 * 24 * 60 * 60 * 1000;
+    const endMs = analyticsCustomEnd ? new Date(`${analyticsCustomEnd}T23:59:59`).getTime() : now;
+
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs >= endMs) {
+      return {startMs: now - 7 * 24 * 60 * 60 * 1000, endMs: now};
+    }
+
+    return {startMs, endMs};
+  }, [analyticsCustomEnd, analyticsCustomStart, analyticsRange]);
+
+  const analyticsRows = useMemo(() => {
+    const {startMs, endMs} = analyticsRangeWindow;
+    const prevStartMs = startMs - (endMs - startMs);
+    const prevEndMs = startMs;
+
+    const clicksByShop = new Map<string, number>();
+    const prevClicksByShop = new Map<string, number>();
+    const favoritesByShop = new Map<string, number>();
+    const prevFavoritesByShop = new Map<string, number>();
+    const sharesByShop = new Map<string, number>();
+    const complaintsByShop = new Map<string, number>();
+    const conversionsByShop = new Map<string, number>();
+    const commentsByShop = new Map<string, number>();
+
+    trafficEvents.forEach((event) => {
+      const match = (event.path ?? '').match(/\/shop\/([^/?#]+)/);
+      if (!match?.[1]) return;
+      const shopId = match[1];
+      if (inTimeRange(event.created_at, startMs, endMs)) {
+        clicksByShop.set(shopId, (clicksByShop.get(shopId) ?? 0) + 1);
+      } else if (inTimeRange(event.created_at, prevStartMs, prevEndMs)) {
+        prevClicksByShop.set(shopId, (prevClicksByShop.get(shopId) ?? 0) + 1);
+      }
+    });
+
+    favoriteEvents.forEach((event) => {
+      if (inTimeRange(event.created_at, startMs, endMs)) {
+        favoritesByShop.set(event.shop_id, (favoritesByShop.get(event.shop_id) ?? 0) + 1);
+      } else if (inTimeRange(event.created_at, prevStartMs, prevEndMs)) {
+        prevFavoritesByShop.set(event.shop_id, (prevFavoritesByShop.get(event.shop_id) ?? 0) + 1);
+      }
+    });
+
+    shopActionEvents.forEach((event) => {
+      if (!inTimeRange(event.created_at, startMs, endMs)) return;
+      if (event.action_type === 'share_click') {
+        sharesByShop.set(event.shop_id, (sharesByShop.get(event.shop_id) ?? 0) + 1);
+      }
+      if (event.action_type === 'complaint_submit') {
+        complaintsByShop.set(event.shop_id, (complaintsByShop.get(event.shop_id) ?? 0) + 1);
+      }
+      if (event.action_type === 'locate_click') {
+        conversionsByShop.set(event.shop_id, (conversionsByShop.get(event.shop_id) ?? 0) + 1);
+      }
+    });
+
+    commentMetrics.forEach((event) => {
+      if (!inTimeRange(event.created_at, startMs, endMs)) return;
+      if (event.rating > 0 && event.rating <= 2) {
+        commentsByShop.set(event.shop_id, (commentsByShop.get(event.shop_id) ?? 0) + 1);
+      }
+    });
+
+    const rows = shops
+      .filter((shop) => {
+        if (analyticsStatus !== 'all') {
+          const s = shop.status ?? 'pending';
+          if (s !== analyticsStatus) return false;
+        }
+        if (analyticsRegion !== 'all' && shop.region !== analyticsRegion) return false;
+        if (analyticsCategory !== 'all' && shop.category !== analyticsCategory) return false;
+        if (analyticsOnlyNew) {
+          const created = shop.created_at ? new Date(shop.created_at).getTime() : 0;
+          if (!Number.isFinite(created) || Date.now() - created > 30 * 24 * 60 * 60 * 1000) return false;
+        }
+        if (analyticsPriceBand !== 'all' && getPriceBand(shop.price_per_person) !== analyticsPriceBand) return false;
+        return true;
+      })
+      .map((shop) => {
+        const clicks = clicksByShop.get(shop.id) ?? 0;
+        const favorites = favoritesByShop.get(shop.id) ?? 0;
+        const prevFavorites = prevFavoritesByShop.get(shop.id) ?? 0;
+        const shares = sharesByShop.get(shop.id) ?? 0;
+        const complaints = (complaintsByShop.get(shop.id) ?? 0) + (commentsByShop.get(shop.id) ?? 0);
+        const conversions = conversionsByShop.get(shop.id) ?? 0;
+        const favoriteRate = clicks > 0 ? favorites / clicks : 0;
+        const conversionRate = clicks > 0 ? conversions / clicks : 0;
+        const favoriteGrowth = prevFavorites > 0 ? (favorites - prevFavorites) / prevFavorites : favorites > 0 ? 1 : 0;
+        const prevClicks = prevClicksByShop.get(shop.id) ?? 0;
+        const clickGrowth = prevClicks > 0 ? (clicks - prevClicks) / prevClicks : clicks > 0 ? 1 : 0;
+
+        const trendFlag = favoriteGrowth > 0.5 ? '爆发' : favoriteGrowth < -0.3 ? '下滑' : null;
+
+        return {
+          shop,
+          clicks,
+          favorites,
+          shares,
+          complaints,
+          conversions,
+          favoriteRate,
+          conversionRate,
+          favoriteGrowth,
+          clickGrowth,
+          trendFlag
+        };
+      })
+      .sort((a, b) => {
+        if (analyticsSort === 'favorites') return b.favorites - a.favorites;
+        if (analyticsSort === 'clicks') return b.clicks - a.clicks;
+        if (analyticsSort === 'favorite_rate') return b.favoriteRate - a.favoriteRate;
+        if (analyticsSort === 'shares') return b.shares - a.shares;
+        if (analyticsSort === 'complaints') return b.complaints - a.complaints;
+        return b.conversionRate - a.conversionRate;
+      });
+
+    return rows;
+  }, [analyticsCategory, analyticsOnlyNew, analyticsPriceBand, analyticsRangeWindow, analyticsRegion, analyticsSort, analyticsStatus, commentMetrics, favoriteEvents, shopActionEvents, shops, trafficEvents]);
+
+  const selectedAnalyticsShop = useMemo(() => {
+    if (!selectedAnalyticsShopId) return analyticsRows[0] ?? null;
+    return analyticsRows.find((item) => item.shop.id === selectedAnalyticsShopId) ?? analyticsRows[0] ?? null;
+  }, [analyticsRows, selectedAnalyticsShopId]);
+
+  const selectedShopSourceBreakdown = useMemo(() => {
+    if (!selectedAnalyticsShop) return [] as Array<{source: string; count: number}>;
+
+    const {startMs, endMs} = analyticsRangeWindow;
+    const map = new Map<string, number>();
+
+    shopActionEvents.forEach((event) => {
+      if (event.shop_id !== selectedAnalyticsShop.shop.id) return;
+      if (!inTimeRange(event.created_at, startMs, endMs)) return;
+      const key = event.source?.trim() || 'unknown';
+      map.set(key, (map.get(key) ?? 0) + 1);
+    });
+
+    return Array.from(map.entries())
+      .map(([source, count]) => ({source, count}))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [analyticsRangeWindow, selectedAnalyticsShop, shopActionEvents]);
+
   const updateStatus = async (shopId: string, nextStatus: ShopStatus, action: BusyActionType) => {
     if (!isAdmin || actionLoadingById[shopId]) return;
 
@@ -1169,6 +1420,128 @@ export default function AdminModerationPage() {
               ))
             )}
           </div>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">店铺数据榜单（核心）</h2>
+              <p className="mt-1 text-xs text-slate-500">支持 7天 / 30天 / 自定义，默认按新增收藏数降序</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setAnalyticsRange('7d')} className={`rounded-full px-3 py-1 text-xs font-semibold ${analyticsRange === '7d' ? 'bg-[#006633] text-white' : 'bg-slate-100 text-slate-600'}`}>近7天</button>
+              <button type="button" onClick={() => setAnalyticsRange('30d')} className={`rounded-full px-3 py-1 text-xs font-semibold ${analyticsRange === '30d' ? 'bg-[#006633] text-white' : 'bg-slate-100 text-slate-600'}`}>近30天</button>
+              <button type="button" onClick={() => setAnalyticsRange('custom')} className={`rounded-full px-3 py-1 text-xs font-semibold ${analyticsRange === 'custom' ? 'bg-[#006633] text-white' : 'bg-slate-100 text-slate-600'}`}>自定义</button>
+            </div>
+          </div>
+
+          {analyticsRange === 'custom' && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <input type="date" value={analyticsCustomStart} onChange={(e) => setAnalyticsCustomStart(e.target.value)} className="rounded-lg border border-slate-300 px-2 py-1" />
+              <span className="text-slate-400">至</span>
+              <input type="date" value={analyticsCustomEnd} onChange={(e) => setAnalyticsCustomEnd(e.target.value)} className="rounded-lg border border-slate-300 px-2 py-1" />
+            </div>
+          )}
+
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <select value={analyticsSort} onChange={(e) => setAnalyticsSort(e.target.value as AnalyticsSortKey)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs">
+              <option value="favorites">按收藏数</option>
+              <option value="clicks">按点击数</option>
+              <option value="favorite_rate">按收藏率</option>
+              <option value="shares">按分享数</option>
+              <option value="complaints">按投诉/差评数</option>
+              <option value="conversion_rate">按转化率</option>
+            </select>
+
+            <select value={analyticsRegion} onChange={(e) => setAnalyticsRegion(e.target.value as ShopRegion | 'all')} className="rounded-lg border border-slate-300 px-3 py-2 text-xs">
+              <option value="all">全部区域</option>
+              {REGION_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+
+            <select value={analyticsCategory} onChange={(e) => setAnalyticsCategory(e.target.value as ShopCategory | 'all')} className="rounded-lg border border-slate-300 px-3 py-2 text-xs">
+              <option value="all">全部品类</option>
+              {CATEGORY_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+
+            <select value={analyticsPriceBand} onChange={(e) => setAnalyticsPriceBand(e.target.value as AnalyticsPriceBand)} className="rounded-lg border border-slate-300 px-3 py-2 text-xs">
+              <option value="all">全部价格带</option>
+              <option value="0-50">0-50</option>
+              <option value="51-100">51-100</option>
+              <option value="101-200">101-200</option>
+              <option value="200+">200+</option>
+            </select>
+
+            <select value={analyticsStatus} onChange={(e) => setAnalyticsStatus(e.target.value as ShopStatus | 'all')} className="rounded-lg border border-slate-300 px-3 py-2 text-xs">
+              <option value="all">全部状态</option>
+              <option value="verified">已审核</option>
+              <option value="pending">待审核</option>
+              <option value="rejected">已驳回</option>
+            </select>
+
+            <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
+              <input type="checkbox" checked={analyticsOnlyNew} onChange={(e) => setAnalyticsOnlyNew(e.target.checked)} /> 仅看新上线(30天)
+            </label>
+          </div>
+
+          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+            <table className="min-w-full divide-y divide-slate-200 text-xs">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">店铺</th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">收藏</th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">点击</th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">收藏率</th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">分享</th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">投诉</th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">转化率</th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-600">趋势</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {analyticsRows.slice(0, 30).map((row) => (
+                  <tr key={row.shop.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setSelectedAnalyticsShopId(row.shop.id)}>
+                    <td className="px-3 py-2 font-medium text-slate-800">{row.shop.name}</td>
+                    <td className="px-3 py-2">{row.favorites}</td>
+                    <td className="px-3 py-2">{row.clicks}</td>
+                    <td className="px-3 py-2">{(row.favoriteRate * 100).toFixed(1)}%</td>
+                    <td className="px-3 py-2">{row.shares}</td>
+                    <td className="px-3 py-2">{row.complaints}</td>
+                    <td className="px-3 py-2">{(row.conversionRate * 100).toFixed(1)}%</td>
+                    <td className="px-3 py-2">
+                      {row.trendFlag ? (
+                        <span className={`rounded-full px-2 py-0.5 font-semibold ${row.trendFlag === '爆发' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{row.trendFlag}</span>
+                      ) : (
+                        <span className="text-slate-400">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {selectedAnalyticsShop && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-sm font-bold text-slate-900">店铺下钻：{selectedAnalyticsShop.shop.name}</h3>
+              <p className="mt-1 text-xs text-slate-600">{selectedAnalyticsShop.shop.category ?? '-'} · {selectedAnalyticsShop.shop.shop_type ?? '-'} · 上架时间 {selectedAnalyticsShop.shop.created_at ? new Date(selectedAnalyticsShop.shop.created_at).toLocaleDateString() : '-'}</p>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-xs">
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">点击：<span className="font-semibold">{selectedAnalyticsShop.clicks}</span></div>
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">收藏：<span className="font-semibold">{selectedAnalyticsShop.favorites}</span></div>
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">收藏率：<span className="font-semibold">{(selectedAnalyticsShop.favoriteRate * 100).toFixed(1)}%</span></div>
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">投诉/差评：<span className="font-semibold">{selectedAnalyticsShop.complaints}</span></div>
+              </div>
+
+              <div className="mt-3">
+                <p className="text-xs font-semibold text-slate-700">流量来源（事件 source Top）</p>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {selectedShopSourceBreakdown.length === 0 ? <span className="text-xs text-slate-500">暂无来源数据</span> : selectedShopSourceBreakdown.map((item) => (
+                    <span key={item.source} className="rounded-full border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">{item.source}: {item.count}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

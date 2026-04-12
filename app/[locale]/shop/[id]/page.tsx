@@ -195,6 +195,16 @@ function PostComment({shopId, onPublished}: {shopId: string; onPublished: () => 
       return;
     }
 
+    const ensureSessionId = () => {
+      if (typeof window === 'undefined') return null;
+      const key = 'cityu_food_session_id';
+      const existing = window.localStorage.getItem(key);
+      if (existing) return existing;
+      const next = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      window.localStorage.setItem(key, next);
+      return next;
+    };
+
     setSubmitting(true);
     setError(null);
     setMessage(null);
@@ -230,6 +240,15 @@ function PostComment({shopId, onPublished}: {shopId: string; onPublished: () => 
           throw imageError;
         }
       }
+
+      const sessionId = ensureSessionId();
+      await supabase.from('shop_action_events').insert({
+        shop_id: shopId,
+        action_type: 'complaint_submit',
+        session_id: sessionId,
+        source: 'shop_detail_comment_rating',
+        metadata: {rating}
+      });
 
       setContent('');
       setRating(5);

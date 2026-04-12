@@ -4,6 +4,7 @@ import {Check, Heart, Navigation, Tag, Trash2} from 'lucide-react';
 import {useLocale, useTranslations} from 'next-intl';
 import StarRating from '@/components/StarRating';
 import {getRatingTagFromData} from '@/lib/utils/ratingTag';
+import {supabase} from '@/lib/supabase';
 import {Shop} from '@/types/shop';
 
 interface ShopCardProps {
@@ -63,6 +64,26 @@ export default function ShopCard({
   const hasValidImageUrl = typeof coverImageUrl === 'string' && coverImageUrl.trim().length > 0;
   const ratingTag = getRatingTagFromData(shop.rating, shop.tags, shop.subTags ?? [], shop.ratingLabel);
   const hasLowSampleSize = shop.reviews > 0 && shop.reviews < 3;
+
+  const ensureSessionId = () => {
+    if (typeof window === 'undefined') return null;
+    const key = 'cityu_food_session_id';
+    const existing = window.localStorage.getItem(key);
+    if (existing) return existing;
+    const next = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    window.localStorage.setItem(key, next);
+    return next;
+  };
+
+  const trackAction = async (actionType: 'locate_click' | 'share_click', source: string) => {
+    const sessionId = ensureSessionId();
+    await supabase.from('shop_action_events').insert({
+      shop_id: shop.id,
+      action_type: actionType,
+      session_id: sessionId,
+      source
+    });
+  };
 
   return (
     <div
@@ -194,6 +215,9 @@ export default function ShopCard({
 
           <Link
             href={`/${locale}/shop/${shop.id}`}
+            onClick={() => {
+              void trackAction('share_click', 'shop_card_detail_entry');
+            }}
             className="inline-flex items-center rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
           >
             查看评论
@@ -201,7 +225,10 @@ export default function ShopCard({
 
           <button
             type="button"
-            onClick={() => onLocate?.(shop.id)}
+            onClick={() => {
+              void trackAction('locate_click', 'shop_card_locate');
+              onLocate?.(shop.id);
+            }}
             className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors"
           >
             <Navigation className="w-3.5 h-3.5" />
