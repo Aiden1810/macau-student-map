@@ -1277,8 +1277,8 @@ export default function AdminModerationPage() {
                 const hasShopId = Boolean(shopId);
                 const shopNameFromMap = shopId ? shopNameById.get(shopId) ?? null : null;
                 const shopLabel = shopNameFromMetadata ?? shopNameFromMap ?? (hasShopId ? '未知店铺' : '-');
-                const shopTooltip = hasShopId ? `UUID: ${shopId}` : undefined;
-                const shortShopId = hasShopId ? shortenUuid(shopId) : null;
+                const shopTooltip = shopId ? `UUID: ${shopId}` : undefined;
+                const shortShopId = shopId ? shortenUuid(shopId) : null;
 
                 return (
                   <div key={log.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
