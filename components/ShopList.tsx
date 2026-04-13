@@ -42,7 +42,7 @@ interface ShopListProps {
 }
 
 const SHEET_COLLAPSED_HEIGHT = 280;
-const SHEET_L2_EXPANDED_EXTRA_HEIGHT = 46;
+const SHEET_L2_ROW_RESERVED_HEIGHT = 46;
 
 type MobileSheetSnap = 'collapsed' | 'full';
 
@@ -203,11 +203,13 @@ export default function ShopList({
   };
 
   const hasVisibleL2Tags = activeL1 !== 'all' && onL2Change !== undefined;
-  const tagAreaCompensation = hasVisibleL2Tags ? SHEET_L2_EXPANDED_EXTRA_HEIGHT : 0;
 
   const currentSheetHeight = mobileHeight > 0 ? mobileHeight : getSnapHeight(mobileSnap);
-  const currentSheetHeightStyle = `${currentSheetHeight + tagAreaCompensation}px`;
-  const mobileListHeight = Math.max(120, currentSheetHeight - 210);
+  const currentSheetHeightStyle = `${currentSheetHeight}px`;
+  const mobileListHeight = Math.max(
+    120,
+    currentSheetHeight - 210 - (hasVisibleL2Tags ? SHEET_L2_ROW_RESERVED_HEIGHT : 0)
+  );
 
   const desktopListContent = (
     <>
