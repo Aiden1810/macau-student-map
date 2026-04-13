@@ -130,6 +130,8 @@ export default function Page() {
   const [pageNotice, setPageNotice] = useState<string | null>(null);
   const [showSubmissionFollowup, setShowSubmissionFollowup] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [mobileSheetTopOffset, setMobileSheetTopOffset] = useState(116);
+  const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const hasFetchedRef = useRef(false);
 
   const fetchShops = useCallback(async () => {
@@ -208,6 +210,24 @@ export default function Page() {
   useEffect(() => {
     fetchShops();
   }, [fetchShops]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const updateMobileSheetTopOffset = () => {
+      const headerBottom = mobileHeaderRef.current?.getBoundingClientRect().bottom ?? 116;
+      setMobileSheetTopOffset(Math.max(96, Math.round(headerBottom)));
+    };
+
+    updateMobileSheetTopOffset();
+    window.addEventListener('resize', updateMobileSheetTopOffset);
+
+    return () => {
+      window.removeEventListener('resize', updateMobileSheetTopOffset);
+    };
+  }, []);
 
   useEffect(() => {
     const channel = supabase
@@ -463,7 +483,7 @@ export default function Page() {
         </div>
 
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] flex flex-col">
-          <div className="pointer-events-auto rounded-b-[18px] bg-white px-[14px] pt-[max(env(safe-area-inset-top),4px)] pb-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+          <div ref={mobileHeaderRef} className="pointer-events-auto rounded-b-[18px] bg-white px-[14px] pt-[max(env(safe-area-inset-top),4px)] pb-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
             <Header
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -528,6 +548,7 @@ export default function Page() {
           deletingShopId={deletingShopId}
           onDeleteShop={handleDeleteShop}
           collapseMobileSheetSignal={collapseMobileSheetSignal}
+          mobileTopOffsetPx={mobileSheetTopOffset}
           drawerFilters={drawerFilters}
           onChangeDrawerFilters={setDrawerFilters}
           activeL1={activeL1}

@@ -28,6 +28,7 @@ interface ShopListProps {
   deletingShopId: Shop['id'] | null;
   onDeleteShop: (shopId: Shop['id']) => void;
   collapseMobileSheetSignal?: number;
+  mobileTopOffsetPx?: number;
   drawerFilters: DrawerFiltersState;
   onChangeDrawerFilters: (next: DrawerFiltersState) => void;
   activeL1?: ShopCategoryKey;
@@ -40,11 +41,9 @@ interface ShopListProps {
   onToggleFavorite?: (shopId: string, e: React.MouseEvent) => void;
 }
 
-const SHEET_COLLAPSED_HEIGHT = 320;
-const SHEET_HALF_VH = 62;
-const SHEET_EXPANDED_VH = 85;
+const SHEET_COLLAPSED_HEIGHT = 280;
 
-type MobileSheetSnap = 'collapsed' | 'half' | 'full';
+type MobileSheetSnap = 'collapsed' | 'full';
 
 const MOBILE_GLASS_STYLE: React.CSSProperties = {
   background: 'rgba(235, 245, 236, 0.75)',
@@ -74,6 +73,7 @@ export default function ShopList({
   deletingShopId,
   onDeleteShop,
   collapseMobileSheetSignal = 0,
+  mobileTopOffsetPx = 116,
   drawerFilters,
   onChangeDrawerFilters,
   activeL1 = 'all',
@@ -113,27 +113,17 @@ export default function ShopList({
 
   const getViewportHeight = () => (typeof window === 'undefined' ? 0 : window.innerHeight);
   const getCollapsedHeightPx = () => SHEET_COLLAPSED_HEIGHT;
-  const getHalfHeightPx = () => getViewportHeight() * (SHEET_HALF_VH / 100);
-  const getExpandedHeightPx = () => getViewportHeight() * (SHEET_EXPANDED_VH / 100);
+  const getExpandedHeightPx = () => Math.max(300, getViewportHeight() - mobileTopOffsetPx);
 
   const getSnapHeight = (snap: MobileSheetSnap) => {
     if (snap === 'collapsed') return getCollapsedHeightPx();
-    if (snap === 'half') return getHalfHeightPx();
     return getExpandedHeightPx();
   };
 
   const resolveClosestSnap = (height: number): MobileSheetSnap => {
-    const entries: Array<{snap: MobileSheetSnap; height: number}> = [
-      {snap: 'collapsed', height: getCollapsedHeightPx()},
-      {snap: 'half', height: getHalfHeightPx()},
-      {snap: 'full', height: getExpandedHeightPx()}
-    ];
-
-    return entries.reduce((closest, current) => {
-      const currentDistance = Math.abs(current.height - height);
-      const closestDistance = Math.abs(closest.height - height);
-      return currentDistance < closestDistance ? current : closest;
-    }).snap;
+    const collapsedDistance = Math.abs(getCollapsedHeightPx() - height);
+    const expandedDistance = Math.abs(getExpandedHeightPx() - height);
+    return expandedDistance < collapsedDistance ? 'full' : 'collapsed';
   };
 
   const startDrag = (clientY: number) => {
@@ -159,11 +149,7 @@ export default function ShopList({
     let nextSnap = resolveClosestSnap(currentHeight);
 
     if (Math.abs(delta) > 36) {
-      if (delta > 0) {
-        nextSnap = mobileSnap === 'collapsed' ? 'half' : 'full';
-      } else {
-        nextSnap = mobileSnap === 'full' ? 'half' : 'collapsed';
-      }
+      nextSnap = delta > 0 ? 'full' : 'collapsed';
     }
 
     setMobileSnap(nextSnap);
@@ -216,7 +202,7 @@ export default function ShopList({
   };
 
   const currentSheetHeight = mobileHeight > 0 ? mobileHeight : getSnapHeight(mobileSnap);
-  const currentSheetHeightStyle = mobileHeight > 0 ? `${mobileHeight}px` : mobileSnap === 'full' ? `${SHEET_EXPANDED_VH}dvh` : mobileSnap === 'half' ? `${SHEET_HALF_VH}dvh` : `${SHEET_COLLAPSED_HEIGHT}px`;
+  const currentSheetHeightStyle = `${currentSheetHeight}px`;
   const mobileListHeight = Math.max(120, currentSheetHeight - 210);
 
   const desktopListContent = (
@@ -381,7 +367,7 @@ export default function ShopList({
           role="button"
           tabIndex={0}
           aria-label={tHome('mobile.expandCollapseDrawerAria')}
-          onClick={() => setMobileSnap((prev) => (prev === 'collapsed' ? 'half' : prev === 'half' ? 'full' : 'collapsed'))}
+          onClick={() => setMobileSnap((prev) => (prev === 'collapsed' ? 'full' : 'collapsed'))}
           onTouchStart={(e) => startDrag(e.touches[0].clientY)}
           onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
           onTouchEnd={(e) => endDrag(e.changedTouches[0].clientY)}
