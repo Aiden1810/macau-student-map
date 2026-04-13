@@ -1,18 +1,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import {Navigation, Search, SlidersHorizontal, Star, StarHalf} from 'lucide-react';
+import {ChevronDown, Navigation, Search, SlidersHorizontal, Star, StarHalf} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
 import {L2_TAGS} from '@/components/FilterBar';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
 import {DrawerFiltersState, Shop, ShopCategoryKey, ShopFeature} from '@/types/shop';
-
-interface ScenarioShortcut {
-  key: 'student-deal' | 'top-rated' | 'delivery' | 'new-shop';
-  label: string;
-  helper: string;
-}
 
 interface ShopListProps {
   filteredShops: Shop[];
@@ -36,19 +30,17 @@ interface ShopListProps {
   collapseMobileSheetSignal?: number;
   drawerFilters: DrawerFiltersState;
   onChangeDrawerFilters: (next: DrawerFiltersState) => void;
-  activeScenario?: ScenarioShortcut['key'] | null;
-  onChangeActiveScenario?: (next: ScenarioShortcut['key'] | null) => void;
-  scenarioShortcuts?: ScenarioShortcut[];
   activeL1?: ShopCategoryKey;
-  activeL2?: string | null;
-  onL2Change?: (l1: ShopCategoryKey, l2: string | null) => void;
+  activeL2?: string[];
+  onL1Change?: (l1: ShopCategoryKey) => void;
+  onL2Change?: (l1: ShopCategoryKey, l2: string) => void;
   showFavorites?: boolean;
   setShowFavorites?: (next: boolean) => void;
   favorites?: string[];
   onToggleFavorite?: (shopId: string, e: React.MouseEvent) => void;
 }
 
-const SHEET_COLLAPSED_HEIGHT = 215;
+const SHEET_COLLAPSED_HEIGHT = 300;
 const SHEET_EXPANDED_VH = 85;
 
 const MOBILE_GLASS_STYLE: React.CSSProperties = {
@@ -81,11 +73,9 @@ export default function ShopList({
   collapseMobileSheetSignal = 0,
   drawerFilters,
   onChangeDrawerFilters,
-  activeScenario = null,
-  onChangeActiveScenario,
-  scenarioShortcuts = [],
   activeL1 = 'all',
-  activeL2 = null,
+  activeL2 = [],
+  onL1Change,
   onL2Change,
   showFavorites,
   setShowFavorites,
@@ -402,37 +392,8 @@ export default function ShopList({
           )}
         </div>
 
-        {/* L2 sub-tags strip — shown in drawer when a category is selected */}
-        {activeL1 !== 'all' && onL2Change && (() => {
-          const groups = L2_TAGS[activeL1 as Exclude<ShopCategoryKey, 'all'>] ?? [];
-          const allTags = groups.flatMap((group) => group.options);
-          if (allTags.length === 0) return null;
-          return (
-            <div className="hide-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-1">
-              {allTags.map((tag) => {
-                const isActive = activeL2 === tag.value;
-                return (
-                  <button
-                    key={tag.value}
-                    type="button"
-                    onClick={() => onL2Change(activeL1, isActive ? null : tag.value)}
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
-                      isActive
-                        ? 'bg-[#006633] text-white'
-                        : 'bg-white/60 text-[#0d2918]'
-                    }`}
-                  >
-                    {tFilters(`l2Tags.${tag.labelKey}`)}
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })()}
-
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-[#0d2918]">{tHome('mobile.scenarioFilterTitle')}</p>
             {showFavorites !== undefined && setShowFavorites !== undefined && (
               <button
                 onClick={() => setShowFavorites(!showFavorites)}
@@ -449,26 +410,55 @@ export default function ShopList({
           <span className="rounded-2xl bg-[rgba(26,92,46,0.10)] px-2.5 py-1 text-xs font-semibold text-[#1A5C2E]">{tFilters('nearbyCount', {count: filteredShops.length})}</span>
         </div>
 
-        <div className="hide-scrollbar mb-2 flex gap-2 overflow-x-auto pb-1">
-          {scenarioShortcuts?.map((scenario) => {
-            const active = activeScenario === scenario.key;
+        <div className="hide-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-1">
+          {(Object.keys(L2_TAGS) as Exclude<ShopCategoryKey, 'all'>[]).map((l1Key) => {
+            const isActive = activeL1 === l1Key;
             return (
               <button
-                key={scenario.key}
+                key={l1Key}
                 type="button"
-                onClick={() => onChangeActiveScenario?.(active ? null : scenario.key)}
-                className={`min-w-[94px] rounded-[13px] px-3 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-[16px] [backdrop-filter:blur(16px)_saturate(1.6)] ${
-                  active
-                    ? 'bg-[rgba(22,80,38,0.14)] text-[#0d2918] ring-1 ring-[rgba(26,92,46,0.25)]'
-                    : 'bg-[rgba(255,255,255,0.45)] text-[#0d2918]'
+                onClick={() => onL1Change?.(l1Key)}
+                className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  isActive
+                    ? 'border-[rgba(26,92,46,0.35)] bg-[rgba(22,80,38,0.12)] text-[#0d2918]'
+                    : 'border-[rgba(0,0,0,0.08)] bg-[rgba(255,255,255,0.55)] text-[#0d2918]'
                 }`}
               >
-                <p className="text-xs font-semibold">{scenario.label}</p>
-                <p className="mt-0.5 text-[11px] opacity-80">{scenario.helper}</p>
+                <span>
+                  {tFilters(l1Key === 'drink' ? 'drinksDesserts' : l1Key === 'vibe' ? 'scenario' : l1Key === 'region' ? 'area' : l1Key === 'review' ? 'topPicks' : l1Key)}
+                </span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isActive ? 'rotate-180' : ''}`} />
               </button>
             );
           })}
         </div>
+
+        {activeL1 !== 'all' && onL2Change && (() => {
+          const groups = L2_TAGS[activeL1 as Exclude<ShopCategoryKey, 'all'>] ?? [];
+          const allTags = groups.flatMap((group) => group.options);
+          if (allTags.length === 0) return null;
+          return (
+            <div className="hide-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-1">
+              {allTags.map((tag) => {
+                const isActive = activeL2.includes(tag.value);
+                return (
+                  <button
+                    key={tag.value}
+                    type="button"
+                    onClick={() => onL2Change(activeL1, tag.value)}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
+                      isActive
+                        ? 'bg-[#006633] text-white'
+                        : 'bg-white/60 text-[#0d2918]'
+                    }`}
+                  >
+                    {tFilters(`l2Tags.${tag.labelKey}`)}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {!mobileExpanded ? (
           <button

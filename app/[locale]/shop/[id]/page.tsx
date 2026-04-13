@@ -364,7 +364,7 @@ export default function ShopDetailPage() {
 
       <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+16px)] right-4 z-40 md:hidden">
         <Link
-          href="./review/new"
+          href={`/${params.locale}/shop/${shop.id}/review/new`}
           className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-700"
         >
           <MessageCirclePlus className="h-4 w-4" />

@@ -5,14 +5,14 @@ import {useLocale, useTranslations} from 'next-intl';
 import toast from 'react-hot-toast';
 import {Link} from '@/i18n/navigation';
 import ContributionForm from '@/components/ContributionForm';
-import FilterBar, {getL2ValuesByCategory} from '@/components/FilterBar';
+import {getL2ValuesByCategory} from '@/components/FilterBar';
 import Header from '@/components/Header';
 import MapPlaceholder from '@/components/MapPlaceholder';
 import ShopList from '@/components/ShopList';
 import {mapShopList, mapSingleShop} from '@/lib/mappers/shop';
 import {supabase} from '@/lib/supabase';
 import {useFavorites} from '@/lib/hooks/useFavorites';
-import {DrawerFiltersState, Shop, ShopCategoryKey, ShopRegion, ViewMode} from '@/types/shop';
+import {DrawerFiltersState, Shop, ShopCategoryKey, ViewMode} from '@/types/shop';
 
 function mergeShopUpdate(prev: Shop[], incoming: Shop): Shop[] {
   const index = prev.findIndex((item) => item.id === incoming.id);
@@ -29,16 +29,12 @@ const DEFAULT_DRAWER_FILTERS: DrawerFiltersState = {
   features: []
 };
 
+const L1_KEYS: ShopCategoryKey[] = ['food', 'drink', 'vibe', 'region', 'deal', 'review'];
+
 function hasDrawerFilters(filters: DrawerFiltersState): boolean {
   return filters.shopType !== '全部' || filters.ratingLabel !== null || filters.features.length > 0;
 }
 
-const SCENARIO_KEYS: Array<'student-deal' | 'top-rated' | 'delivery' | 'new-shop'> = [
-  'student-deal',
-  'top-rated',
-  'delivery',
-  'new-shop'
-];
 
 function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
   if (tabKey === 'all' || tabKey === 'region') return shops;
@@ -66,12 +62,21 @@ function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
   return shops.filter((s) => s.category === tabKey);
 }
 
-function filterByL2(tag: string, shops: Shop[], l1Key: ShopCategoryKey): Shop[] {
-  if (l1Key === 'region') {
-    return shops.filter((s) => s.region === tag);
+function filterByL2(tags: string[], shops: Shop[], l1Key: ShopCategoryKey): Shop[] {
+  if (tags.length === 0) {
+    return shops;
   }
 
-  return shops.filter((s) => s.tags.includes(tag));
+  if (l1Key === 'region') {
+    return shops.filter((s) => tags.includes(s.region ?? ''));
+  }
+
+  if (l1Key === 'vibe') {
+    return shops.filter((s) => tags.some((tag) => s.tags.includes(tag)));
+  }
+
+  const selected = tags[0];
+  return shops.filter((s) => s.tags.includes(selected));
 }
 
 function applyDrawerFilters(shops: Shop[], drawerFilters: DrawerFiltersState): Shop[] {
@@ -103,10 +108,8 @@ export default function Page() {
   const [, setViewMode] = useState<ViewMode>('list');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeL1, setActiveL1] = useState<ShopCategoryKey>('all');
-  const [activeL2, setActiveL2] = useState<string | null>(null);
+  const [activeL2, setActiveL2] = useState<string[]>([]);
   const [drawerFilters, setDrawerFilters] = useState<DrawerFiltersState>(DEFAULT_DRAWER_FILTERS);
-  const [activeScenario, setActiveScenario] = useState<null | 'student-deal' | 'top-rated' | 'delivery' | 'new-shop'>(null);
-  const [activeRegion, setActiveRegion] = useState<ShopRegion | 'all'>('all');
   const [showFavorites, setShowFavorites] = useState(false);
   const {favorites, toggleFavorite, isLoaded} = useFavorites();
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
@@ -119,15 +122,6 @@ export default function Page() {
   const [approvingShopId, setApprovingShopId] = useState<Shop['id'] | null>(null);
   const [deletingShopId, setDeletingShopId] = useState<Shop['id'] | null>(null);
 
-  const scenarioShortcuts = useMemo(
-    () =>
-      SCENARIO_KEYS.map((key) => ({
-        key,
-        label: tHome(`scenario.${key}.label`),
-        helper: tHome(`scenario.${key}.helper`)
-      })),
-    [tHome]
-  );
 
   const [isContributeOpen, setIsContributeOpen] = useState(false);
   const [mapPickMode, setMapPickMode] = useState(false);
@@ -273,48 +267,24 @@ export default function Page() {
           });
 
     const l1Filtered = filterByL1(activeL1, searched);
-    const l2Filtered = activeL2 ? filterByL2(activeL2, l1Filtered, activeL1) : l1Filtered;
+    const l2Filtered = filterByL2(activeL2, l1Filtered, activeL1);
     let drawerFiltered = applyDrawerFilters(l2Filtered, drawerFilters);
 
     if (showFavorites && isLoaded) {
       drawerFiltered = drawerFiltered.filter((shop) => favorites.includes(shop.id));
     }
 
-    if (activeRegion !== 'all') {
-      drawerFiltered = drawerFiltered.filter((shop) => shop.region === activeRegion);
-    }
+    return drawerFiltered;
+  }, [activeL1, activeL2, drawerFilters, searchQuery, visibleShops, showFavorites, isLoaded, favorites]);
 
-    if (!activeScenario) {
-      return drawerFiltered;
-    }
-
-    if (activeScenario === 'student-deal') {
-      return drawerFiltered.filter((shop) => shop.features.includes('学生价') || shop.features.includes('有折扣'));
-    }
-
-    if (activeScenario === 'delivery') {
-      return drawerFiltered.filter((shop) => shop.features.includes('外卖可达'));
-    }
-
-    if (activeScenario === 'new-shop') {
-      return drawerFiltered.filter((shop) => shop.tags.includes('本周新上') || shop.tags.includes('新店开业'));
-    }
-
-    return drawerFiltered.filter((shop) => ['封神之作', '强烈推荐'].includes(shop.ratingLabel));
-  }, [activeL1, activeL2, activeScenario, drawerFilters, searchQuery, visibleShops, showFavorites, isLoaded, favorites, activeRegion]);
-
-  const hasActiveTopFilters = activeL1 !== 'all' || activeL2 !== null;
+  const hasActiveTopFilters = activeL1 !== 'all' || activeL2.length > 0;
   const hasActiveDrawerFilters = hasDrawerFilters(drawerFilters);
   const hasActiveSearch = searchQuery.trim().length > 0;
-  const hasActiveScenarioFilter = activeScenario !== null;
-  const hasActiveRegionFilter = activeRegion !== 'all';
   const hasActiveFavoriteFilter = showFavorites;
   const hasActiveFilters =
     hasActiveTopFilters ||
     hasActiveDrawerFilters ||
     hasActiveSearch ||
-    hasActiveScenarioFilter ||
-    hasActiveRegionFilter ||
     hasActiveFavoriteFilter;
 
   const activeFilterLabels = useMemo(() => {
@@ -324,16 +294,12 @@ export default function Page() {
       labels.push(tFilters('myFavorites'));
     }
 
-    if (activeRegion !== 'all') {
-      labels.push(`${tHome('activeFilter.areaPrefix')}: ${activeRegion}`);
-    }
-
     if (activeL1 !== 'all') {
       labels.push(`${tHome('activeFilter.channelPrefix')}: ${tFilters(activeL1 === 'drink' ? 'drinksDesserts' : activeL1 === 'vibe' ? 'scenario' : activeL1 === 'region' ? 'area' : activeL1 === 'review' ? 'topPicks' : activeL1)}`);
     }
 
-    if (activeL2) {
-      labels.push(`${tHome('activeFilter.l2Prefix')}: ${activeL2}`);
+    if (activeL2.length > 0) {
+      labels.push(...activeL2.map((l2) => `${tHome('activeFilter.l2Prefix')}: ${l2}`));
     }
 
     if (drawerFilters.shopType !== '全部') {
@@ -352,15 +318,8 @@ export default function Page() {
       labels.push(`${tHome('activeFilter.searchPrefix')}: ${searchQuery.trim()}`);
     }
 
-    if (activeScenario) {
-      const scenario = scenarioShortcuts.find((item) => item.key === activeScenario);
-      if (scenario) {
-        labels.push(`${tHome('activeFilter.scenarioPrefix')}: ${scenario.label}`);
-      }
-    }
-
     return labels;
-  }, [activeL1, activeL2, activeScenario, activeRegion, drawerFilters, hasActiveSearch, scenarioShortcuts, searchQuery, showFavorites, tFilters, tHome]);
+  }, [activeL1, activeL2, drawerFilters, hasActiveSearch, searchQuery, showFavorites, tFilters, tHome]);
 
   useEffect(() => {
     if (displayedShops.length === 0) {
@@ -374,33 +333,36 @@ export default function Page() {
     }
   }, [displayedShops, selectedShopId]);
 
-  const handleTopFilterChange = (l1: ShopCategoryKey, l2: string | null) => {
-    if (l1 !== activeL1) {
-      setActiveL1(l1);
-      setActiveL2(null);
-      setDrawerFilters(DEFAULT_DRAWER_FILTERS);
-      // If we switch away from region tab, keep the activeRegion filter active (sticky)
-      // but if we switch TO region tab, reset it unless we pick one? 
-      // Actually, if they click "Region" tab, we show all initially in that tab context.
-      if (l1 === 'region') {
-         setActiveRegion('all');
-      }
+  const handleL1Change = (l1: ShopCategoryKey) => {
+    if (!L1_KEYS.includes(l1)) {
       return;
     }
 
-    if (l1 === 'region') {
-      setActiveRegion((l2 as ShopRegion) || 'all');
+    if (activeL1 === l1) {
+      setActiveL1('all');
+      setActiveL2([]);
+      return;
     }
 
     setActiveL1(l1);
-    setActiveL2(l2);
+    setActiveL2([]);
+  };
+
+  const handleL2Change = (l1: ShopCategoryKey, l2: string) => {
+    if (activeL1 !== l1) {
+      return;
+    }
+
+    if (l1 === 'vibe' || l1 === 'region') {
+      setActiveL2((prev) => (prev.includes(l2) ? prev.filter((item) => item !== l2) : [...prev, l2]));
+    } else {
+      setActiveL2((prev) => (prev[0] === l2 ? [] : [l2]));
+    }
   };
 
   const resetAllFiltersAndSearch = () => {
     setActiveL1('all');
-    setActiveL2(null);
-    setActiveScenario(null);
-    setActiveRegion('all');
+    setActiveL2([]);
     setShowFavorites(false);
     setDrawerFilters(DEFAULT_DRAWER_FILTERS);
     setSearchQuery('');
@@ -523,13 +485,6 @@ export default function Page() {
             />
           </div>
 
-          <div className="pointer-events-auto px-[14px] pt-1">
-            <FilterBar 
-              activeL1={activeL1} 
-              activeL2={activeL2} 
-              onChange={handleTopFilterChange} 
-            />
-          </div>
         </div>
 
         {pageError && (
@@ -575,12 +530,10 @@ export default function Page() {
           collapseMobileSheetSignal={collapseMobileSheetSignal}
           drawerFilters={drawerFilters}
           onChangeDrawerFilters={setDrawerFilters}
-          activeScenario={activeScenario}
-          onChangeActiveScenario={setActiveScenario}
-          scenarioShortcuts={scenarioShortcuts}
           activeL1={activeL1}
           activeL2={activeL2}
-          onL2Change={handleTopFilterChange}
+          onL1Change={handleL1Change}
+          onL2Change={handleL2Change}
           showFavorites={showFavorites}
           setShowFavorites={setShowFavorites}
           favorites={favorites}
@@ -610,14 +563,6 @@ export default function Page() {
         />
 
         <main className="relative mx-auto max-w-[1380px] px-4 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] sm:px-6 md:h-[calc(100dvh-4rem)] md:pb-4 lg:px-8">
-          <div className="rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-sm">
-            <FilterBar 
-              activeL1={activeL1} 
-              activeL2={activeL2} 
-              onChange={handleTopFilterChange} 
-            />
-          </div>
-
           {isContributeOpen && (
             <div className="mt-2 max-h-[60dvh] overflow-y-auto">
               <ContributionForm
@@ -645,40 +590,6 @@ export default function Page() {
           )}
 
 
-          <section className="mt-3 rounded-2xl border border-slate-200/80 bg-white px-4 py-3 shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-700">{tHome('scenario.quickFilterTitle')}</p>
-              {activeScenario && (
-                <button
-                  type="button"
-                  onClick={() => setActiveScenario(null)}
-                  className="text-xs font-medium text-slate-500 hover:text-slate-700"
-                >
-                  {tHome('scenario.clearScenario')}
-                </button>
-              )}
-            </div>
-            <div className="hide-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
-              {scenarioShortcuts.map((scenario) => {
-                const active = activeScenario === scenario.key;
-                return (
-                  <button
-                    key={scenario.key}
-                    type="button"
-                    onClick={() => setActiveScenario(active ? null : scenario.key)}
-                    className={`shrink-0 rounded-xl border px-3 py-2 text-left transition ${
-                      active
-                        ? 'border-[#006633] bg-[#006633]/5 text-[#006633] shadow-sm'
-                        : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <p className="text-xs font-semibold">{scenario.label}</p>
-                    <p className="text-[11px] opacity-80">{scenario.helper}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
 
           {pageError && (
             <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 shadow-sm">{pageError}</p>
@@ -736,9 +647,10 @@ export default function Page() {
                 collapseMobileSheetSignal={collapseMobileSheetSignal}
                 drawerFilters={drawerFilters}
                 onChangeDrawerFilters={setDrawerFilters}
-                activeScenario={activeScenario}
-                onChangeActiveScenario={setActiveScenario}
-                scenarioShortcuts={scenarioShortcuts}
+                activeL1={activeL1}
+                activeL2={activeL2}
+                onL1Change={handleL1Change}
+                onL2Change={handleL2Change}
                 showFavorites={showFavorites}
                 setShowFavorites={setShowFavorites}
                 favorites={favorites}
