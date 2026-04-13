@@ -40,8 +40,11 @@ interface ShopListProps {
   onToggleFavorite?: (shopId: string, e: React.MouseEvent) => void;
 }
 
-const SHEET_COLLAPSED_HEIGHT = 300;
+const SHEET_COLLAPSED_HEIGHT = 320;
+const SHEET_HALF_VH = 62;
 const SHEET_EXPANDED_VH = 85;
+
+type MobileSheetSnap = 'collapsed' | 'half' | 'full';
 
 const MOBILE_GLASS_STYLE: React.CSSProperties = {
   background: 'rgba(235, 245, 236, 0.75)',
@@ -87,7 +90,7 @@ export default function ShopList({
   const tShopDetail = useTranslations('ShopDetail');
   const locale = useLocale();
 
-  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [mobileSnap, setMobileSnap] = useState<MobileSheetSnap>('collapsed');
   const [mobileHeight, setMobileHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [recentlyLocatedShopId, setRecentlyLocatedShopId] = useState<Shop['id'] | null>(null);
@@ -96,7 +99,7 @@ export default function ShopList({
   const locateHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setMobileExpanded(false);
+    setMobileSnap('collapsed');
     setMobileHeight(0);
   }, [collapseMobileSheetSignal]);
 
@@ -108,11 +111,34 @@ export default function ShopList({
     };
   }, []);
 
-  const getExpandedHeightPx = () => window.innerHeight * (SHEET_EXPANDED_VH / 100);
+  const getViewportHeight = () => (typeof window === 'undefined' ? 0 : window.innerHeight);
+  const getCollapsedHeightPx = () => SHEET_COLLAPSED_HEIGHT;
+  const getHalfHeightPx = () => getViewportHeight() * (SHEET_HALF_VH / 100);
+  const getExpandedHeightPx = () => getViewportHeight() * (SHEET_EXPANDED_VH / 100);
+
+  const getSnapHeight = (snap: MobileSheetSnap) => {
+    if (snap === 'collapsed') return getCollapsedHeightPx();
+    if (snap === 'half') return getHalfHeightPx();
+    return getExpandedHeightPx();
+  };
+
+  const resolveClosestSnap = (height: number): MobileSheetSnap => {
+    const entries: Array<{snap: MobileSheetSnap; height: number}> = [
+      {snap: 'collapsed', height: getCollapsedHeightPx()},
+      {snap: 'half', height: getHalfHeightPx()},
+      {snap: 'full', height: getExpandedHeightPx()}
+    ];
+
+    return entries.reduce((closest, current) => {
+      const currentDistance = Math.abs(current.height - height);
+      const closestDistance = Math.abs(closest.height - height);
+      return currentDistance < closestDistance ? current : closest;
+    }).snap;
+  };
 
   const startDrag = (clientY: number) => {
     dragStartYRef.current = clientY;
-    dragStartHeightRef.current = mobileExpanded ? getExpandedHeightPx() : SHEET_COLLAPSED_HEIGHT;
+    dragStartHeightRef.current = getSnapHeight(mobileSnap);
     setIsDragging(true);
   };
 
@@ -120,7 +146,7 @@ export default function ShopList({
     if (dragStartYRef.current === null) return;
 
     const delta = dragStartYRef.current - clientY;
-    const next = Math.max(SHEET_COLLAPSED_HEIGHT, Math.min(getExpandedHeightPx(), dragStartHeightRef.current + delta));
+    const next = Math.max(getCollapsedHeightPx(), Math.min(getExpandedHeightPx(), dragStartHeightRef.current + delta));
     setMobileHeight(next);
   };
 
@@ -128,27 +154,19 @@ export default function ShopList({
     if (dragStartYRef.current === null) return;
     setIsDragging(false);
 
-    let finalExpanded = mobileExpanded;
+    const currentHeight = mobileHeight || dragStartHeightRef.current;
+    const delta = clientY !== undefined ? dragStartYRef.current - clientY : 0;
+    let nextSnap = resolveClosestSnap(currentHeight);
 
-    if (clientY !== undefined) {
-      const delta = dragStartYRef.current - clientY;
-      
-      if (mobileExpanded && delta < -40) {
-        finalExpanded = false;
-      } else if (!mobileExpanded && delta > 40) {
-        finalExpanded = true;
+    if (Math.abs(delta) > 36) {
+      if (delta > 0) {
+        nextSnap = mobileSnap === 'collapsed' ? 'half' : 'full';
       } else {
-        const threshold = window.innerHeight * 0.55;
-        const currentHeight = mobileHeight || (mobileExpanded ? getExpandedHeightPx() : SHEET_COLLAPSED_HEIGHT);
-        finalExpanded = currentHeight >= threshold;
+        nextSnap = mobileSnap === 'full' ? 'half' : 'collapsed';
       }
-    } else {
-      const threshold = window.innerHeight * 0.55;
-      const currentHeight = mobileHeight || (mobileExpanded ? getExpandedHeightPx() : SHEET_COLLAPSED_HEIGHT);
-      finalExpanded = currentHeight >= threshold;
     }
 
-    setMobileExpanded(finalExpanded);
+    setMobileSnap(nextSnap);
     setMobileHeight(0);
     dragStartYRef.current = null;
   };
@@ -196,6 +214,10 @@ export default function ShopList({
       setRecentlyLocatedShopId(null);
     }, 1000);
   };
+
+  const currentSheetHeight = mobileHeight > 0 ? mobileHeight : getSnapHeight(mobileSnap);
+  const currentSheetHeightStyle = mobileHeight > 0 ? `${mobileHeight}px` : mobileSnap === 'full' ? `${SHEET_EXPANDED_VH}dvh` : mobileSnap === 'half' ? `${SHEET_HALF_VH}dvh` : `${SHEET_COLLAPSED_HEIGHT}px`;
+  const mobileListHeight = Math.max(120, currentSheetHeight - 210);
 
   const desktopListContent = (
     <>
@@ -352,14 +374,14 @@ export default function ShopList({
       <div className="hidden w-full flex-col gap-4 md:flex">{desktopListContent}</div>
 
       <div
-        className={`fixed inset-x-0 bottom-0 z-40 rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden ${!isDragging ? 'transition-[height] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
-        style={{height: mobileHeight > 0 ? `${mobileHeight}px` : mobileExpanded ? `${SHEET_EXPANDED_VH}dvh` : `${SHEET_COLLAPSED_HEIGHT}px`, ...MOBILE_GLASS_STYLE}}
+        className={`fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden ${!isDragging ? 'transition-[height] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
+        style={{height: currentSheetHeightStyle, ...MOBILE_GLASS_STYLE}}
       >
         <div
           role="button"
           tabIndex={0}
           aria-label={tHome('mobile.expandCollapseDrawerAria')}
-          onClick={() => setMobileExpanded((prev) => !prev)}
+          onClick={() => setMobileSnap((prev) => (prev === 'collapsed' ? 'half' : prev === 'half' ? 'full' : 'collapsed'))}
           onTouchStart={(e) => startDrag(e.touches[0].clientY)}
           onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
           onTouchEnd={(e) => endDrag(e.changedTouches[0].clientY)}
@@ -392,12 +414,13 @@ export default function ShopList({
           )}
         </div>
 
-        <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate text-sm font-semibold text-[#0d2918]">{tHome('mobile.pullUpHint')}</p>
             {showFavorites !== undefined && setShowFavorites !== undefined && (
               <button
                 onClick={() => setShowFavorites(!showFavorites)}
-                className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold transition ${
+                className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold transition ${
                   showFavorites
                     ? 'bg-rose-500 text-white shadow-sm'
                     : 'bg-rose-50/80 text-rose-600 border border-rose-100'
@@ -407,7 +430,7 @@ export default function ShopList({
               </button>
             )}
           </div>
-          <span className="rounded-2xl bg-[rgba(26,92,46,0.10)] px-2.5 py-1 text-xs font-semibold text-[#1A5C2E]">{tFilters('nearbyCount', {count: filteredShops.length})}</span>
+          <span className="shrink-0 rounded-2xl bg-[rgba(26,92,46,0.10)] px-2.5 py-1 text-xs font-semibold text-[#1A5C2E]">{tFilters('currentTotal', {count: filteredShops.length})}</span>
         </div>
 
         <div className="hide-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-1">
@@ -460,24 +483,7 @@ export default function ShopList({
           );
         })()}
 
-        {!mobileExpanded ? (
-          <button
-            type="button"
-            onClick={() => setMobileExpanded(true)}
-            onTouchStart={(e) => startDrag(e.touches[0].clientY)}
-            onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
-            onTouchEnd={(e) => endDrag(e.changedTouches[0].clientY)}
-            onMouseDown={(e) => startDrag(e.clientY)}
-            onMouseMove={(e) => moveDrag(e.clientY)}
-            onMouseUp={(e) => endDrag(e.clientY)}
-            onMouseLeave={() => endDrag()}
-            className="w-full touch-none cursor-grab rounded-2xl bg-white/25 px-3 py-2 text-left active:cursor-grabbing"
-          >
-            <p className="text-sm font-semibold text-[#0d2918]">{tHome('mobile.pullUpHint')}</p>
-            <p className="mt-0.5 text-xs text-[#1A5C2E]/80">{tFilters('currentTotal', {count: filteredShops.length})}</p>
-          </button>
-        ) : (
-          <div className="mt-1 h-[calc(100%-145px)] overflow-y-auto pb-[max(env(safe-area-inset-bottom,0px),72px)]">
+        <div className="mt-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom,0px),72px)]" style={{height: `${mobileListHeight}px`}}>
             {loading ? (
               <div className="space-y-2">
                 {Array.from({length: 4}).map((_, index) => (
@@ -579,7 +585,6 @@ export default function ShopList({
               </div>
             )}
           </div>
-        )}
       </div>
 
     </>
