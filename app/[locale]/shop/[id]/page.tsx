@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {ImagePlus, MessageCirclePlus, Phone} from 'lucide-react';
 import {useParams} from 'next/navigation';
+import {useLocale} from 'next-intl';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import AdminImageManager from '@/components/AdminImageManager';
 import ImageLightbox from '@/components/ImageLightbox';
@@ -215,6 +216,7 @@ function CommentList({comments, loading, error}: {comments: CommentWithImages[];
 
 export default function ShopDetailPage() {
   const params = useParams<{id: string}>();
+  const locale = useLocale();
   const shopId = useMemo(() => String(params?.id ?? ''), [params]);
 
   const [shop, setShop] = useState<Shop | null>(null);
@@ -364,7 +366,7 @@ export default function ShopDetailPage() {
 
       <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+16px)] right-4 z-40 md:hidden">
         <Link
-          href={`/${params.locale}/shop/${shop.id}/review/new`}
+          href={`/${locale}/shop/${shop.id}/review/new`}
           className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-700"
         >
           <MessageCirclePlus className="h-4 w-4" />
