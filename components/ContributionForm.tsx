@@ -430,6 +430,21 @@ export default function ContributionForm({
       insertedShopId = insertWithAuthor.data?.id ? String(insertWithAuthor.data.id) : null;
     }
 
+    if (!insertError && insertedShopId) {
+      const seedReviewContent = normalizedReviewText.length > 0 ? normalizedReviewText : ' ';
+      const {error: seedReviewError} = await supabase.from('comments').insert({
+        shop_id: insertedShopId,
+        content: seedReviewContent,
+        rating: ratingScore
+      });
+
+      if (seedReviewError) {
+        setSubmitLoading(false);
+        setContributeError(seedReviewError.message);
+        return;
+      }
+    }
+
     setSubmitLoading(false);
 
     if (insertError) {
