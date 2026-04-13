@@ -1,7 +1,6 @@
 import Image from 'next/image';
-import Link from 'next/link';
 import {Check, Heart, Navigation, Tag, Trash2} from 'lucide-react';
-import {useLocale, useTranslations} from 'next-intl';
+import {useTranslations} from 'next-intl';
 import StarRating from '@/components/StarRating';
 import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {supabase} from '@/lib/supabase';
@@ -56,7 +55,6 @@ export default function ShopCard({
   onToggleFavorite
 }: ShopCardProps) {
   const t = useTranslations('ShopCard');
-  const locale = useLocale();
   const isPending = shop.status === 'pending';
   const address = shop.address?.trim() || '地址信息收录中 (Address pending)';
   const isPendingAddress = address === '地址信息收录中 (Address pending)';
@@ -75,7 +73,7 @@ export default function ShopCard({
     return next;
   };
 
-  const trackAction = async (actionType: 'locate_click' | 'share_click', source: string) => {
+  const trackAction = async (actionType: 'locate_click', source: string) => {
     const sessionId = ensureSessionId();
     await supabase.from('shop_action_events').insert({
       shop_id: shop.id,
@@ -212,16 +210,6 @@ export default function ShopCard({
               {deleting ? '删除中...' : '删除'}
             </button>
           )}
-
-          <Link
-            href={`/${locale}/shop/${shop.id}`}
-            onClick={() => {
-              void trackAction('share_click', 'shop_card_detail_entry');
-            }}
-            className="inline-flex items-center rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-100"
-          >
-            查看评论
-          </Link>
 
           <button
             type="button"

@@ -53,6 +53,7 @@ export interface Shop {
   region?: ShopRegion | null;
   signatureDish?: string | null;
   sharpReview?: string | null;
+  phone?: string | null;
 }
 
 export interface Comment {

@@ -108,10 +108,10 @@ export default function Header({
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#FFCC00]/60 bg-[#0c4b2f] text-white shadow-md shadow-[#003a24]/35">
             <span className="text-xs font-extrabold tracking-wide">M</span>
           </div>
-          <h1 className="hidden truncate text-base font-bold text-[#0d2918] sm:block md:text-lg md:text-[#0c4b2f]">Lumen Map</h1>
+          <h1 className="truncate text-sm font-bold text-[#0d2918] sm:text-base md:text-lg md:text-[#0c4b2f]">Lumen Map</h1>
         </div>
 
-        <div className="relative flex min-w-0 flex-1 items-center">
+        <div className="relative hidden min-w-0 flex-1 items-center md:flex">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
             type="text"

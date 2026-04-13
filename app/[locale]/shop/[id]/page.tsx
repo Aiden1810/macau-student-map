@@ -1,12 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import {ImagePlus, X} from 'lucide-react';
+import Link from 'next/link';
+import {ImagePlus, MessageCirclePlus, Phone} from 'lucide-react';
 import {useParams} from 'next/navigation';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import AdminImageManager from '@/components/AdminImageManager';
 import ImageLightbox from '@/components/ImageLightbox';
-import ImageUpload from '@/components/ImageUpload';
 import MobileImageSlider from '@/components/MobileImageSlider';
 import StarRating from '@/components/StarRating';
 import {mapSingleShop} from '@/lib/mappers/shop';
@@ -107,19 +107,22 @@ function ShopHero({
   onOpenAdminManager: () => void;
   canManageImages: boolean;
 }) {
+  const normalizedPhone = shop.phone?.trim() ?? '';
+  const hasPhone = normalizedPhone.length > 0;
+  const phoneHref = hasPhone ? `tel:${normalizedPhone.replace(/\s+/g, '')}` : null;
   const averageScore = shop.rating;
   const ratingTag = getRatingTag(averageScore);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="block md:hidden">
         <MobileImageSlider images={shop.imageUrls ?? []} onOpenLightbox={onOpenLightbox} />
       </div>
-      <div className="hidden md:block">
+      <div className="hidden md:block p-4">
         <ShopImageGallery imageUrls={shop.imageUrls ?? []} onOpenLightbox={onOpenLightbox} />
       </div>
 
-      <div className="mt-4">
+      <div className="px-4 pb-4 pt-3">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold text-slate-900">{shop.name}</h1>
           {canManageImages && (
@@ -134,195 +137,32 @@ function ShopHero({
           )}
         </div>
 
-        <p className="mt-1 text-sm text-slate-500">{shop.address}</p>
-        <div className="mt-2 flex items-center gap-2">
-          <StarRating score={averageScore} reviewCount={shop.reviews} />
-          <span
-            className={`rounded-md border px-2 py-1 text-xs font-semibold ${ratingTag.bgClass} ${ratingTag.textClass} ${ratingTag.borderClass}`}
-          >
-            {ratingTag.label}
-          </span>
+        <div className="rounded-xl bg-slate-50 px-3 py-2">
+          <p className="text-xs text-slate-500">{shop.address}</p>
+          <div className="mt-2 flex items-center gap-2">
+            <StarRating score={averageScore} reviewCount={shop.reviews} />
+            <span
+              className={`rounded-md border px-2 py-1 text-xs font-semibold ${ratingTag.bgClass} ${ratingTag.textClass} ${ratingTag.borderClass}`}
+            >
+              {ratingTag.label}
+            </span>
+          </div>
         </div>
+
+        {hasPhone && phoneHref && (
+          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-xs font-medium text-slate-500">联系电话</p>
+            <a href={phoneHref} className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 hover:underline">
+              <Phone className="h-4 w-4" />
+              {normalizedPhone}
+            </a>
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
-function PostComment({shopId, onPublished}: {shopId: string; onPublished: () => Promise<void> | void}) {
-  const [rating, setRating] = useState<1 | 2 | 3 | 4 | 5>(5);
-  const [content, setContent] = useState('');
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-
-  const handleUploadImage = async (file: File) => {
-    setUploadingImage(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const filePath = `comments/${shopId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-
-      const {error: uploadError} = await supabase.storage.from('shop-images').upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type || 'image/jpeg'
-      });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const {data} = supabase.storage.from('shop-images').getPublicUrl(filePath);
-      setImageUrls((prev) => [...prev, data.publicUrl]);
-      setMessage('图片已添加');
-    } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : '图片上传失败');
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const removeImage = (index: number) => {
-    setImageUrls((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const submitComment = async () => {
-    if (submitting) {
-      return;
-    }
-
-    const ensureSessionId = () => {
-      if (typeof window === 'undefined') return null;
-      const key = 'cityu_food_session_id';
-      const existing = window.localStorage.getItem(key);
-      if (existing) return existing;
-      const next = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      window.localStorage.setItem(key, next);
-      return next;
-    };
-
-    setSubmitting(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const trimmedContent = content.trim();
-      const payloadContent = trimmedContent.length > 0 ? trimmedContent : ' ';
-
-      const {data: inserted, error: commentError} = await supabase
-        .from('comments')
-        .insert({
-          shop_id: shopId,
-          content: payloadContent,
-          rating
-        })
-        .select('id')
-        .single();
-
-      if (commentError) {
-        throw commentError;
-      }
-
-      if (imageUrls.length > 0) {
-        const rows = imageUrls.map((url) => ({
-          comment_id: inserted.id,
-          image_url: url
-        }));
-
-        const {error: imageError} = await supabase.from('comment_images').insert(rows);
-
-        if (imageError) {
-          await supabase.from('comments').delete().eq('id', inserted.id);
-          throw imageError;
-        }
-      }
-
-      const sessionId = ensureSessionId();
-      await supabase.from('shop_action_events').insert({
-        shop_id: shopId,
-        action_type: 'complaint_submit',
-        session_id: sessionId,
-        source: 'shop_detail_comment_rating',
-        metadata: {rating}
-      });
-
-      setContent('');
-      setRating(5);
-      setImageUrls([]);
-      setMessage('评论发布成功');
-      await onPublished();
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : '评论发布失败');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 className="text-lg font-semibold text-slate-900">发表评论</h2>
-
-      <div className="mt-3 flex items-center gap-1">
-        {([1, 2, 3, 4, 5] as const).map((star) => (
-          <button
-            key={star}
-            type="button"
-            onClick={() => setRating(star)}
-            className={`rounded-md border px-2 py-1 text-sm transition ${star === rating ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-          >
-            {star}
-          </button>
-        ))}
-      </div>
-
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        rows={4}
-        placeholder="可选：写下你的体验..."
-        className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-      />
-
-      <div className="mt-3">
-        <ImageUpload onUpload={handleUploadImage} disabled={uploadingImage || submitting} buttonText="添加图片" />
-      </div>
-
-      {imageUrls.length > 0 && (
-        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {imageUrls.map((url, index) => (
-            <div key={`${url}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200">
-              <Image src={url} alt={`comment-image-${index + 1}`} width={200} height={200} className="h-24 w-full object-cover" />
-              <button
-                type="button"
-                onClick={() => removeImage(index)}
-                className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-4 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={submitComment}
-          disabled={submitting}
-          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {submitting ? '发布中...' : '发布'}
-        </button>
-        {message && <p className="text-sm text-emerald-600">{message}</p>}
-        {error && <p className="text-sm text-rose-600">{error}</p>}
-      </div>
-    </section>
-  );
-}
 
 function CommentList({comments, loading, error}: {comments: CommentWithImages[]; loading: boolean; error: string | null}) {
   if (loading) {
@@ -334,7 +174,7 @@ function CommentList({comments, loading, error}: {comments: CommentWithImages[];
   }
 
   return (
-    <section className="space-y-4">
+    <section id="reviews" className="scroll-mt-20 space-y-4">
       {comments.length === 0 ? (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">还没有评论，来抢沙发吧。</div>
       ) : (
@@ -406,7 +246,7 @@ export default function ShopDetailPage() {
 
     const {data, error} = await supabase
       .from('shops')
-      .select('id,name,address,image_urls,category,student_discount,tags,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text')
+      .select('id,name,address,phone,image_urls,category,student_discount,tags,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text')
       .eq('id', shopId)
       .maybeSingle();
 
@@ -497,7 +337,7 @@ export default function ShopDetailPage() {
 
   return (
     <>
-      <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+      <main className="mx-auto max-w-5xl space-y-6 px-4 pb-24 pt-6">
         <ShopHero
           shop={shop}
           onOpenLightbox={(index) => {
@@ -508,14 +348,10 @@ export default function ShopDetailPage() {
           canManageImages={isAuthenticated}
         />
 
-        <PostComment
-          shopId={shop.id}
-          onPublished={async () => {
-            await Promise.all([fetchComments(), fetchShop()]);
-          }}
-        />
-
-        <CommentList comments={comments} loading={commentsLoading} error={commentsError} />
+        <section className="space-y-2">
+          <h2 className="text-base font-semibold text-slate-900">用户评价</h2>
+          <CommentList comments={comments} loading={commentsLoading} error={commentsError} />
+        </section>
       </main>
 
       <ImageLightbox
@@ -525,6 +361,16 @@ export default function ShopDetailPage() {
         onClose={() => setIsLightboxOpen(false)}
         onChangeIndex={setLightboxIndex}
       />
+
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+16px)] right-4 z-40 md:hidden">
+        <Link
+          href="./review/new"
+          className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-700"
+        >
+          <MessageCirclePlus className="h-4 w-4" />
+          发表评论
+        </Link>
+      </div>
 
       <AdminImageManager
         open={isAdminImageManagerOpen}

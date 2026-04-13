@@ -493,6 +493,7 @@ export function mapSingleShop(row: Record<string, unknown>, locale: LocaleKey = 
   const rawRegion = row?.region;
   const rawSignatureDish = row?.signature_dish;
   const rawSharpReview = row?.sharp_review;
+  const rawPhone = row?.phone;
   const localizedName = pickLocalizedString(row?.name_i18n, locale) ?? fallbackName;
   const localizedReviewText = pickLocalizedString(row?.review_text_i18n, locale);
   const localizedTags = pickLocalizedStringArray(row?.tags_i18n, locale);
@@ -540,7 +541,8 @@ export function mapSingleShop(row: Record<string, unknown>, locale: LocaleKey = 
         ? (rawRegion.trim() as Shop['region'])
         : deriveRegionFromCoordinates(normalizedCoordinates?.[0] ?? null, normalizedCoordinates?.[1] ?? null),
     signatureDish: typeof rawSignatureDish === 'string' && rawSignatureDish.trim().length > 0 ? rawSignatureDish.trim() : null,
-    sharpReview: typeof rawSharpReview === 'string' && rawSharpReview.trim().length > 0 ? rawSharpReview.trim() : null
+    sharpReview: typeof rawSharpReview === 'string' && rawSharpReview.trim().length > 0 ? rawSharpReview.trim() : null,
+    phone: typeof rawPhone === 'string' && rawPhone.trim().length > 0 ? rawPhone.trim() : null
   };
 
   return shop;

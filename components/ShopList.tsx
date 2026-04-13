@@ -1,9 +1,9 @@
 import Image from 'next/image';
-import {MessageCircle, Navigation, Search, SlidersHorizontal, Star, StarHalf} from 'lucide-react';
+import Link from 'next/link';
+import {Navigation, Search, SlidersHorizontal, Star, StarHalf} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {useTranslations} from 'next-intl';
+import {useLocale, useTranslations} from 'next-intl';
 import {L2_TAGS} from '@/components/FilterBar';
-import MobileShopDetailModal from '@/components/MobileShopDetailModal';
 import ShopCard from '@/components/ShopCard';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
 import {DrawerFiltersState, Shop, ShopCategoryKey, ShopFeature} from '@/types/shop';
@@ -95,12 +95,12 @@ export default function ShopList({
   const tFilters = useTranslations('Filters');
   const tHome = useTranslations('Home');
   const tShopDetail = useTranslations('ShopDetail');
+  const locale = useLocale();
 
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [mobileHeight, setMobileHeight] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [recentlyLocatedShopId, setRecentlyLocatedShopId] = useState<Shop['id'] | null>(null);
-  const [mobileDetailShop, setMobileDetailShop] = useState<Shop | null>(null);
   const dragStartYRef = useRef<number | null>(null);
   const dragStartHeightRef = useRef<number>(0);
   const locateHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -512,21 +512,15 @@ export default function ShopList({
                   const rEmpty = 5 - rFull - (rHalf ? 1 : 0);
 
                   return (
-                    <div
+                    <Link
                       key={shop.id}
-                      className="w-full rounded-2xl bg-white/40 px-3 py-2.5"
+                      href={`/${locale}/shop/${shop.id}`}
+                      className="block w-full rounded-2xl bg-white/40 px-3 py-2.5"
                     >
                       <div className="flex items-start gap-2.5">
-                        {/* Thumbnail */}
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl">
+                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl">
                           {hasImage ? (
-                            <Image
-                              src={coverUrl}
-                              alt={shop.name}
-                              width={48}
-                              height={48}
-                              className="h-full w-full object-cover"
-                            />
+                            <Image src={coverUrl} alt={shop.name} width={56} height={56} className="h-full w-full object-cover" />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center bg-[rgba(26,92,46,0.12)]">
                               <svg viewBox="0 0 120 80" className="h-5 w-7 text-[#1A5C2E]/40" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -537,21 +531,19 @@ export default function ShopList({
                           )}
                         </div>
 
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center justify-between gap-2">
                             <p className="truncate text-sm font-semibold text-[#0d2918]">{shop.name}</p>
                             <span className="shrink-0 rounded-xl bg-[rgba(26,92,46,0.10)] px-2 py-0.5 text-[11px] font-semibold text-[#1A5C2E]">
                               {shop.ratingLabel}
                             </span>
                           </div>
-                          <p className="truncate text-xs text-[#1A5C2E]/80 mt-0.5">
+                          <p className="mt-0.5 truncate text-xs text-[#1A5C2E]/80">
                             {shop.shopType}
                             <span className="mx-1 text-[#1A5C2E]/30">|</span>
                             {tShopDetail('avgSpend', {value: shop.pricePerPerson ? `MOP ${shop.pricePerPerson}` : tShopDetail('notAvailable')})}
                           </p>
 
-                          {/* Stars */}
                           <div className="mt-1 flex items-center gap-1">
                             <div className="flex items-center gap-px">
                               {Array.from({length: rFull}).map((_, i) => (
@@ -566,25 +558,10 @@ export default function ShopList({
                             <span className="text-[11px] text-[#1A5C2E]/60">({tShopDetail('reviewsCount', {count: shop.reviews})})</span>
                           </div>
 
-                          {/* Actions */}
-                          <div className="mt-1.5 flex items-center gap-2">
+                          <div className="mt-1.5 flex items-center gap-2" onClick={(e) => e.preventDefault()}>
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMobileDetailShop(shop);
-                              }}
-                              className="inline-flex items-center gap-1 rounded-lg border border-[rgba(26,92,46,0.20)] bg-[rgba(26,92,46,0.06)] px-2 py-1 text-[11px] font-semibold text-[#1A5C2E] transition active:bg-[rgba(26,92,46,0.12)]"
-                            >
-                              <MessageCircle className="h-3 w-3" />
-                              {tShopDetail('viewReviews')}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleLocateWithHighlight(shop.id);
-                              }}
+                              onClick={() => handleLocateWithHighlight(shop.id)}
                               className="inline-flex items-center gap-1 text-[11px] font-medium text-[#1A5C2E]/70 transition active:text-[#1A5C2E]"
                             >
                               <Navigation className="h-3 w-3" />
@@ -606,7 +583,7 @@ export default function ShopList({
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -615,16 +592,6 @@ export default function ShopList({
         )}
       </div>
 
-      {mobileDetailShop && (
-        <MobileShopDetailModal
-          shop={mobileDetailShop}
-          open={!!mobileDetailShop}
-          onClose={() => setMobileDetailShop(null)}
-          onLocate={(shopId) => {
-            handleLocateWithHighlight(shopId);
-          }}
-        />
-      )}
     </>
   );
 }
