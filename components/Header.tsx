@@ -102,7 +102,7 @@ export default function Header({
   };
 
   return (
-    <header className={`pointer-events-auto z-50 md:sticky md:top-0 md:border-b md:border-slate-200 md:text-slate-800 md:shadow-sm md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)] ${isCompact ? 'md:bg-white/95' : 'md:bg-white'}`}>
+    <header className={`pointer-events-auto z-50 pt-[max(env(safe-area-inset-top,0px),0px)] md:pt-0 md:sticky md:top-0 md:border-b md:border-slate-200 md:text-slate-800 md:shadow-sm md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)] ${isCompact ? 'md:bg-white/95' : 'md:bg-white'}`}>
       <div className="mx-auto flex max-w-[1380px] items-center gap-3 px-3 py-2 sm:px-6 md:px-4 lg:px-8">
         <div className="flex min-w-0 items-center gap-2" style={GLASS_STYLE}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#FFCC00]/60 bg-[#0c4b2f] text-white shadow-md shadow-[#003a24]/35">
@@ -122,12 +122,12 @@ export default function Header({
           />
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           <div ref={mobileMenuRef} className="relative flex items-center md:hidden">
             <button
               type="button"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="inline-flex items-center gap-1 rounded-2xl border border-[#1A5C2E]/25 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5"
+              className="inline-flex min-h-[34px] items-center gap-1 rounded-2xl border border-[#1A5C2E]/25 bg-white px-2 py-1.5 text-xs font-semibold text-[#1A5C2E] transition hover:bg-[#1A5C2E]/5"
               aria-expanded={mobileMenuOpen}
               aria-label={tCommon('mine')}
             >
