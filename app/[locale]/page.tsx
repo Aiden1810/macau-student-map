@@ -1,6 +1,7 @@
 'use client';
 
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useDebounce} from '@/lib/hooks/useDebounce';
 import {useLocale, useTranslations} from 'next-intl';
 import toast from 'react-hot-toast';
 import {Link} from '@/i18n/navigation';
@@ -116,6 +117,7 @@ export default function Page() {
 
   const [, setViewMode] = useState<ViewMode>('list');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [activeL1, setActiveL1] = useState<ShopCategoryKey>('all');
   const [activeL2, setActiveL2] = useState<string[]>([]);
   const [drawerFilters, setDrawerFilters] = useState<DrawerFiltersState>(DEFAULT_DRAWER_FILTERS);
@@ -143,6 +145,7 @@ export default function Page() {
   const [mobileSheetTopOffset, setMobileSheetTopOffset] = useState(116);
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const hasFetchedRef = useRef(false);
+  const lastLoggedQueryRef = useRef<{query: string; at: number} | null>(null);
 
   const fetchShops = useCallback(async () => {
     setLoading(true);
@@ -279,7 +282,7 @@ export default function Page() {
   const visibleShops = isAdmin ? shops : shops.filter((shop) => shop.status === 'verified');
 
   const searchComputed = useMemo(() => {
-    const keyword = normalizeQuery(searchQuery);
+    const keyword = normalizeQuery(debouncedSearchQuery);
 
     if (!keyword) {
       return {
@@ -342,7 +345,7 @@ export default function Page() {
       fallbackMessage: '已为你展示相近结果',
       matchedTags: similarCategories.map((tag) => ({tag_id: tag.tag_id, tag_name: tag.tag_name, score_source: 0.4}))
     };
-  }, [searchQuery, visibleShops]);
+  }, [debouncedSearchQuery, visibleShops]);
 
   const displayedShops = useMemo(() => {
     const l1Filtered = filterByL1(activeL1, searchComputed.searched);
@@ -360,12 +363,25 @@ export default function Page() {
     setSearchFallbackMessage(searchComputed.fallbackMessage);
 
     const response = buildSearchResponse({
-      query: searchQuery,
+      query: debouncedSearchQuery,
       matchedLevel: searchComputed.matchedLevel,
       items: searchComputed.searched,
       matchedTags: searchComputed.matchedTags,
       fallbackUsed: Boolean(searchComputed.fallbackMessage)
     });
+
+    const normalized = normalizeQuery(response.query);
+    if (normalized.length < 2) {
+      return;
+    }
+
+    const now = Date.now();
+    const lastLogged = lastLoggedQueryRef.current;
+    if (lastLogged && lastLogged.query === normalized && now - lastLogged.at < 10_000) {
+      return;
+    }
+
+    lastLoggedQueryRef.current = {query: normalized, at: now};
 
     void logSearchQuery({
       query: response.query,
@@ -380,7 +396,7 @@ export default function Page() {
         }
       }
     });
-  }, [searchComputed.fallbackMessage, searchComputed.matchedLevel, searchComputed.matchedTags, searchComputed.searched, searchQuery]);
+  }, [debouncedSearchQuery, searchComputed.fallbackMessage, searchComputed.matchedLevel, searchComputed.matchedTags, searchComputed.searched]);
 
   const hasActiveTopFilters = activeL1 !== 'all' || activeL2.length > 0;
   const hasActiveDrawerFilters = hasDrawerFilters(drawerFilters);
