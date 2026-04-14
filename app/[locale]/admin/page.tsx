@@ -2,7 +2,7 @@
 
 import {FormEvent, useCallback, useEffect, useMemo, useState} from 'react';
 import toast from 'react-hot-toast';
-import {L2_TAGS} from '@/components/FilterBar';
+import {getCanonicalTagsForAdminAndSubmit, migrateLegacyTagsForSubmission} from '@/lib/tags/schema';
 import {Link} from '@/i18n/navigation';
 import {dedupeTrimmedList, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
 import {buildNormalizedShopPayload} from '@/lib/shops/payload';
@@ -282,9 +282,8 @@ function getPriceBand(price: number | null): AnalyticsPriceBand {
   return '200+';
 }
 
-const ADMIN_ALL_PRESET_TAGS: string[] = Object.values(L2_TAGS)
-  .flatMap((groups) => groups.flatMap((group) => group.options.map((option) => option.value)))
-  .filter((tag, index, arr) => arr.indexOf(tag) === index);
+const ADMIN_ALL_PRESET_TAGS: string[] = getCanonicalTagsForAdminAndSubmit()
+  .flatMap((group) => group.options.map((option) => option.tag_name));
 
 function AdminShopForm({
   mode,

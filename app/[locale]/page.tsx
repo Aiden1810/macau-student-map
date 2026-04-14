@@ -10,6 +10,15 @@ import Header from '@/components/Header';
 import MapPlaceholder from '@/components/MapPlaceholder';
 import ShopList from '@/components/ShopList';
 import {mapShopList, mapSingleShop} from '@/lib/mappers/shop';
+import {
+  buildSearchResponse,
+  expandQueryTerms,
+  fallbackToSimilarCategories,
+  logSearchQuery,
+  matchExact,
+  matchSynonymsWithWeights,
+  normalizeQuery
+} from '@/lib/search/tag-search';
 import {supabase} from '@/lib/supabase';
 import {useFavorites} from '@/lib/hooks/useFavorites';
 import {DrawerFiltersState, Shop, ShopCategoryKey, ViewMode} from '@/types/shop';
@@ -130,6 +139,7 @@ export default function Page() {
   const [pageNotice, setPageNotice] = useState<string | null>(null);
   const [showSubmissionFollowup, setShowSubmissionFollowup] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [searchFallbackMessage, setSearchFallbackMessage] = useState<string | null>(null);
   const [mobileSheetTopOffset, setMobileSheetTopOffset] = useState(116);
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const hasFetchedRef = useRef(false);
@@ -268,25 +278,74 @@ export default function Page() {
   const isAdmin = userRole === 'admin';
   const visibleShops = isAdmin ? shops : shops.filter((shop) => shop.status === 'verified');
 
+  const searchComputed = useMemo(() => {
+    const keyword = normalizeQuery(searchQuery);
+
+    if (!keyword) {
+      return {
+        searched: visibleShops,
+        matchedLevel: 'exact' as const,
+        fallbackMessage: null as string | null,
+        matchedTags: [] as Array<{tag_id: string; tag_name: string; score_source: number}>
+      };
+    }
+
+    const exact = matchExact(keyword, visibleShops);
+    if (exact.length > 0) {
+      return {
+        searched: exact,
+        matchedLevel: 'exact' as const,
+        fallbackMessage: null as string | null,
+        matchedTags: [] as Array<{tag_id: string; tag_name: string; score_source: number}>
+      };
+    }
+
+    const synonymHits = matchSynonymsWithWeights(keyword);
+    if (synonymHits.length > 0) {
+      const bySynonym = visibleShops.filter((shop) =>
+        synonymHits.some((hit) => shop.tags.includes(hit.tag_name) || shop.mainCategory === hit.tag_name)
+      );
+
+      if (bySynonym.length > 0) {
+        return {
+          searched: bySynonym,
+          matchedLevel: 'synonym' as const,
+          fallbackMessage: '已为你展示相近结果',
+          matchedTags: synonymHits.map((hit) => ({tag_id: hit.tag_id, tag_name: hit.tag_name, score_source: hit.weight}))
+        };
+      }
+    }
+
+    const expandedTerms = expandQueryTerms(keyword);
+    if (expandedTerms.length > 0) {
+      const byExpanded = visibleShops.filter((shop) => {
+        const pool = [shop.name, shop.address, shop.mainCategory ?? '', ...shop.tags, ...(shop.subTags ?? [])].join(' ').toLowerCase();
+        return expandedTerms.some((term) => pool.includes(term.toLowerCase()));
+      });
+
+      if (byExpanded.length > 0) {
+        return {
+          searched: byExpanded,
+          matchedLevel: 'expanded' as const,
+          fallbackMessage: '已为你展示相近结果',
+          matchedTags: [] as Array<{tag_id: string; tag_name: string; score_source: number}>
+        };
+      }
+    }
+
+    const similarCategories = fallbackToSimilarCategories(['中餐', '日料', '奶茶', '甜品']);
+    const bySimilar = visibleShops.filter((shop) => similarCategories.some((tag) => shop.tags.includes(tag.tag_name)));
+
+    return {
+      searched: bySimilar.length > 0 ? bySimilar : visibleShops,
+      matchedLevel: 'similar_category' as const,
+      fallbackMessage: '已为你展示相近结果',
+      matchedTags: similarCategories.map((tag) => ({tag_id: tag.tag_id, tag_name: tag.tag_name, score_source: 0.4}))
+    };
+  }, [searchQuery, visibleShops]);
+
   const displayedShops = useMemo(() => {
-    const keyword = searchQuery.trim().toLowerCase();
-    const searched =
-      keyword.length === 0
-        ? visibleShops
-        : visibleShops.filter((shop) => {
-            const searchPool = [
-              shop.name,
-              shop.address,
-              shop.shopType,
-              shop.mainCategory ?? '',
-              ...shop.tags,
-              ...(shop.subTags ?? [])
-            ];
-
-            return searchPool.some((value) => value.toLowerCase().includes(keyword));
-          });
-
-    const l1Filtered = filterByL1(activeL1, searched);
+    const l1Filtered = filterByL1(activeL1, searchComputed.searched);
     const l2Filtered = filterByL2(activeL2, l1Filtered, activeL1);
     let drawerFiltered = applyDrawerFilters(l2Filtered, drawerFilters);
 
@@ -295,7 +354,30 @@ export default function Page() {
     }
 
     return drawerFiltered;
-  }, [activeL1, activeL2, drawerFilters, searchQuery, visibleShops, showFavorites, isLoaded, favorites]);
+  }, [activeL1, activeL2, drawerFilters, searchComputed.searched, showFavorites, isLoaded, favorites]);
+
+  useEffect(() => {
+    setSearchFallbackMessage(searchComputed.fallbackMessage);
+
+    const response = buildSearchResponse({
+      query: searchQuery,
+      matchedLevel: searchComputed.matchedLevel,
+      items: searchComputed.searched,
+      matchedTags: searchComputed.matchedTags,
+      fallbackUsed: Boolean(searchComputed.fallbackMessage)
+    });
+
+    void logSearchQuery({
+      query: response.query,
+      hit: response.items.length > 0,
+      matchedLevel: response.matched_level,
+      resultCount: response.items.length,
+      userAnonId: null,
+      logger: async (payload) => {
+        await supabase.from('search_query_log').insert(payload);
+      }
+    });
+  }, [searchComputed.fallbackMessage, searchComputed.matchedLevel, searchComputed.matchedTags, searchComputed.searched, searchQuery]);
 
   const hasActiveTopFilters = activeL1 !== 'all' || activeL2.length > 0;
   const hasActiveDrawerFilters = hasDrawerFilters(drawerFilters);
@@ -512,11 +594,18 @@ export default function Page() {
             {pageError}
           </p>
         )}
-        {pageNotice && (
+        {(pageNotice || searchFallbackMessage) && (
           <div className="pointer-events-none absolute left-[14px] right-[14px] top-[168px] z-40 space-y-2">
-            <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-sm text-emerald-700 shadow-sm">
-              {pageNotice}
-            </p>
+            {pageNotice && (
+              <p className="rounded-xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-sm text-emerald-700 shadow-sm">
+                {pageNotice}
+              </p>
+            )}
+            {searchFallbackMessage && (
+              <p className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-sm text-amber-700 shadow-sm">
+                {searchFallbackMessage}
+              </p>
+            )}
             {showSubmissionFollowup && (
               <div className="pointer-events-auto rounded-xl border border-emerald-200/80 bg-white/95 px-3 py-2 text-sm text-slate-700 shadow-sm">
                 <p>{tContribute('submitFollowupHint')}</p>
@@ -615,9 +704,10 @@ export default function Page() {
           {pageError && (
             <p className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 shadow-sm">{pageError}</p>
           )}
-          {pageNotice && (
+          {(pageNotice || searchFallbackMessage) && (
             <div className="mb-4 space-y-2">
-              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 shadow-sm">{pageNotice}</p>
+              {pageNotice && <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 shadow-sm">{pageNotice}</p>}
+              {searchFallbackMessage && <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 shadow-sm">{searchFallbackMessage}</p>}
               {showSubmissionFollowup && (
                 <div className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm">
                   <p>{tContribute('submitFollowupHint')}</p>

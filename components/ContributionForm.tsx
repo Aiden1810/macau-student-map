@@ -3,7 +3,7 @@
 import {FormEvent, useEffect, useMemo, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {Star} from 'lucide-react';
-import {L2_TAGS} from '@/components/FilterBar';
+import {getCanonicalTagsForAdminAndSubmit} from '@/lib/tags/schema';
 import ImageUpload from '@/components/ImageUpload';
 import {useDebounce} from '@/lib/hooks/useDebounce';
 import {buildNormalizedShopPayload} from '@/lib/shops/payload';
@@ -138,7 +138,7 @@ export default function ContributionForm({
 
   const [category, setCategory] = useState<'food' | 'drink' | 'vibe' | 'deal' | ''>('');
   const [ratingScore, setRatingScore] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
-  const [selectedPresetTags, setSelectedPresetTags] = useState<string[]>([]);
+  const [selectedPresetTagIds, setSelectedPresetTagIds] = useState<string[]>([]);
   const [expandedSecondaryTagGroups, setExpandedSecondaryTagGroups] = useState(false);
 
   const [reviewText, setReviewText] = useState('');
@@ -150,32 +150,32 @@ export default function ContributionForm({
   const [contributeError, setContributeError] = useState<string | null>(null);
 
   const allL2Groups = useMemo(() => {
-    const groupTitleMap: Record<string, string> = {
-      food: '🍔 美食标签',
-      drink: '☕ 饮品/甜点标签',
-      vibe: '✨ 场景标签',
-      deal: '💰 优惠标签',
-      review: '🏆 榜单标签',
-      region: '🗺️ 区域标签'
-    };
+    const canonical = getCanonicalTagsForAdminAndSubmit();
 
-    return Object.entries(L2_TAGS)
-      .map(([l1Key, groups]) => ({
-        id: l1Key,
-        title: groupTitleMap[l1Key] ?? `${l1Key} 标签`,
-        tags: groups.flatMap((group) => group.options.map((option) => option.value))
-      }))
-      .filter((group) => group.tags.length > 0);
+    return canonical.map((group) => ({
+      id: group.level1,
+      title: `${group.level1}标签`,
+      tags: group.options.map((option) => ({id: option.tag_id, name: option.tag_name}))
+    }));
   }, []);
+
+  const categoryL1Map: Record<string, string> = {
+    food: '美食',
+    drink: '饮品',
+    vibe: '场景',
+    deal: '场景'
+  };
 
   const primaryTagGroup = useMemo(() => {
     if (!category) return null;
-    return allL2Groups.find((group) => group.id === category) ?? null;
+    const l1 = categoryL1Map[category];
+    return allL2Groups.find((group) => group.id === l1) ?? null;
   }, [allL2Groups, category]);
 
   const secondaryTagGroups = useMemo(() => {
     if (!category) return allL2Groups;
-    return allL2Groups.filter((group) => group.id !== category);
+    const l1 = categoryL1Map[category];
+    return allL2Groups.filter((group) => group.id !== l1);
   }, [allL2Groups, category]);
 
   useEffect(() => {
@@ -367,7 +367,19 @@ export default function ContributionForm({
       .map((item) => item.trim())
       .filter(Boolean);
 
-    const normalizedPresetTags = Array.from(new Set(selectedPresetTags)).slice(0, 5);
+    const normalizedTagIds = Array.from(new Set(selectedPresetTagIds)).slice(0, 8);
+
+    if (normalizedTagIds.length === 0) {
+      setSubmitLoading(false);
+      setContributeError('请至少选择1个标准标签');
+      return;
+    }
+
+    if (category !== 'vibe' && category !== 'deal' && normalizedTagIds.length > 3) {
+      setSubmitLoading(false);
+      setContributeError('美食/饮品投稿最多选择3个标准标签');
+      return;
+    }
     const normalizedReviewText = reviewText.trim();
 
     const payload = canSubmitFromSearch
@@ -378,7 +390,7 @@ export default function ContributionForm({
           longitude: selectedPlace!.coordinates[0],
           latitude: selectedPlace!.coordinates[1],
           category,
-          selectedPresetTags,
+          selectedTagIds: normalizedTagIds,
           customTags,
           ratingScore,
           imageUrls,
@@ -393,7 +405,7 @@ export default function ContributionForm({
           longitude: manualCoordinates![0],
           latitude: manualCoordinates![1],
           category,
-          selectedPresetTags,
+          selectedTagIds: normalizedTagIds,
           customTags,
           ratingScore,
           imageUrls,
@@ -661,14 +673,14 @@ export default function ContributionForm({
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {primaryTagGroup.tags.map((tag) => {
-                    const checked = selectedPresetTags.includes(tag);
+                    const checked = selectedPresetTagIds.includes(tag.id);
                     return (
                       <button
-                        key={tag}
+                        key={tag.id}
                         type="button"
                         onClick={() => {
-                          setSelectedPresetTags((prev) =>
-                            checked ? prev.filter((item) => item !== tag) : [...prev, tag]
+                          setSelectedPresetTagIds((prev) =>
+                            checked ? prev.filter((item) => item !== tag.id) : [...prev, tag.id]
                           );
                         }}
                         className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
@@ -677,7 +689,7 @@ export default function ContributionForm({
                             : 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50'
                         }`}
                       >
-                        {tag}
+                        {tag.name}
                       </button>
                     );
                   })}
@@ -703,21 +715,21 @@ export default function ContributionForm({
                     <p className="mb-2 text-xs font-semibold text-slate-500">{group.title}</p>
                     <div className="flex flex-wrap gap-2">
                       {group.tags.map((tag) => {
-                        const checked = selectedPresetTags.includes(tag);
+                        const checked = selectedPresetTagIds.includes(tag.id);
                         return (
                           <button
-                            key={tag}
+                            key={tag.id}
                             type="button"
                             onClick={() => {
-                              setSelectedPresetTags((prev) =>
-                                checked ? prev.filter((item) => item !== tag) : [...prev, tag]
+                              setSelectedPresetTagIds((prev) =>
+                                checked ? prev.filter((item) => item !== tag.id) : [...prev, tag.id]
                               );
                             }}
                             className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
                               checked ? 'border-[#006633] bg-[#006633] text-white shadow-sm' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
                             }`}
                           >
-                            {tag}
+                            {tag.name}
                           </button>
                         );
                       })}
