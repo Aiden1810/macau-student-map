@@ -374,7 +374,10 @@ export default function Page() {
       resultCount: response.items.length,
       userAnonId: null,
       logger: async (payload) => {
-        await supabase.from('search_query_log').insert(payload);
+        const {error} = await supabase.from('search_query_log').insert(payload);
+        if (error) {
+          console.error('search_query_log insert failed:', error.message);
+        }
       }
     });
   }, [searchComputed.fallbackMessage, searchComputed.matchedLevel, searchComputed.matchedTags, searchComputed.searched, searchQuery]);
