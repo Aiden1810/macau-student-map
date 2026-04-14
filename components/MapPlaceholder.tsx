@@ -209,8 +209,9 @@ function buildUserPinHtml(anchored = true): string {
   </div>`;
 }
 
-function escapeHtml(raw: string): string {
-  return raw
+function escapeHtml(raw: unknown): string {
+  const text = typeof raw === 'string' ? raw : raw == null ? '' : String(raw);
+  return text
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
