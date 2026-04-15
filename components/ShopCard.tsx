@@ -145,11 +145,11 @@ export default function ShopCard({
         </div>
       )}
 
-      <div className="mb-3 flex flex-wrap gap-2">
+      <div className="mb-3 flex flex-wrap content-start items-start gap-2 pb-1">
         {shop.tags.map((tag, index) => (
           <span
             key={tag}
-            className={`rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600 ${index > 2 ? 'hidden sm:inline-flex' : ''}`}
+            className={`shrink-0 rounded-md bg-slate-100 px-2 py-1 text-xs leading-none text-slate-600 ${index > 2 ? 'hidden sm:inline-flex' : ''}`}
           >
             {tag}
           </span>

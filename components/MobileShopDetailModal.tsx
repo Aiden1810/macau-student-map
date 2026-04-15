@@ -243,9 +243,12 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
               </span>
             </div>
 
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap content-start items-start gap-2 pb-1">
               {shop.tags.map((tag) => (
-                <span key={tag} className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                <span
+                  key={tag}
+                  className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-xs leading-none text-slate-600"
+                >
                   {tag}
                 </span>
               ))}
