@@ -149,7 +149,7 @@ export default function ShopCard({
         {shop.tags.map((tag, index) => (
           <span
             key={tag}
-            className={`shrink-0 rounded-md bg-slate-100 px-2 py-1 text-xs leading-none text-slate-600 ${index > 2 ? 'hidden sm:inline-flex' : ''}`}
+            className={`inline-flex shrink-0 items-center rounded-md bg-slate-100 px-2 py-1.5 text-[13px] leading-normal text-slate-600 ${index > 2 ? 'hidden sm:inline-flex' : ''}`}
           >
             {tag}
           </span>
