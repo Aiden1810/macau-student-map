@@ -132,6 +132,38 @@ type AdminAuditLogRow = {
   created_at: string;
 };
 
+type MissedQueryRow = {
+  query: string;
+  normalized_query: string;
+  miss_count: number;
+  latest_at: string;
+  matched_levels: Record<string, number>;
+};
+
+type MissedQueryOpsResponse = {
+  window: string;
+  since: string;
+  summary: {
+    total_count: number;
+    hit_count: number;
+    miss_count: number;
+    hit_rate: number;
+  };
+  top_missed_queries: MissedQueryRow[];
+  latest_events: Array<{
+    query: string;
+    normalized_query: string;
+    hit: boolean;
+    matched_level: string;
+    result_count: number;
+    searched_at: string;
+  }>;
+  sql_templates: {
+    weekly_top_miss: string;
+    weekly_level_breakdown: string;
+  };
+};
+
 function shortenUuid(uuid: string): string {
   const trimmed = uuid.trim();
   if (!trimmed) return '-';
@@ -547,6 +579,10 @@ export default function AdminModerationPage() {
   const [selectedAnalyticsShopId, setSelectedAnalyticsShopId] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogRow[]>([]);
+  const [missedQueryWindow, setMissedQueryWindow] = useState<'24h' | '7d' | '30d'>('7d');
+  const [missedQueryLoading, setMissedQueryLoading] = useState(false);
+  const [missedQueryData, setMissedQueryData] = useState<MissedQueryOpsResponse | null>(null);
+  const [missedQueryError, setMissedQueryError] = useState<string | null>(null);
 
   const fetchAllShops = useCallback(async (opts?: {silent?: boolean}) => {
     const silent = opts?.silent ?? false;
@@ -737,6 +773,32 @@ export default function AdminModerationPage() {
   useEffect(() => {
     checkAdminRole();
   }, [checkAdminRole]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const fetchMissedQueries = async () => {
+      setMissedQueryLoading(true);
+      setMissedQueryError(null);
+
+      try {
+        const res = await fetch(`/api/admin/missed-query-ops?window=${missedQueryWindow}&limit=20`, {cache: 'no-store'});
+        const data = (await res.json()) as MissedQueryOpsResponse & {error?: string};
+        if (!res.ok) {
+          throw new Error(data.error ?? '加载未命中词看板失败');
+        }
+        setMissedQueryData(data);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '加载未命中词看板失败';
+        setMissedQueryError(message);
+        setMissedQueryData(null);
+      } finally {
+        setMissedQueryLoading(false);
+      }
+    };
+
+    fetchMissedQueries();
+  }, [isAdmin, missedQueryWindow]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -1632,6 +1694,100 @@ export default function AdminModerationPage() {
               </div>
             </div>
           </div>
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">未命中高频词运营看板</h2>
+              <p className="mt-1 text-xs text-slate-500">自动统计搜索未命中词，并提供周度入库的审查入口</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {([
+                {key: '24h', label: '24h'},
+                {key: '7d', label: '7d'},
+                {key: '30d', label: '30d'}
+              ] as Array<{key: '24h' | '7d' | '30d'; label: string}>).map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setMissedQueryWindow(item.key)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${missedQueryWindow === item.key ? 'bg-[#006633] text-white' : 'bg-slate-100 text-slate-600'}`}
+                >
+                  近{item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-500">总搜索量</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{missedQueryData?.summary.total_count ?? '-'}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-500">命中率</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{missedQueryData ? `${(missedQueryData.summary.hit_rate * 100).toFixed(1)}%` : '-'}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-500">未命中次数</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{missedQueryData?.summary.miss_count ?? '-'}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-500">TOP 未命中词</p>
+              <p className="mt-1 text-2xl font-bold text-slate-900">{missedQueryData?.top_missed_queries.length ?? '-'}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
+            {missedQueryLoading ? (
+              <div className="bg-slate-50 p-4 text-sm text-slate-500">加载未命中高频词中...</div>
+            ) : missedQueryError ? (
+              <div className="bg-rose-50 p-4 text-sm text-rose-700">{missedQueryError}</div>
+            ) : (
+              <table className="min-w-full divide-y divide-slate-200 text-xs">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-600">词条</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-600">未命中次数</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-600">最近出现</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-600">命中层级分布</th>
+                    <th className="px-3 py-2 text-left font-semibold text-slate-600">入库建议</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {(missedQueryData?.top_missed_queries ?? []).map((row) => (
+                    <tr key={row.normalized_query}>
+                      <td className="px-3 py-2 font-medium text-slate-800">{row.query}</td>
+                      <td className="px-3 py-2">{row.miss_count}</td>
+                      <td className="px-3 py-2 text-slate-600">{new Date(row.latest_at).toLocaleString()}</td>
+                      <td className="px-3 py-2 text-slate-600">{Object.entries(row.matched_levels).map(([k, v]) => `${k}:${v}`).join(' · ') || '-'}</td>
+                      <td className="px-3 py-2 text-slate-600">建议优先人工确认是否应补到 `tag_synonym` 或 `query_expand_dict`</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {missedQueryData && (
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold text-slate-700">周度 SQL 模板</p>
+                <pre className="mt-2 overflow-x-auto rounded-lg bg-white p-3 text-[11px] leading-5 text-slate-700">{missedQueryData.sql_templates.weekly_top_miss}\n\n{missedQueryData.sql_templates.weekly_level_breakdown}</pre>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs font-semibold text-slate-700">最近未命中事件</p>
+                <div className="mt-2 space-y-2">
+                  {missedQueryData.latest_events.slice(0, 8).map((item, index) => (
+                    <div key={`${item.normalized_query}-${index}`} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600">
+                      <span className="font-semibold text-slate-900">{item.query}</span> · {item.matched_level} · {item.result_count} 条 · {new Date(item.searched_at).toLocaleString()}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
