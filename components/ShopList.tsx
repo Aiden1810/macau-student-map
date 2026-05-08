@@ -42,7 +42,6 @@ interface ShopListProps {
 }
 
 const SHEET_COLLAPSED_HEIGHT = 280;
-const SHEET_L2_ROW_RESERVED_HEIGHT = 46;
 
 type MobileSheetSnap = 'collapsed' | 'full';
 
@@ -202,14 +201,8 @@ export default function ShopList({
     }, 1000);
   };
 
-  const hasVisibleL2Tags = activeL1 !== 'all' && onL2Change !== undefined;
-
   const currentSheetHeight = mobileHeight > 0 ? mobileHeight : getSnapHeight(mobileSnap);
   const currentSheetHeightStyle = `${currentSheetHeight}px`;
-  const mobileListHeight = Math.max(
-    120,
-    currentSheetHeight - 210 - (hasVisibleL2Tags ? SHEET_L2_ROW_RESERVED_HEIGHT : 0)
-  );
 
   const desktopListContent = (
     <>
@@ -453,29 +446,31 @@ export default function ShopList({
           const allTags = groups.flatMap((group) => group.options);
           if (allTags.length === 0) return null;
           return (
-            <div className="hide-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-1">
-              {allTags.map((tag) => {
-                const isActive = activeL2.includes(tag.value);
-                return (
-                  <button
-                    key={tag.value}
-                    type="button"
-                    onClick={() => onL2Change(activeL1, tag.value)}
-                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
-                      isActive
-                        ? 'bg-[#006633] text-white'
-                        : 'bg-white/60 text-[#0d2918]'
-                    }`}
-                  >
-                    {tFilters(`l2Tags.${tag.labelKey}`)}
-                  </button>
-                );
-              })}
+            <div className="mb-2 max-h-[108px] overflow-y-auto pr-1">
+              <div className="hide-scrollbar flex flex-wrap gap-1.5 pb-1">
+                {allTags.map((tag) => {
+                  const isActive = activeL2.includes(tag.value);
+                  return (
+                    <button
+                      key={tag.value}
+                      type="button"
+                      onClick={() => onL2Change(activeL1, tag.value)}
+                      className={`inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
+                        isActive
+                          ? 'bg-[#006633] text-white shadow-sm'
+                          : 'bg-white/60 text-[#0d2918]'
+                      }`}
+                    >
+                      {tFilters(`l2Tags.${tag.labelKey}`)}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           );
         })()}
 
-        <div className="mt-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom,0px),72px)]" style={{height: `${mobileListHeight}px`}}>
+        <div className="mt-1 min-h-0 flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom,0px),72px)]">
             {loading ? (
               <div className="space-y-2">
                 {Array.from({length: 4}).map((_, index) => (
