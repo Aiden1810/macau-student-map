@@ -10,24 +10,32 @@ as $$
 declare
   v_avg numeric;
   v_count integer;
+  v_sum numeric;
+  v_label text;
 begin
   select
     avg(c.rating)::numeric,
-    count(*)::integer
-  into v_avg, v_count
+    count(*)::integer,
+    coalesce(sum(c.rating), 0)::numeric
+  into v_avg, v_count, v_sum
   from public.comments c
   where c.shop_id = target_shop_id;
 
+  v_label := case
+    when coalesce(v_count, 0) = 0 then '暂无评分'
+    when round(v_avg::numeric, 1) >= 5 then '封神之作'
+    when round(v_avg::numeric, 1) >= 4 then '强烈推荐'
+    when round(v_avg::numeric, 1) >= 3 then '还行吧'
+    else '建议避雷'
+  end;
+
   update public.shops s
   set
-    rating = case when coalesce(v_count, 0) = 0 then 0 else round(v_avg::numeric, 1) end,
+    rating = case when coalesce(v_count, 0) = 0 then null else round(v_avg::numeric, 1) end,
     review_count = coalesce(v_count, 0),
     rating_count = coalesce(v_count, 0),
-    total_sum = (
-      select coalesce(sum(c2.rating), 0)::numeric
-      from public.comments c2
-      where c2.shop_id = target_shop_id
-    )
+    total_sum = v_sum,
+    rating_label = v_label
   where s.id = target_shop_id;
 end;
 $$;
@@ -69,10 +77,16 @@ execute function public.trg_comments_recompute_shop_rating();
 -- One-time backfill for historical data.
 update public.shops s
 set
-  rating = coalesce(src.avg_rating, 0),
+  rating = src.avg_rating,
   review_count = coalesce(src.review_count, 0),
   rating_count = coalesce(src.review_count, 0),
-  total_sum = coalesce(src.total_sum, 0)
+  total_sum = coalesce(src.total_sum, 0),
+  rating_label = case
+    when src.avg_rating >= 5 then '封神之作'
+    when src.avg_rating >= 4 then '强烈推荐'
+    when src.avg_rating >= 3 then '还行吧'
+    else '建议避雷'
+  end
 from (
   select
     c.shop_id,
@@ -84,13 +98,14 @@ from (
 ) src
 where s.id = src.shop_id;
 
--- Ensure shops with no comments are reset to zero.
+-- Ensure shops with no comments have no numeric score.
 update public.shops s
 set
-  rating = 0,
+  rating = null,
   review_count = 0,
   rating_count = 0,
-  total_sum = 0
+  total_sum = 0,
+  rating_label = '暂无评分'
 where not exists (
   select 1 from public.comments c where c.shop_id = s.id
 );

@@ -4,7 +4,6 @@ import type { NextConfig } from 'next';
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
 const nextConfig: NextConfig = {
-  transpilePackages: ['react-map-gl', 'mapbox-gl'],
   images: {
     remotePatterns: [
       {

@@ -1,27 +1,57 @@
 import {NextResponse} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
+import {isAdminRole, readBearerToken} from '@/lib/admin/request-auth';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-function getSupabase() {
+function getSupabase(accessToken: string) {
   if (!supabaseUrl || !supabaseAnonKey) {
     throw new Error('Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY');
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey);
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }
+  });
 }
 
 export async function GET(request: Request) {
   try {
+    const accessToken = readBearerToken(request);
+    if (!accessToken) {
+      return NextResponse.json({error: 'Unauthorized'}, {status: 401});
+    }
+
+    const supabase = getSupabase(accessToken);
+    const {
+      data: {user},
+      error: userError
+    } = await supabase.auth.getUser(accessToken);
+
+    if (userError || !user) {
+      return NextResponse.json({error: 'Unauthorized'}, {status: 401});
+    }
+
+    const {data: profile, error: profileError} = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profileError || !isAdminRole(profile?.role)) {
+      return NextResponse.json({error: 'Forbidden'}, {status: 403});
+    }
+
     const {searchParams} = new URL(request.url);
     const window = searchParams.get('window') ?? '7d';
     const limit = Math.min(Math.max(Number(searchParams.get('limit') ?? '20') || 20, 1), 100);
 
     const windowHours = window === '24h' ? 24 : window === '30d' ? 24 * 30 : 24 * 7;
     const since = new Date(Date.now() - windowHours * 60 * 60 * 1000).toISOString();
-
-    const supabase = getSupabase();
 
     const [missRes, levelRes, sourceRes] = await Promise.all([
       supabase

@@ -56,7 +56,7 @@ function run() {
     try {
       const pkg = JSON.parse(packageRaw);
       const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
-      const requiredDeps = ['next', 'react', 'react-dom', 'react-map-gl', 'mapbox-gl', '@supabase/supabase-js'];
+      const requiredDeps = ['next', 'react', 'react-dom', '@supabase/supabase-js'];
       const missing = requiredDeps.filter((d) => !deps[d]);
       addCheck(
         '关键依赖',
@@ -76,7 +76,7 @@ function run() {
   } else {
     const env = parseEnvFile(envRaw);
     const requiredKeys = [
-      'NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN',
+      'NEXT_PUBLIC_AMAP_WEB_KEY',
       'NEXT_PUBLIC_SUPABASE_URL',
       'NEXT_PUBLIC_SUPABASE_ANON_KEY',
     ];
@@ -101,48 +101,40 @@ function run() {
       );
     }
 
-    const mapboxToken = env.get('NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN');
-    if (mapboxToken) {
-      const ok = mapboxToken.startsWith('pk.') || mapboxToken.startsWith('sk.');
-      addCheck(
-        'Mapbox Token 格式',
-        ok,
-        ok ? '格式看起来正确。' : '格式可能不正确（通常以 pk. 开头）。',
-      );
-    }
+    const amapSecurityCode = env.get('NEXT_PUBLIC_AMAP_SECURITY_CODE');
+    addCheck(
+      'ENV: NEXT_PUBLIC_AMAP_SECURITY_CODE',
+      true,
+      amapSecurityCode ? '已配置。' : '未配置；仅当高德控制台要求安全密钥时才需要。',
+    );
   }
 
   // 3) critical files
   addCheck('components/MapPlaceholder.tsx', exists(mapComponentPath), exists(mapComponentPath) ? '文件存在。' : '文件缺失。');
   addCheck('next.config.ts', exists(nextConfigPath), exists(nextConfigPath) ? '文件存在。' : '文件缺失。');
 
-  // 4) import path check for react-map-gl
+  // 4) AMap implementation check
   const mapComponentRaw = readText(mapComponentPath);
   if (mapComponentRaw) {
-    const badImport = /from\s+['"]react-map-gl['"]/g.test(mapComponentRaw);
-    const goodImport = /from\s+['"]react-map-gl\/mapbox['"]/g.test(mapComponentRaw);
+    const usesAmap = /webapi\.amap\.com\/maps/.test(mapComponentRaw) && /loadAmapScript/.test(mapComponentRaw);
 
     addCheck(
-      'Map 组件导入路径',
-      !badImport && goodImport,
-      !badImport && goodImport
-        ? '导入路径正确（react-map-gl/mapbox）。'
-        : '导入路径可能导致 Next.js 15 的导出错误。',
-      !badImport && goodImport
-        ? undefined
-        : '把 Map 导入改成：from \"react-map-gl/mapbox\"',
+      '高德地图实现',
+      usesAmap,
+      usesAmap ? '检测到高德地图 SDK 加载逻辑。' : '未检测到高德地图 SDK 加载逻辑。',
+      usesAmap ? undefined : '检查 components/MapPlaceholder.tsx 的 loadAmapScript 实现。',
     );
   }
 
-  // 5) next transpilePackages check
+  // 5) stale Mapbox config check
   const nextConfigRaw = readText(nextConfigPath);
   if (nextConfigRaw) {
-    const hasReactMapGl = /transpilePackages\s*:\s*\[[^\]]*['"]react-map-gl['"]/s.test(nextConfigRaw);
+    const hasLegacyMapbox = /react-map-gl|mapbox-gl/.test(nextConfigRaw);
     addCheck(
-      'next.config.ts transpilePackages',
-      hasReactMapGl,
-      hasReactMapGl ? '已包含 react-map-gl。' : '未检测到 react-map-gl 的转译配置。',
-      hasReactMapGl ? undefined : '在 next.config.ts 添加 transpilePackages: [\'react-map-gl\', \'mapbox-gl\']',
+      'next.config.ts 旧地图配置',
+      !hasLegacyMapbox,
+      hasLegacyMapbox ? '仍检测到已移除的 Mapbox 配置。' : '未检测到旧 Mapbox 配置。',
+      hasLegacyMapbox ? '移除 react-map-gl 和 mapbox-gl 的残留配置。' : undefined,
     );
   }
 

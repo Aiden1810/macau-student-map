@@ -65,6 +65,13 @@ type AMapWindow = Window & {
   _AMapSecurityConfig?: {securityJsCode?: string};
 };
 
+const CATEGORY_L1_BY_KEY: Record<string, string> = {
+  food: '美食',
+  drink: '饮品',
+  vibe: '场景',
+  deal: '场景'
+};
+
 function loadAmapPlaceSdk(key: string): Promise<AMapNamespace> {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('AMap only works in browser'));
@@ -159,22 +166,15 @@ export default function ContributionForm({
     }));
   }, []);
 
-  const categoryL1Map: Record<string, string> = {
-    food: '美食',
-    drink: '饮品',
-    vibe: '场景',
-    deal: '场景'
-  };
-
   const primaryTagGroup = useMemo(() => {
     if (!category) return null;
-    const l1 = categoryL1Map[category];
+    const l1 = CATEGORY_L1_BY_KEY[category];
     return allL2Groups.find((group) => group.id === l1) ?? null;
   }, [allL2Groups, category]);
 
   const secondaryTagGroups = useMemo(() => {
     if (!category) return allL2Groups;
-    const l1 = categoryL1Map[category];
+    const l1 = CATEGORY_L1_BY_KEY[category];
     return allL2Groups.filter((group) => group.id !== l1);
   }, [allL2Groups, category]);
 

@@ -7,29 +7,31 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "vitest run",
     "doctor": "node scripts/doctor.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.101.1",
-    "@swc/helpers": "^0.5.21",
+    "@supabase/supabase-js": "^2.112.4",
+    "@swc/helpers": "^0.5.23",
     "browser-image-compression": "^2.0.2",
     "gcoord": "^1.0.7",
     "lucide-react": "^0.539.0",
-    "next": "^15.5.2",
-    "next-intl": "^4.9.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "next": "^15.5.24",
+    "next-intl": "^4.14.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "react-hot-toast": "^2.6.0"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
-    "@types/react": "^19.1.12",
-    "@types/react-dom": "^19.1.9",
-    "autoprefixer": "^10.4.21",
-    "eslint": "^9.34.0",
-    "eslint-config-next": "^15.5.2",
-    "postcss": "^8.5.6",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "autoprefixer": "^10.5.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^15.5.24",
+    "postcss": "^8.5.26",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.11"
   }
 }

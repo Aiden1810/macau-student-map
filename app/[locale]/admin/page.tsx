@@ -2,7 +2,7 @@
 
 import {FormEvent, useCallback, useEffect, useMemo, useState} from 'react';
 import toast from 'react-hot-toast';
-import {getCanonicalTagsForAdminAndSubmit, migrateLegacyTagsForSubmission} from '@/lib/tags/schema';
+import {getCanonicalTagsForAdminAndSubmit} from '@/lib/tags/schema';
 import {Link} from '@/i18n/navigation';
 import {dedupeTrimmedList, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
 import {buildNormalizedShopPayload} from '@/lib/shops/payload';
@@ -782,7 +782,20 @@ export default function AdminModerationPage() {
       setMissedQueryError(null);
 
       try {
-        const res = await fetch(`/api/admin/missed-query-ops?window=${missedQueryWindow}&limit=20`, {cache: 'no-store'});
+        const {
+          data: {session}
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          throw new Error('管理员登录状态已失效，请重新登录');
+        }
+
+        const res = await fetch(`/api/admin/missed-query-ops?window=${missedQueryWindow}&limit=20`, {
+          cache: 'no-store',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
         const data = (await res.json()) as MissedQueryOpsResponse & {error?: string};
         if (!res.ok) {
           throw new Error(data.error ?? '加载未命中词看板失败');
