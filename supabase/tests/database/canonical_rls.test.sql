@@ -8,16 +8,24 @@ insert into public.place_categories (slug, label_zh_mo, label_en, sort_order)
 values ('food', '美食', 'Food', 10)
 on conflict (slug) do nothing;
 
-insert into public.places (id, name, category_slug, status, created_by)
+insert into public.places (id, name, category_slug, status, created_by, published_at)
 values
-  ('10000000-0000-0000-0000-000000000001', 'Visible Place', 'food', 'published', null),
-  ('10000000-0000-0000-0000-000000000002', 'Hidden Draft', 'food', 'draft', null)
+  ('10000000-0000-0000-0000-000000000001', 'Visible Place', 'food', 'published', null, now()),
+  ('10000000-0000-0000-0000-000000000002', 'Hidden Draft', 'food', 'draft', null, null)
 on conflict (id) do nothing;
 
 set local role anon;
 
 select results_eq(
-  $$ select name from public.places order by name $$,
+  $$
+    select name
+    from public.places
+    where id in (
+      '10000000-0000-0000-0000-000000000001'::uuid,
+      '10000000-0000-0000-0000-000000000002'::uuid
+    )
+    order by name
+  $$,
   $$ values ('Visible Place'::text) $$,
   'anonymous users only read published places'
 );

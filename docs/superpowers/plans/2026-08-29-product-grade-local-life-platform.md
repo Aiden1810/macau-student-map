@@ -59,7 +59,7 @@ expect(groupSelectedTags(['burger', 'fried-chicken']).product).toEqual(['burger'
 
 **Files:**
 - Create: `supabase/config.toml`
-- Create via CLI: `supabase/migrations/20260829082847_canonical_local_life_model.sql`
+- Create via CLI: `supabase/migrations/20260830103144_canonical_local_life_model.sql`
 - Create: `supabase/seed.sql`
 - Create: `supabase/tests/database/canonical_schema.test.sql`
 - Create: `supabase/tests/database/canonical_rls.test.sql`

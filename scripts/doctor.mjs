@@ -46,7 +46,7 @@ function run() {
   const packagePath = path.join(root, 'package.json');
   const mapComponentPath = path.join(root, 'components', 'MapPlaceholder.tsx');
   const nextConfigPath = path.join(root, 'next.config.ts');
-  const migrationPath = path.join(root, 'supabase', 'migrations', '20260829082847_canonical_local_life_model.sql');
+  const migrationPath = path.join(root, 'supabase', 'migrations', '20260830103144_canonical_local_life_model.sql');
   const supabaseConfigPath = path.join(root, 'supabase', 'config.toml');
 
   const nodeMajor = Number(process.versions.node.split('.')[0]);
