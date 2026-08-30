@@ -1,5 +1,4 @@
 import {
-  FILTERABLE_RATING_LABELS,
   RecommendStatus,
   SHOP_DRAWER_TYPES,
   SHOP_FEATURE_OPTIONS,
@@ -10,18 +9,25 @@ import {
   ShopRatingLabel,
   ShopStatus,
   ShopType
-} from '@/types/shop';
-import {deriveRegionFromCoordinates} from '@/lib/shops/normalization';
+} from '../../types/shop';
+import {deriveRegionFromCoordinates} from '../shops/normalization';
 
 type LocaleKey = 'zh-CN' | 'zh-MO' | 'en';
 
 const VALID_SHOP_TYPES: ShopType[] = ['餐饮', '服务'];
 const VALID_RECOMMEND_STATUS: RecommendStatus[] = ['recommend', 'neutral', 'avoid'];
 const VALID_SHOP_STATUS: ShopStatus[] = ['pending', 'verified', 'rejected'];
-const VALID_CATEGORY_KEYS: Array<Exclude<ShopCategoryKey, 'all' | 'review'>> = ['food', 'drink', 'vibe', 'deal'];
+const VALID_CATEGORY_KEYS: Array<Exclude<ShopCategoryKey, 'all' | 'review'>> = [
+  'food',
+  'drink',
+  'shopping',
+  'entertainment',
+  'service',
+  'vibe',
+  'deal'
+];
 const VALID_SHOP_DRAWER_TYPES: ShopDrawerType[] = [...SHOP_DRAWER_TYPES];
 const VALID_FEATURES: ShopFeature[] = [...SHOP_FEATURE_OPTIONS];
-const VALID_RATING_LABELS: ShopRatingLabel[] = [...FILTERABLE_RATING_LABELS, '暂无评分'];
 const MACAU_CENTER: [number, number] = [113.5439, 22.1911];
 const DEFAULT_SHOP_NAME = '未知店铺 (Unnamed Shop)';
 const DEFAULT_SHOP_ADDRESS = '地址信息收录中 (Address pending)';
@@ -212,16 +218,20 @@ function normalizeFeatures(input: unknown): ShopFeature[] {
     .filter((item): item is ShopFeature => VALID_FEATURES.includes(item as ShopFeature));
 }
 
-function normalizeRatingLabel(value: unknown, score: number): ShopRatingLabel {
-  if (typeof value === 'string' && VALID_RATING_LABELS.includes(value as ShopRatingLabel)) {
-    return value as ShopRatingLabel;
+function normalizeRatingLabel(_value: unknown, score: number, reviewCount: number): ShopRatingLabel {
+  if (reviewCount <= 0 || score <= 0) {
+    return '暂无评分';
   }
 
-  if (score >= 5) {
+  if (reviewCount < 5) {
+    return score < 2.5 ? '建议避雷' : '还行吧';
+  }
+
+  if (score >= 4.8) {
     return '封神之作';
   }
 
-  if (score >= 4) {
+  if (score >= 4.3) {
     return '强烈推荐';
   }
 
@@ -317,10 +327,11 @@ function normalizeReviewMetrics(
   const safeReviewCount = Number.isFinite(parsedReviewCount) && parsedReviewCount > 0 ? Math.floor(parsedReviewCount) : 0;
 
   if (safeReviewCount > 0) {
-    const parsedSum = typeof totalSum === 'number' ? totalSum : typeof totalSum === 'string' ? Number(totalSum) : 0;
-
-    const safeSum = Number.isFinite(parsedSum) ? parsedSum : 0;
-    const average = Number((safeSum / safeReviewCount).toFixed(1));
+    const parsedSum = typeof totalSum === 'number' ? totalSum : typeof totalSum === 'string' ? Number(totalSum) : NaN;
+    const parsedRating = typeof rating === 'number' ? rating : typeof rating === 'string' ? Number(rating) : NaN;
+    const average = Number(
+      (Number.isFinite(parsedSum) ? parsedSum / safeReviewCount : Number.isFinite(parsedRating) ? parsedRating : 0).toFixed(1)
+    );
 
     return {rating: average, reviews: safeReviewCount};
   }
@@ -527,7 +538,7 @@ export function mapSingleShop(row: Record<string, unknown>, locale: LocaleKey = 
     tags: finalTags,
     features: normalizeFeatures(rawFeatures),
     shopType: normalizeShopDrawerType(rawShopType, mergedTags, normalizedSubTags),
-    ratingLabel: normalizeRatingLabel(row?.rating_label, reviewMetrics.rating),
+    ratingLabel: normalizeRatingLabel(row?.rating_label, reviewMetrics.rating, reviewMetrics.reviews),
     mainCategory: normalizedMainCategory,
     subTags: normalizedSubTags,
     rating: reviewMetrics.rating,

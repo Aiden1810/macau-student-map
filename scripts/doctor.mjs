@@ -46,6 +46,16 @@ function run() {
   const packagePath = path.join(root, 'package.json');
   const mapComponentPath = path.join(root, 'components', 'MapPlaceholder.tsx');
   const nextConfigPath = path.join(root, 'next.config.ts');
+  const migrationPath = path.join(root, 'supabase', 'migrations', '20260829082847_canonical_local_life_model.sql');
+  const supabaseConfigPath = path.join(root, 'supabase', 'config.toml');
+
+  const nodeMajor = Number(process.versions.node.split('.')[0]);
+  addCheck(
+    'Node.js 版本',
+    nodeMajor >= 20,
+    `当前 ${process.versions.node}；要求 20 或更高。`,
+    nodeMajor >= 20 ? undefined : '安装 Node.js 20 LTS 或更高版本。',
+  );
 
   // 1) package.json
   const packageRaw = readText(packagePath);
@@ -112,6 +122,16 @@ function run() {
   // 3) critical files
   addCheck('components/MapPlaceholder.tsx', exists(mapComponentPath), exists(mapComponentPath) ? '文件存在。' : '文件缺失。');
   addCheck('next.config.ts', exists(nextConfigPath), exists(nextConfigPath) ? '文件存在。' : '文件缺失。');
+  addCheck('Supabase 规范迁移', exists(migrationPath), exists(migrationPath) ? '迁移文件存在。' : '规范数据模型迁移缺失。');
+
+  const supabaseConfig = readText(supabaseConfigPath) ?? '';
+  const hasPrivateBucket = /\[storage\.buckets\."submission-media"\][\s\S]*?public\s*=\s*false/.test(supabaseConfig);
+  const hasPublicBucket = /\[storage\.buckets\."place-media"\][\s\S]*?public\s*=\s*true/.test(supabaseConfig);
+  addCheck(
+    'Storage buckets',
+    hasPrivateBucket && hasPublicBucket,
+    hasPrivateBucket && hasPublicBucket ? '私有投稿桶和公开地点桶配置完整。' : 'Storage bucket 配置不完整。',
+  );
 
   // 4) AMap implementation check
   const mapComponentRaw = readText(mapComponentPath);

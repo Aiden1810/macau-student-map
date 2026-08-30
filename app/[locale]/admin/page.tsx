@@ -7,6 +7,7 @@ import {Link} from '@/i18n/navigation';
 import {dedupeTrimmedList, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
 import {buildNormalizedShopPayload} from '@/lib/shops/payload';
 import {supabase} from '@/lib/supabase';
+import SubmissionQueue from '@/components/admin/SubmissionQueue';
 
 type ShopStatus = 'pending' | 'verified' | 'rejected';
 type ShopCategory = 'food' | 'drink' | 'vibe' | 'deal';
@@ -1418,6 +1419,8 @@ export default function AdminModerationPage() {
             </div>
           </div>
         </div>
+
+        <SubmissionQueue />
 
         {error && (
           <div className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

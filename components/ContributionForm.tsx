@@ -2,12 +2,11 @@
 
 import {FormEvent, useEffect, useMemo, useState} from 'react';
 import {useTranslations} from 'next-intl';
-import {Star} from 'lucide-react';
 import {getCanonicalTagsForAdminAndSubmit} from '@/lib/tags/schema';
 import ImageUpload from '@/components/ImageUpload';
 import {useDebounce} from '@/lib/hooks/useDebounce';
-import {buildNormalizedShopPayload} from '@/lib/shops/payload';
-import {appendLocalSubmission, markLocalSubmissionServerId} from '@/lib/submissions/local';
+import {authenticatedApiRequest} from '@/lib/api/client';
+import type {PlaceCategorySlug} from '@/lib/domain/taxonomy';
 import {supabase} from '@/lib/supabase';
 
 type GeocodeOption = {
@@ -67,10 +66,21 @@ type AMapWindow = Window & {
 
 const CATEGORY_L1_BY_KEY: Record<string, string> = {
   food: '美食',
-  drink: '饮品',
-  vibe: '场景',
-  deal: '场景'
+  shopping: '购物',
+  entertainment: '娱乐',
+  service: '生活服务'
 };
+
+type SubmissionDraftResponse = {
+  id: string;
+  version: number;
+};
+
+type DuplicateCandidate = {id: string; name: string; distanceMeters: number};
+
+type SubmitResponse =
+  | {submitted: true; submission: SubmissionDraftResponse}
+  | {submitted: false; duplicateCandidates: DuplicateCandidate[]};
 
 function loadAmapPlaceSdk(key: string): Promise<AMapNamespace> {
   if (typeof window === 'undefined') {
@@ -138,20 +148,19 @@ export default function ContributionForm({
   const [geocodeLoading, setGeocodeLoading] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<GeocodeOption | null>(null);
   const [isDuplicate, setIsDuplicate] = useState(false);
-  const [duplicateLoading, setDuplicateLoading] = useState(false);
 
   const [manualMode, setManualMode] = useState(false);
   const [manualShopName, setManualShopName] = useState('');
 
-  const [category, setCategory] = useState<'food' | 'drink' | 'vibe' | 'deal' | ''>('');
-  const [ratingScore, setRatingScore] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
+  const [category, setCategory] = useState<PlaceCategorySlug | ''>('');
   const [selectedPresetTagIds, setSelectedPresetTagIds] = useState<string[]>([]);
   const [expandedSecondaryTagGroups, setExpandedSecondaryTagGroups] = useState(false);
 
-  const [reviewText, setReviewText] = useState('');
   const [pricePerPerson, setPricePerPerson] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [draftVersion, setDraftVersion] = useState(1);
+  const [uploadedMediaCount, setUploadedMediaCount] = useState(0);
+  const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateCandidate[]>([]);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [contributeMessage, setContributeMessage] = useState<string | null>(null);
   const [contributeError, setContributeError] = useState<string | null>(null);
@@ -285,59 +294,81 @@ export default function ContributionForm({
     };
   }, [debouncedGeocodeQuery, manualMode, tContribute]);
 
-  const handleChoosePlace = async (option: GeocodeOption) => {
+  const handleChoosePlace = (option: GeocodeOption) => {
     setSelectedPlace(option);
     setContributeError(null);
     setContributeMessage(null);
-    setDuplicateLoading(true);
+    setDuplicateCandidates([]);
+    setIsDuplicate(false);
+  };
 
-    let data: {id: string}[] | null = null;
-    let queryError: {message: string} | null = null;
+  const getAccessToken = async () => {
+    const {data, error} = await supabase.auth.getSession();
+    if (error || !data.session?.access_token) {
+      throw new Error('请先登录后再投稿。');
+    }
+    return data.session.access_token;
+  };
 
-    const primaryResult = await supabase.from('shops').select('id').eq('amap_poi_id', option.placeId).limit(1);
-
-    if (primaryResult.error) {
-      const fallbackResult = await supabase.from('shops').select('id').eq('mapbox_id', option.placeId).limit(1);
-      data = fallbackResult.data as {id: string}[] | null;
-      queryError = fallbackResult.error ? {message: fallbackResult.error.message} : null;
-    } else {
-      data = primaryResult.data as {id: string}[] | null;
+  const buildDraftPayload = () => {
+    const canUseSearch = !!selectedPlace;
+    const canUseManual = manualMode && !!manualCoordinates && manualShopName.trim().length > 0;
+    if ((!canUseSearch && !canUseManual) || !category) {
+      throw new Error('请先完成地点、名称和主分类。');
+    }
+    if (selectedPresetTagIds.length === 0) {
+      throw new Error('请至少选择 1 个标准标签。');
     }
 
-    setDuplicateLoading(false);
+    const coordinates = canUseSearch ? selectedPlace!.coordinates : manualCoordinates!;
+    return {
+      sourcePlaceId: null,
+      name: canUseSearch ? selectedPlace!.name : manualShopName.trim(),
+      address: canUseSearch ? selectedPlace!.fullAddress || null : null,
+      categorySlug: category,
+      region: null,
+      longitude: coordinates[0],
+      latitude: coordinates[1],
+      pricePerPerson: pricePerPerson.trim() ? Number(pricePerPerson) : null,
+      tagIds: Array.from(new Set(selectedPresetTagIds)).slice(0, 20),
+      notes: canUseSearch ? `AMap POI: ${selectedPlace!.placeId}` : null,
+      version: draftVersion
+    };
+  };
 
-    if (queryError) {
-      setIsDuplicate(false);
-      setContributeError(queryError.message);
-      return;
-    }
-
-    const duplicate = (data ?? []).length > 0;
-    setIsDuplicate(duplicate);
-
-    if (duplicate) {
-      setContributeMessage('检测到同地点已存在店铺：本次会进入待审核队列，不会直接上线。');
-    }
+  const saveDraft = async (): Promise<{draft: SubmissionDraftResponse; accessToken: string}> => {
+    const accessToken = await getAccessToken();
+    const payload = buildDraftPayload();
+    const draft = await authenticatedApiRequest<SubmissionDraftResponse>(
+      draftId ? `/api/submissions/${draftId}` : '/api/submissions',
+      accessToken,
+      {
+        method: draftId ? 'PATCH' : 'POST',
+        body: JSON.stringify(payload)
+      }
+    );
+    setDraftId(draft.id);
+    setDraftVersion(draft.version);
+    return {draft, accessToken};
   };
 
   const handleUploadImage = async (file: File) => {
-    const ext = file.name.split('.').pop() || 'jpg';
-    const filePath = `shops/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-
-    const {error: uploadError} = await supabase.storage.from('shop-images').upload(filePath, file, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: file.type || 'image/jpeg'
-    });
-
-    if (uploadError) {
-      setContributeError(uploadError.message);
-      return;
+    setContributeError(null);
+    try {
+      const {draft, accessToken} = await saveDraft();
+      const formData = new FormData();
+      formData.set('file', file);
+      formData.set('submissionId', draft.id);
+      formData.set('altText', `${buildDraftPayload().name} 投稿图片`);
+      await authenticatedApiRequest('/api/media/submission-upload', accessToken, {
+        method: 'POST',
+        body: formData
+      });
+      setUploadedMediaCount((count) => count + 1);
+      setContributeMessage('草稿已保存，图片已安全上传。');
+    } catch (error) {
+      setContributeError(error instanceof Error ? error.message : '图片上传失败。');
     }
-
-    const {data} = supabase.storage.from('shop-images').getPublicUrl(filePath);
-    setImageUrls((prev) => [...prev, data.publicUrl]);
-    setContributeMessage('图片已添加');
   };
 
   const handleSubmitContribute = async (event: FormEvent<HTMLFormElement>) => {
@@ -353,19 +384,9 @@ export default function ContributionForm({
       return;
     }
 
-    if (ratingScore === 0) {
-      setContributeError('请先点击星星进行评分');
-      return;
-    }
-
     setSubmitLoading(true);
     setContributeError(null);
     setContributeMessage(null);
-
-    const customTags = tagsInput
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
 
     const normalizedTagIds = Array.from(new Set(selectedPresetTagIds)).slice(0, 8);
 
@@ -375,113 +396,51 @@ export default function ContributionForm({
       return;
     }
 
-    if (category !== 'vibe' && category !== 'deal' && normalizedTagIds.length > 3) {
-      setSubmitLoading(false);
-      setContributeError('美食/饮品投稿最多选择3个标准标签');
-      return;
-    }
-    const normalizedReviewText = reviewText.trim();
+    try {
+      const {draft, accessToken} = await saveDraft();
+      const result = await authenticatedApiRequest<SubmitResponse>(
+        `/api/submissions/${draft.id}/submit`,
+        accessToken,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            confirmedDuplicateIds: duplicateCandidates.map((candidate) => candidate.id)
+          })
+        }
+      );
 
-    const payload = canSubmitFromSearch
-      ? buildNormalizedShopPayload({
-          name: selectedPlace!.name,
-          address: selectedPlace!.fullAddress || null,
-          amapPoiId: selectedPlace!.placeId,
-          longitude: selectedPlace!.coordinates[0],
-          latitude: selectedPlace!.coordinates[1],
-          category,
-          selectedTagIds: normalizedTagIds,
-          customTags,
-          ratingScore,
-          imageUrls,
-          reviewText: normalizedReviewText,
-          status: 'pending',
-          pricePerPerson: pricePerPerson.trim() ? Number(pricePerPerson) : null
-        })
-      : buildNormalizedShopPayload({
-          name: manualShopName.trim(),
-          address: null,
-          amapPoiId: null,
-          longitude: manualCoordinates![0],
-          latitude: manualCoordinates![1],
-          category,
-          selectedTagIds: normalizedTagIds,
-          customTags,
-          ratingScore,
-          imageUrls,
-          reviewText: normalizedReviewText,
-          status: 'pending',
-          pricePerPerson: pricePerPerson.trim() ? Number(pricePerPerson) : null
-        });
-
-    const {
-      data: {user}
-    } = await supabase.auth.getUser();
-
-    const payloadWithAuthor = {
-      ...payload,
-      submitted_by: user?.id ?? null
-    };
-
-    let insertError: {message: string} | null = null;
-    let insertedShopId: string | null = null;
-
-    const insertWithAuthor = await supabase.from('shops').insert(payloadWithAuthor).select('id').single();
-
-    if (insertWithAuthor.error) {
-      const canFallback = /submitted_by|column/i.test(insertWithAuthor.error.message);
-
-      if (canFallback) {
-        const fallbackInsert = await supabase.from('shops').insert(payload).select('id').single();
-        insertError = fallbackInsert.error ? {message: fallbackInsert.error.message} : null;
-        insertedShopId = fallbackInsert.data?.id ? String(fallbackInsert.data.id) : null;
-      } else {
-        insertError = {message: insertWithAuthor.error.message};
-      }
-    } else {
-      insertedShopId = insertWithAuthor.data?.id ? String(insertWithAuthor.data.id) : null;
-    }
-
-    if (!insertError && insertedShopId) {
-      const seedReviewContent = normalizedReviewText.length > 0 ? normalizedReviewText : ' ';
-      const {error: seedReviewError} = await supabase.from('comments').insert({
-        shop_id: insertedShopId,
-        content: seedReviewContent,
-        rating: ratingScore
-      });
-
-      if (seedReviewError) {
-        setSubmitLoading(false);
-        setContributeError(seedReviewError.message);
+      if (!result.submitted) {
+        setDuplicateCandidates(result.duplicateCandidates);
+        setIsDuplicate(true);
+        setContributeMessage(
+          `发现 ${result.duplicateCandidates.length} 个 200 米内的相似地点。请核对后再次点击提交以确认进入审核。`
+        );
         return;
       }
+
+      setContributeMessage(tContribute('submitSuccess'));
+      await onSuccess();
+    } catch (error) {
+      setContributeError(error instanceof Error ? error.message : '投稿提交失败。');
+    } finally {
+      setSubmitLoading(false);
     }
+  };
 
-    setSubmitLoading(false);
-
-    if (insertError) {
-      setContributeError(insertError.message);
+  const handleCancel = async () => {
+    if (!draftId) {
+      onCancel();
       return;
     }
 
-    const submittedShopName = canSubmitFromSearch ? selectedPlace!.name : manualShopName.trim();
-    const localSubmissionId = `local_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
-    appendLocalSubmission({
-      id: localSubmissionId,
-      name: submittedShopName,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      isAnonymous: !user,
-      serverId: insertedShopId
-    });
-
-    if (insertedShopId) {
-      markLocalSubmissionServerId(localSubmissionId, insertedShopId);
+    setContributeError(null);
+    try {
+      const accessToken = await getAccessToken();
+      await authenticatedApiRequest(`/api/submissions/${draftId}`, accessToken, {method: 'DELETE'});
+      onCancel();
+    } catch (error) {
+      setContributeError(error instanceof Error ? error.message : '草稿清理失败，请稍后重试。');
     }
-
-    setContributeMessage(tContribute('submitSuccess'));
-    await onSuccess();
   };
 
   return (
@@ -493,7 +452,7 @@ export default function ContributionForm({
         </div>
         <button
           type="button"
-          onClick={onCancel}
+          onClick={handleCancel}
           className="inline-flex rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
         >
           {tContribute('button')}
@@ -567,9 +526,7 @@ export default function ContributionForm({
         </div>
       )}
 
-      {duplicateLoading && <p className="mt-4 text-sm text-slate-500">{tContribute('checkingDuplicate')}</p>}
-
-      {selectedPlace && !manualMode && !duplicateLoading && (
+      {selectedPlace && !manualMode && (
         <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
           <p className="text-sm font-semibold text-slate-900">{selectedPlace.name}</p>
           <p className="text-xs text-slate-500">{selectedPlace.fullAddress}</p>
@@ -580,10 +537,19 @@ export default function ContributionForm({
       {isDuplicate && !manualMode && (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           {tContribute('duplicateWarning')}
+          {duplicateCandidates.length > 0 && (
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {duplicateCandidates.map((candidate) => (
+                <li key={candidate.id}>
+                  {candidate.name}（约 {Math.round(candidate.distanceMeters)} 米）
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
-      {((selectedPlace && !duplicateLoading) || (manualMode && manualCoordinates)) && (
+      {(selectedPlace || (manualMode && manualCoordinates)) && (
         <form onSubmit={handleSubmitContribute} className="mt-4 space-y-4">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -592,15 +558,16 @@ export default function ContributionForm({
             <div className="flex gap-2">
               {[
                 { value: 'food', label: '美食' },
-                { value: 'drink', label: '饮品/甜点' },
-                { value: 'vibe', label: '场景' },
-                { value: 'deal', label: '优惠' }
+                { value: 'shopping', label: '购物' },
+                { value: 'entertainment', label: '娱乐' },
+                { value: 'service', label: '生活服务' }
               ].map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
                   onClick={() => {
-                    setCategory(opt.value as 'food' | 'drink' | 'vibe' | 'deal');
+                    setCategory(opt.value as PlaceCategorySlug);
+                    setSelectedPresetTagIds([]);
                     setExpandedSecondaryTagGroups(false);
                   }}
                   className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
@@ -628,28 +595,6 @@ export default function ContributionForm({
               />
             </div>
           )}
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">评价打分</label>
-            <div className="mt-2 flex items-center gap-1">
-              {([1, 2, 3, 4, 5] as const).map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setRatingScore(star)}
-                  className="p-1 transition-transform hover:scale-110 active:scale-95 outline-none"
-                >
-                  <Star
-                    className={`h-7 w-7 transition-colors ${
-                      star <= ratingScore
-                        ? 'fill-amber-400 text-amber-400'
-                        : 'text-slate-300'
-                    }`}
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">人均消费 (MOP/人) <span className="font-normal text-slate-400">（可选）</span></label>
@@ -741,31 +686,11 @@ export default function ContributionForm({
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">自定义标签（逗号分隔，最多和扩展标签合计5个）</label>
-            <input
-              type="text"
-              value={tagsInput}
-              onChange={(e) => setTagsInput(e.target.value)}
-              placeholder={tContribute('tagsPlaceholder')}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-            />
-          </div>
-
-          <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">图片（可选）</label>
             <ImageUpload onUpload={handleUploadImage} />
-            {imageUrls.length > 0 && <p className="mt-1 text-xs text-emerald-600">已上传 {imageUrls.length} 张图片</p>}
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">{tContribute('reviewLabel')}</label>
-            <textarea
-              value={reviewText}
-              onChange={(e) => setReviewText(e.target.value)}
-              rows={3}
-              placeholder={tContribute('reviewPlaceholder')}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-            />
+            {uploadedMediaCount > 0 && (
+              <p className="mt-1 text-xs text-emerald-600">已安全上传 {uploadedMediaCount} 张图片到当前草稿</p>
+            )}
           </div>
 
           <button

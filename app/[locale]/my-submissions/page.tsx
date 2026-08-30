@@ -3,19 +3,19 @@
 import {useEffect, useMemo, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
 import {Link} from '@/i18n/navigation';
-import {readLocalSubmissions} from '@/lib/submissions/local';
+import {authenticatedApiRequest} from '@/lib/api/client';
 import {supabase} from '@/lib/supabase';
 
-type SubmissionStatus = 'pending' | 'verified' | 'rejected';
+type SubmissionStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'merged';
 
 type SubmissionRow = {
   id: string;
   name: string;
-  name_i18n?: Record<string, string> | null;
   status: SubmissionStatus;
-  created_at?: string | null;
-  source?: 'remote' | 'local';
-  localServerId?: string | null;
+  categorySlug: 'food' | 'shopping' | 'entertainment' | 'service';
+  createdAt: string;
+  submittedAt: string | null;
+  reviewNote: string | null;
 };
 
 function formatTime(value: string | null | undefined): string {
@@ -49,66 +49,31 @@ export default function MySubmissionsPage() {
       setLoading(true);
       setError(null);
 
-      const {
-        data: {user},
-        error: userError
-      } = await supabase.auth.getUser();
+      const {data, error: sessionError} = await supabase.auth.getSession();
 
       if (cancelled) return;
 
-      const localRecords = readLocalSubmissions();
-      const localRows: SubmissionRow[] = localRecords.map((item) => ({
-        id: item.id,
-        name: item.name,
-        status: item.status,
-        created_at: item.createdAt,
-        source: 'local',
-        localServerId: item.serverId ?? null
-      }));
-
-      if (userError || !user) {
-        setSubmissions(localRows);
+      if (sessionError || !data.session?.access_token) {
+        setError('请先登录后查看投稿记录。');
+        setSubmissions([]);
         setLoading(false);
         return;
       }
 
-      const result = await supabase
-        .from('shops')
-        .select('id,name,name_i18n,status,created_at')
-        .eq('submitted_by', user.id)
-        .order('created_at', {ascending: false});
-
-      if (cancelled) return;
-
-      if (result.error) {
-        const missingColumn = /submitted_by/i.test(result.error.message) && /does not exist/i.test(result.error.message);
-
-        setError(
-          missingColumn
-            ? '投稿记录功能正在升级中，请稍后再试。'
-            : result.error.message
+      try {
+        const result = await authenticatedApiRequest<{items: SubmissionRow[]}>(
+          '/api/submissions',
+          data.session.access_token
         );
-        setSubmissions(localRows);
-        setLoading(false);
-        return;
+        if (cancelled) return;
+        setSubmissions(result.items);
+      } catch (requestError) {
+        if (cancelled) return;
+        setError(requestError instanceof Error ? requestError.message : '投稿记录加载失败。');
+        setSubmissions([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      const remoteRows = ((result.data ?? []) as SubmissionRow[]).map((row) => ({
-        ...row,
-        source: 'remote' as const
-      }));
-
-      const remoteIdSet = new Set(remoteRows.map((row) => row.id));
-      const dedupedLocalRows = localRows.filter((row) => !row.localServerId || !remoteIdSet.has(row.localServerId));
-
-      const mergedRows = [...remoteRows, ...dedupedLocalRows].sort((a, b) => {
-        const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return bTime - aTime;
-      });
-
-      setSubmissions(mergedRows);
-      setLoading(false);
     };
 
     run();
@@ -120,22 +85,23 @@ export default function MySubmissionsPage() {
 
   const rows = useMemo(() => {
     return submissions.map((row) => {
-      const localizedName = row.name_i18n?.[locale] || row.name_i18n?.['zh-CN'] || row.name;
-
       const statusLabel =
-        row.status === 'verified'
+        row.status === 'approved'
           ? tContribute('statusVerified')
           : row.status === 'rejected'
             ? tContribute('statusRejected')
-            : tContribute('statusPending');
+            : row.status === 'merged'
+              ? '已合并到现有地点'
+              : row.status === 'draft'
+                ? '草稿'
+                : tContribute('statusPending');
 
       return {
         ...row,
-        localizedName,
         statusLabel
       };
     });
-  }, [locale, submissions, tContribute]);
+  }, [submissions, tContribute]);
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-10 sm:px-6 lg:px-8">
@@ -174,9 +140,12 @@ export default function MySubmissionsPage() {
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {rows.map((row) => (
                     <tr key={row.id}>
-                      <td className="px-4 py-3 text-sm text-slate-800">{row.localizedName}</td>
+                      <td className="px-4 py-3 text-sm text-slate-800">
+                        <p>{row.name}</p>
+                        {row.reviewNote && <p className="mt-1 text-xs text-slate-500">审核备注：{row.reviewNote}</p>}
+                      </td>
                       <td className="px-4 py-3 text-sm text-slate-700">{row.statusLabel}</td>
-                      <td className="px-4 py-3 text-sm text-slate-500">{formatTime(row.created_at)}</td>
+                      <td className="px-4 py-3 text-sm text-slate-500">{formatTime(row.submittedAt ?? row.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>

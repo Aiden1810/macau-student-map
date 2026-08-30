@@ -3,10 +3,9 @@
 import Image from 'next/image';
 import {MessageCircle, Navigation, Star, StarHalf, X} from 'lucide-react';
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import ImageUpload from '@/components/ImageUpload';
 import MobileImageSlider from '@/components/MobileImageSlider';
 import ImageLightbox from '@/components/ImageLightbox';
-import {supabase} from '@/lib/supabase';
+import ReviewForm from '@/components/reviews/ReviewForm';
 import {Shop} from '@/types/shop';
 
 type CommentWithImages = {
@@ -59,14 +58,6 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
   const [comments, setComments] = useState<CommentWithImages[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
 
-  // Post comment state
-  const [commentRating, setCommentRating] = useState<0 | 1 | 2 | 3 | 4 | 5>(0);
-  const [commentContent, setCommentContent] = useState('');
-  const [commentImageUrls, setCommentImageUrls] = useState<string[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
   // Lightbox
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -78,31 +69,25 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
 
   const fetchComments = useCallback(async () => {
     setCommentsLoading(true);
-
-    const {data, error} = await supabase
-      .from('comments')
-      .select('id,shop_id,content,rating,created_at,comment_images(image_url)')
-      .eq('shop_id', shop.id)
-      .order('created_at', {ascending: false});
-
+    const response = await fetch(`/api/places/${shop.id}/reviews`);
+    const result = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      data?: {items?: Array<{id: string; placeId: string; content: string | null; rating: number; createdAt: string}>};
+    } | null;
     setCommentsLoading(false);
 
-    if (error) {
+    if (!response.ok || !result?.ok) {
       setComments([]);
       return;
     }
 
-    const normalized = (data ?? []).map((row) => ({
+    const normalized = (result.data?.items ?? []).map((row) => ({
       id: String(row.id),
-      shopId: String(row.shop_id),
+      shopId: String(row.placeId),
       content: String(row.content ?? ''),
       rating: Number(row.rating ?? 0) as 1 | 2 | 3 | 4 | 5,
-      createdAt: String(row.created_at),
-      comment_images: Array.isArray(row.comment_images)
-        ? row.comment_images
-            .map((img) => ({image_url: String(img?.image_url ?? '')}))
-            .filter((img) => img.image_url.trim().length > 0)
-        : []
+      createdAt: String(row.createdAt),
+      comment_images: []
     }));
 
     setComments(normalized);
@@ -111,91 +96,8 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
   useEffect(() => {
     if (open) {
       fetchComments();
-      setCommentContent('');
-      setCommentRating(0);
-      setCommentImageUrls([]);
-      setSubmitMessage(null);
-      setSubmitError(null);
     }
   }, [open, fetchComments]);
-
-
-  const handleUploadImage = async (file: File) => {
-    setSubmitError(null);
-    setSubmitMessage(null);
-
-    try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const filePath = `comments/${shop.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-
-      const {error: uploadError} = await supabase.storage.from('shop-images').upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type || 'image/jpeg'
-      });
-
-      if (uploadError) throw uploadError;
-
-      const {data} = supabase.storage.from('shop-images').getPublicUrl(filePath);
-      setCommentImageUrls((prev) => [...prev, data.publicUrl]);
-      setSubmitMessage('图片已添加');
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : '图片上传失败');
-    }
-  };
-
-  const handleSubmitComment = async () => {
-    if (submitting) return;
-    if (commentRating === 0) {
-      setSubmitError('请先点击星星进行评分');
-      return;
-    }
-
-    setSubmitting(true);
-    setSubmitError(null);
-    setSubmitMessage(null);
-
-    try {
-      const trimmedContent = commentContent.trim();
-      const payloadContent = trimmedContent.length > 0 ? trimmedContent : ' ';
-
-      const {data: inserted, error: commentError} = await supabase
-        .from('comments')
-        .insert({
-          shop_id: shop.id,
-          content: payloadContent,
-          rating: commentRating
-        })
-        .select('id')
-        .single();
-
-      if (commentError) throw commentError;
-
-      if (commentImageUrls.length > 0) {
-        const rows = commentImageUrls.map((url) => ({
-          comment_id: inserted.id,
-          image_url: url
-        }));
-
-        const {error: imageError} = await supabase.from('comment_images').insert(rows);
-
-        if (imageError) {
-          await supabase.from('comments').delete().eq('id', inserted.id);
-          throw imageError;
-        }
-      }
-
-      setCommentContent('');
-      setCommentRating(0);
-      setCommentImageUrls([]);
-      setSubmitMessage('评论发布成功');
-      await fetchComments();
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : '评论发布失败');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   if (!open) return null;
 
@@ -275,67 +177,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
 
           {/* Post Comment Section */}
           <div className="px-4 pt-4">
-            <h3 className="text-base font-semibold text-slate-900">发表评论</h3>
-            <div className="mt-2 flex items-center gap-1">
-              {([1, 2, 3, 4, 5] as const).map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setCommentRating(star)}
-                  className="p-1 transition-transform hover:scale-110 active:scale-95 outline-none"
-                >
-                  <Star
-                    className={`h-7 w-7 transition-colors ${
-                      star <= commentRating
-                        ? 'fill-amber-400 text-amber-400'
-                        : 'text-slate-300'
-                    }`}
-                  />
-                </button>
-              ))}
-            </div>
-
-            <textarea
-              value={commentContent}
-              onChange={(e) => setCommentContent(e.target.value)}
-              rows={3}
-              placeholder="可选：写下你的体验..."
-              className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]"
-            />
-
-            <div className="mt-2">
-              <ImageUpload onUpload={handleUploadImage} disabled={submitting} buttonText="添加图片" />
-            </div>
-
-            {commentImageUrls.length > 0 && (
-              <div className="mt-2 grid grid-cols-4 gap-2">
-                {commentImageUrls.map((url, index) => (
-                  <div key={`${url}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200">
-                    <Image src={url} alt={`img-${index + 1}`} width={100} height={100} className="h-16 w-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setCommentImageUrls((prev) => prev.filter((_, i) => i !== index))}
-                      className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-3 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleSubmitComment}
-                disabled={submitting || commentRating === 0}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting ? '发布中...' : '发布'}
-              </button>
-              {submitMessage && <p className="text-sm text-emerald-600">{submitMessage}</p>}
-              {submitError && <p className="text-sm text-rose-600">{submitError}</p>}
-            </div>
+            <ReviewForm placeId={shop.id} compact onSuccess={fetchComments} />
           </div>
 
           {/* Divider */}

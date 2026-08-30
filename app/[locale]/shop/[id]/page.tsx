@@ -273,31 +273,27 @@ export default function ShopDetailPage() {
     setCommentsLoading(true);
     setCommentsError(null);
 
-    const {data, error} = await supabase
-      .from('comments')
-      .select('id,shop_id,content,rating,created_at,comment_images(image_url)')
-      .eq('shop_id', shopId)
-      .order('created_at', {ascending: false});
-
+    const response = await fetch(`/api/places/${shopId}/reviews`);
+    const result = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      data?: {items?: Array<{id: string; placeId: string; content: string | null; rating: number; createdAt: string}>};
+      error?: {message?: string};
+    } | null;
     setCommentsLoading(false);
 
-    if (error) {
-      setCommentsError(error.message);
+    if (!response.ok || !result?.ok) {
+      setCommentsError(result?.error?.message ?? '评论加载失败');
       setComments([]);
       return;
     }
 
-    const normalized = (data ?? []).map((row) => ({
+    const normalized = (result.data?.items ?? []).map((row) => ({
       id: String(row.id),
-      shopId: String(row.shop_id),
+      shopId: String(row.placeId),
       content: String(row.content ?? ''),
       rating: Number(row.rating ?? 0) as 1 | 2 | 3 | 4 | 5,
-      createdAt: String(row.created_at),
-      comment_images: Array.isArray(row.comment_images)
-        ? row.comment_images
-            .map((img) => ({image_url: String(img?.image_url ?? '')}))
-            .filter((img) => img.image_url.trim().length > 0)
-        : []
+      createdAt: String(row.createdAt),
+      comment_images: []
     }));
 
     setComments(normalized);

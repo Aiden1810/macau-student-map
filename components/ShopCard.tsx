@@ -3,6 +3,7 @@ import {Check, Heart, Navigation, Tag, Trash2} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import StarRating from '@/components/StarRating';
 import {getRatingTagFromData} from '@/lib/utils/ratingTag';
+import {deriveTrustLabel} from '@/lib/ranking/confidence';
 import {supabase} from '@/lib/supabase';
 import {Shop} from '@/types/shop';
 
@@ -60,8 +61,19 @@ export default function ShopCard({
   const isPendingAddress = address === '地址信息收录中 (Address pending)';
   const coverImageUrl = shop.imageUrls?.[0] ?? '';
   const hasValidImageUrl = typeof coverImageUrl === 'string' && coverImageUrl.trim().length > 0;
-  const ratingTag = getRatingTagFromData(shop.rating, shop.tags, shop.subTags ?? [], shop.ratingLabel);
-  const hasLowSampleSize = shop.reviews > 0 && shop.reviews < 3;
+  const trustLabel = deriveTrustLabel(shop.rating > 0 ? shop.rating : null, shop.reviews);
+  const trustedRatingLabel =
+    trustLabel === 'excellent'
+      ? '封神之作'
+      : trustLabel === 'recommended'
+        ? '强烈推荐'
+        : trustLabel === 'unrated'
+          ? '暂无评分'
+          : trustLabel === 'limited' && shop.rating < 2.5
+            ? '建议避雷'
+            : '还行吧';
+  const ratingTag = getRatingTagFromData(shop.rating, [], [], trustedRatingLabel);
+  const hasLowSampleSize = shop.reviews > 0 && shop.reviews < 5;
 
   const ensureSessionId = () => {
     if (typeof window === 'undefined') return null;
@@ -182,7 +194,7 @@ export default function ShopCard({
         </div>
         {hasLowSampleSize && (
           <p className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
-            当前评分样本较少（少于3条评论），结果仅供参考。
+            当前评分样本较少（少于5条评论），结果仅供参考。
           </p>
         )}
 

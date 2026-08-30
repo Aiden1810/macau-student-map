@@ -20,6 +20,9 @@
   "Filters": {
     "all": "全部",
     "food": "美食",
+    "shopping": "購物",
+    "entertainment": "娛樂",
+    "service": "生活服務",
     "drinksDesserts": "飲品/甜點",
     "scenario": "場景",
     "area": "區域",

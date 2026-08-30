@@ -20,6 +20,9 @@
   "Filters": {
     "all": "All",
     "food": "Food",
+    "shopping": "Shopping",
+    "entertainment": "Entertainment",
+    "service": "Services",
     "drinksDesserts": "Drinks & Desserts",
     "scenario": "Scenario",
     "area": "Area",

@@ -8,6 +8,9 @@ export const L1_TABS: Array<{key: ShopCategoryKey; labelKey: string}> = [
   {key: 'all', labelKey: 'all'},
   {key: 'food', labelKey: 'food'},
   {key: 'drink', labelKey: 'drinksDesserts'},
+  {key: 'shopping', labelKey: 'shopping'},
+  {key: 'entertainment', labelKey: 'entertainment'},
+  {key: 'service', labelKey: 'service'},
   {key: 'vibe', labelKey: 'scenario'},
   {key: 'region', labelKey: 'area'},
   {key: 'review', labelKey: 'topPicks'}
@@ -76,6 +79,9 @@ export const L2_TAGS: Record<Exclude<ShopCategoryKey, 'all'>, readonly L2Group[]
       options: [{value: '清吧 / 微醺', labelKey: 'chillBar'}]
     }
   ],
+  shopping: [],
+  entertainment: [],
+  service: [],
   vibe: [
     {
       groupKey: 'hotScenarios',

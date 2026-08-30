@@ -13,13 +13,13 @@ import ShopList from '@/components/ShopList';
 import {mapShopList, mapSingleShop} from '@/lib/mappers/shop';
 import {
   buildSearchResponse,
-  expandQueryTerms,
-  fallbackToSimilarCategories,
-  logSearchQuery,
-  matchExact,
-  matchSynonymsWithWeights,
   normalizeQuery
 } from '@/lib/search/tag-search';
+import {normalizePlaceSearchRequest} from '@/lib/domain/search';
+import {resolveTagAlias} from '@/lib/domain/taxonomy';
+import {filterBySelectedFacet} from '@/lib/search/legacy-filters';
+import {parseDiscoveryUrlState, updateDiscoverySearchParams} from '@/lib/search/url-state';
+import {rankCompatibilityPlaces} from '@/lib/services/search-places';
 import {supabase} from '@/lib/supabase';
 import {useFavorites} from '@/lib/hooks/useFavorites';
 import {DrawerFiltersState, Shop, ShopCategoryKey, ViewMode} from '@/types/shop';
@@ -39,7 +39,17 @@ const DEFAULT_DRAWER_FILTERS: DrawerFiltersState = {
   features: []
 };
 
-const L1_KEYS: ShopCategoryKey[] = ['food', 'drink', 'vibe', 'region', 'deal', 'review'];
+const L1_KEYS: ShopCategoryKey[] = [
+  'food',
+  'drink',
+  'shopping',
+  'entertainment',
+  'service',
+  'vibe',
+  'region',
+  'deal',
+  'review'
+];
 
 function hasDrawerFilters(filters: DrawerFiltersState): boolean {
   return filters.shopType !== '全部' || filters.ratingLabel !== null || filters.features.length > 0;
@@ -73,20 +83,7 @@ function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
 }
 
 function filterByL2(tags: string[], shops: Shop[], l1Key: ShopCategoryKey): Shop[] {
-  if (tags.length === 0) {
-    return shops;
-  }
-
-  if (l1Key === 'region') {
-    return shops.filter((s) => tags.includes(s.region ?? ''));
-  }
-
-  if (l1Key === 'vibe') {
-    return shops.filter((s) => tags.some((tag) => s.tags.includes(tag)));
-  }
-
-  const selected = tags[0];
-  return shops.filter((s) => s.tags.includes(selected));
+  return filterBySelectedFacet(tags, shops, l1Key);
 }
 
 function applyDrawerFilters(shops: Shop[], drawerFilters: DrawerFiltersState): Shop[] {
@@ -120,6 +117,7 @@ export default function Page() {
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [activeL1, setActiveL1] = useState<ShopCategoryKey>('all');
   const [activeL2, setActiveL2] = useState<string[]>([]);
+  const [urlStateReady, setUrlStateReady] = useState(false);
   const [drawerFilters, setDrawerFilters] = useState<DrawerFiltersState>(DEFAULT_DRAWER_FILTERS);
   const [showFavorites, setShowFavorites] = useState(false);
   const {favorites, toggleFavorite, isLoaded} = useFavorites();
@@ -147,28 +145,61 @@ export default function Page() {
   const hasFetchedRef = useRef(false);
   const lastLoggedQueryRef = useRef<{query: string; at: number} | null>(null);
 
+  useEffect(() => {
+    const applyUrlState = () => {
+      const state = parseDiscoveryUrlState(window.location.search);
+      setSearchQuery(state.query);
+      setActiveL1(state.category);
+      setActiveL2(state.tags);
+      setUrlStateReady(true);
+    };
+
+    applyUrlState();
+    window.addEventListener('popstate', applyUrlState);
+    return () => window.removeEventListener('popstate', applyUrlState);
+  }, []);
+
+  useEffect(() => {
+    if (!urlStateReady) return;
+    const params = updateDiscoverySearchParams(new URLSearchParams(window.location.search), {
+      query: searchQuery,
+      category: activeL1,
+      tags: activeL2
+    });
+    const next = `${window.location.pathname}${params.size > 0 ? `?${params.toString()}` : ''}${window.location.hash}`;
+    window.history.replaceState(window.history.state, '', next);
+  }, [activeL1, activeL2, searchQuery, urlStateReady]);
+
   const fetchShops = useCallback(async () => {
     setLoading(true);
 
     try {
       const statusFilter = userRole === 'admin' ? 'status.in.(pending,verified,rejected),status.is.null' : 'status.eq.verified';
 
-      const {data, error} = await supabase
-        .from('shops')
-        .select(
-          'id,name,name_i18n,category,student_discount,tags,tags_i18n,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text,review_text_i18n,image_urls,address,main_category,sub_tags,price_per_person,region,signature_dish,sharp_review'
-        )
-        .or(statusFilter);
+      const [legacyResult, canonicalResult] = await Promise.all([
+        supabase
+          .from('shops')
+          .select(
+            'id,name,name_i18n,category,student_discount,tags,tags_i18n,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text,review_text_i18n,image_urls,address,main_category,sub_tags,price_per_person,region,signature_dish,sharp_review'
+          )
+          .or(statusFilter),
+        fetch('/api/places').then(async (response) => {
+          const body = (await response.json().catch(() => null)) as {ok?: boolean; data?: {items?: Shop[]}} | null;
+          return response.ok && body?.ok ? body.data?.items ?? [] : [];
+        })
+      ]);
 
-      if (error) {
-        console.error('Failed to fetch shops:', error.message);
+      if (legacyResult.error && canonicalResult.length === 0) {
+        console.error('Failed to fetch shops:', legacyResult.error.message);
         setShops([]);
         toast.error(tHome('toast.loadFailed'));
         return;
       }
 
-      const mappedShops = mapShopList((data ?? []) as unknown[], locale);
-      setShops(mappedShops);
+      const legacyShops = mapShopList((legacyResult.data ?? []) as unknown[], locale);
+      const legacyIds = new Set(legacyShops.map((shop) => shop.id));
+      const canonicalOnly = canonicalResult.filter((shop) => !legacyIds.has(shop.id));
+      setShops([...legacyShops, ...canonicalOnly]);
 
       if (hasFetchedRef.current) {
         toast.success(tHome('toast.updated'));
@@ -282,9 +313,9 @@ export default function Page() {
   const visibleShops = isAdmin ? shops : shops.filter((shop) => shop.status === 'verified');
 
   const searchComputed = useMemo(() => {
-    const keyword = normalizeQuery(debouncedSearchQuery);
+    const request = normalizePlaceSearchRequest({query: debouncedSearchQuery});
 
-    if (!keyword) {
+    if (!request.query) {
       return {
         searched: visibleShops,
         matchedLevel: 'exact' as const,
@@ -293,57 +324,20 @@ export default function Page() {
       };
     }
 
-    const exact = matchExact(keyword, visibleShops);
-    if (exact.length > 0) {
-      return {
-        searched: exact,
-        matchedLevel: 'exact' as const,
-        fallbackMessage: null as string | null,
-        matchedTags: [] as Array<{tag_id: string; tag_name: string; score_source: number}>
-      };
-    }
-
-    const synonymHits = matchSynonymsWithWeights(keyword);
-    if (synonymHits.length > 0) {
-      const bySynonym = visibleShops.filter((shop) =>
-        synonymHits.some((hit) => shop.tags.includes(hit.tag_name) || shop.mainCategory === hit.tag_name)
-      );
-
-      if (bySynonym.length > 0) {
-        return {
-          searched: bySynonym,
-          matchedLevel: 'synonym' as const,
-          fallbackMessage: '已为你展示相近结果',
-          matchedTags: synonymHits.map((hit) => ({tag_id: hit.tag_id, tag_name: hit.tag_name, score_source: hit.weight}))
-        };
-      }
-    }
-
-    const expandedTerms = expandQueryTerms(keyword);
-    if (expandedTerms.length > 0) {
-      const byExpanded = visibleShops.filter((shop) => {
-        const pool = [shop.name, shop.address, shop.mainCategory ?? '', ...shop.tags, ...(shop.subTags ?? [])].join(' ').toLowerCase();
-        return expandedTerms.some((term) => pool.includes(term.toLowerCase()));
-      });
-
-      if (byExpanded.length > 0) {
-        return {
-          searched: byExpanded,
-          matchedLevel: 'expanded' as const,
-          fallbackMessage: '已为你展示相近结果',
-          matchedTags: [] as Array<{tag_id: string; tag_name: string; score_source: number}>
-        };
-      }
-    }
-
-    const similarCategories = fallbackToSimilarCategories(['中餐', '日料', '奶茶', '甜品']);
-    const bySimilar = visibleShops.filter((shop) => similarCategories.some((tag) => shop.tags.includes(tag.tag_name)));
+    const ranked = rankCompatibilityPlaces(request, visibleShops);
+    const matchedTags = resolveTagAlias(request.query).map((tag) => ({
+      tag_id: tag.id,
+      tag_name: tag.labelZhMO,
+      score_source: 1
+    }));
 
     return {
-      searched: bySimilar.length > 0 ? bySimilar : visibleShops,
-      matchedLevel: 'similar_category' as const,
-      fallbackMessage: '已为你展示相近结果',
-      matchedTags: similarCategories.map((tag) => ({tag_id: tag.tag_id, tag_name: tag.tag_name, score_source: 0.4}))
+      searched: ranked.map((hit) => hit.item),
+      matchedLevel: ranked.some((hit) => hit.matchedBy.includes('tag_alias'))
+        ? ('synonym' as const)
+        : ('exact' as const),
+      fallbackMessage: null as string | null,
+      matchedTags
     };
   }, [debouncedSearchQuery, visibleShops]);
 
@@ -383,20 +377,26 @@ export default function Page() {
 
     lastLoggedQueryRef.current = {query: normalized, at: now};
 
-    void logSearchQuery({
-      query: response.query,
-      hit: response.items.length > 0,
-      matchedLevel: response.matched_level,
-      resultCount: response.items.length,
-      userAnonId: null,
-      logger: async (payload) => {
-        const {error} = await supabase.from('search_query_log').insert(payload);
-        if (error) {
-          console.error('search_query_log insert failed:', error.message);
-        }
-      }
+    void fetch('/api/search/events', {
+      method: 'POST',
+      headers: {'content-type': 'application/json'},
+      keepalive: true,
+      body: JSON.stringify({
+        query: response.query.slice(0, 200),
+        normalized_query: normalized.slice(0, 200),
+        filters: {category: activeL1, tags: activeL2, drawer: drawerFilters},
+        result_count: response.items.length,
+        matched_level:
+          response.items.length === 0
+            ? 'none'
+            : response.matched_level === 'synonym'
+              ? 'alias'
+              : 'name'
+      })
+    }).catch(() => {
+      // Search analytics must never interrupt the discovery experience.
     });
-  }, [debouncedSearchQuery, searchComputed.fallbackMessage, searchComputed.matchedLevel, searchComputed.matchedTags, searchComputed.searched]);
+  }, [activeL1, activeL2, debouncedSearchQuery, drawerFilters, searchComputed.fallbackMessage, searchComputed.matchedLevel, searchComputed.matchedTags, searchComputed.searched]);
 
   const hasActiveTopFilters = activeL1 !== 'all' || activeL2.length > 0;
   const hasActiveDrawerFilters = hasDrawerFilters(drawerFilters);

@@ -55,21 +55,21 @@ export async function GET(request: Request) {
 
     const [missRes, levelRes, sourceRes] = await Promise.all([
       supabase
-        .from('search_query_log')
-        .select('normalized_query, query, hit, matched_level, result_count, searched_at')
-        .eq('hit', false)
-        .gte('searched_at', since)
-        .order('searched_at', {ascending: false})
+        .from('search_events')
+        .select('normalized_query, query, matched_level, result_count, created_at')
+        .eq('result_count', 0)
+        .gte('created_at', since)
+        .order('created_at', {ascending: false})
         .limit(2000),
       supabase
-        .from('search_query_log')
-        .select('matched_level, hit')
-        .gte('searched_at', since),
+        .from('search_events')
+        .select('matched_level, result_count')
+        .gte('created_at', since),
       supabase
-        .from('search_query_log')
-        .select('query, normalized_query, hit, matched_level, result_count, searched_at')
-        .gte('searched_at', since)
-        .order('searched_at', {ascending: false})
+        .from('search_events')
+        .select('query, normalized_query, matched_level, result_count, created_at')
+        .gte('created_at', since)
+        .order('created_at', {ascending: false})
         .limit(2000)
     ]);
 
@@ -78,17 +78,17 @@ export async function GET(request: Request) {
     if (sourceRes.error) throw sourceRes.error;
 
     const bucket = new Map<string, {query: string; normalized_query: string; miss_count: number; latest_at: string; matched_levels: Record<string, number>}>();
-    for (const row of (missRes.data ?? []) as Array<{query: string; normalized_query: string; matched_level: string; searched_at: string}>) {
+    for (const row of (missRes.data ?? []) as Array<{query: string; normalized_query: string; matched_level: string; created_at: string}>) {
       const key = row.normalized_query || row.query;
-      const entry = bucket.get(key) ?? {query: row.query, normalized_query: row.normalized_query, miss_count: 0, latest_at: row.searched_at, matched_levels: {}};
+      const entry = bucket.get(key) ?? {query: row.query, normalized_query: row.normalized_query, miss_count: 0, latest_at: row.created_at, matched_levels: {}};
       entry.miss_count += 1;
-      entry.latest_at = entry.latest_at > row.searched_at ? entry.latest_at : row.searched_at;
+      entry.latest_at = entry.latest_at > row.created_at ? entry.latest_at : row.created_at;
       entry.matched_levels[row.matched_level] = (entry.matched_levels[row.matched_level] ?? 0) + 1;
       bucket.set(key, entry);
     }
 
-    const totals = (levelRes.data ?? []) as Array<{matched_level: string; hit: boolean}>;
-    const hitCount = totals.filter((item) => item.hit).length;
+    const totals = (levelRes.data ?? []) as Array<{matched_level: string; result_count: number}>;
+    const hitCount = totals.filter((item) => item.result_count > 0).length;
     const totalCount = totals.length;
 
     return NextResponse.json({
@@ -105,8 +105,8 @@ export async function GET(request: Request) {
         .slice(0, limit),
       latest_events: (sourceRes.data ?? []).slice(0, 50),
       sql_templates: {
-        weekly_top_miss: "select normalized_query, count(*) as miss_count from public.search_query_log where hit = false and searched_at >= now() - interval '7 days' group by normalized_query order by miss_count desc limit 100;",
-        weekly_level_breakdown: "select matched_level, count(*) as q from public.search_query_log where searched_at >= now() - interval '7 days' group by matched_level order by q desc;"
+        weekly_top_miss: "select normalized_query, count(*) as miss_count from public.search_events where result_count = 0 and created_at >= now() - interval '7 days' group by normalized_query order by miss_count desc limit 100;",
+        weekly_level_breakdown: "select matched_level, count(*) as q from public.search_events where created_at >= now() - interval '7 days' group by matched_level order by q desc;"
       }
     });
   } catch (error) {
