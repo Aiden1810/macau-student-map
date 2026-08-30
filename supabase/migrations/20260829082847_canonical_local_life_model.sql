@@ -789,7 +789,7 @@ as $$
         when lower(p.name) = i.q then 100.0
         when lower(p.name) like i.q || '%' then 80.0
         when lower(p.name) like '%' || i.q || '%' then 65.0
-        else similarity(lower(p.name), i.q) * 55.0
+        else extensions.similarity(lower(p.name), i.q) * 55.0
       end as name_score,
       coalesce((
         select max(
@@ -846,7 +846,7 @@ as $$
         lower(p.name) = i.q or
         lower(p.name) like i.q || '%' or
         lower(p.name) like '%' || i.q || '%' or
-        similarity(lower(p.name), i.q) >= 0.20 or
+        extensions.similarity(lower(p.name), i.q) >= 0.20 or
         p.search_document @@ websearch_to_tsquery('simple'::regconfig, i.q) or
         exists (
           select 1
