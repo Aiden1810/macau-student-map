@@ -7,6 +7,8 @@ import {Link} from '@/i18n/navigation';
 import {dedupeTrimmedList, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
 import {buildNormalizedShopPayload} from '@/lib/shops/payload';
 import {supabase} from '@/lib/supabase';
+import {toLegacyShopPoiFields, type AmapPoiOption} from '@/lib/amap/place-search';
+import AmapPoiSelector from '@/components/AmapPoiSelector';
 import SubmissionQueue from '@/components/admin/SubmissionQueue';
 
 type ShopStatus = 'pending' | 'verified' | 'rejected';
@@ -332,9 +334,11 @@ function AdminShopForm({
   submitting: boolean;
 }) {
   const [form, setForm] = useState<ShopFormValue>(toFormValue(initial));
+  const [selectedPoi, setSelectedPoi] = useState<AmapPoiOption | null>(null);
 
   useEffect(() => {
     setForm(toFormValue(initial));
+    setSelectedPoi(null);
   }, [initial]);
 
   const toggleFeature = (feature: Feature) => {
@@ -407,6 +411,33 @@ function AdminShopForm({
         <h3 className="text-lg font-bold text-slate-900">{mode === 'create' ? '新增店铺（管理员直发）' : '编辑店铺信息'}</h3>
 
         <form onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
+          {mode === 'create' && (
+            <div className="sm:col-span-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+              <AmapPoiSelector
+                selectedPlace={selectedPoi}
+                onSelect={(option) => {
+                  const region = deriveRegionFromCoordinates(option.coordinates[0], option.coordinates[1]);
+                  setSelectedPoi(option);
+                  setForm((prev) => ({
+                    ...prev,
+                    ...toLegacyShopPoiFields(option, region)
+                  }));
+                }}
+                onClearSelection={() => setSelectedPoi(null)}
+                labels={{
+                  label: '搜索并绑定地图 POI',
+                  placeholder: '输入店名，从澳门或珠海候选中选择具体分店',
+                  searching: '正在搜索地图地点…',
+                  empty: '没有找到匹配地点，可继续手动填写下方信息。',
+                  searchFailed: '地图地点搜索失败，请稍后重试或手动填写。',
+                  unnamedPlace: '未命名地点',
+                  poiId: 'AMap POI ID'
+                }}
+              />
+              <p className="mt-2 text-xs text-slate-500">选择后会自动填写店名、地址、POI ID 和经纬度，所有字段仍可手动修改。</p>
+            </div>
+          )}
+
           <label className="sm:col-span-2">
             <span className="mb-1 block text-sm font-medium text-slate-700">店名（中文）*</span>
             <input required value={form.name} onChange={(e) => setForm((prev) => ({...prev, name: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
@@ -1390,9 +1421,9 @@ export default function AdminModerationPage() {
               <p className="mt-1 text-sm text-slate-600">后台字段与前台筛选字段完全统一。</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button type="button" onClick={() => setStatusTab('pending')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'pending' ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-200' : 'bg-slate-100 text-slate-600'}`}>待审核：{pendingCount}</button>
-              <button type="button" onClick={() => setStatusTab('verified')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'verified' ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' : 'bg-slate-100 text-slate-600'}`}>已审核通过：{verifiedCount}</button>
-              <button type="button" onClick={() => setStatusTab('rejected')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'rejected' ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-200' : 'bg-slate-100 text-slate-600'}`}>已驳回：{rejectedCount}</button>
+              <button type="button" onClick={() => setStatusTab('pending')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'pending' ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-200' : 'bg-slate-100 text-slate-600'}`}>旧版店铺待审核：{pendingCount}</button>
+              <button type="button" onClick={() => setStatusTab('verified')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'verified' ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' : 'bg-slate-100 text-slate-600'}`}>旧版店铺已上线：{verifiedCount}</button>
+              <button type="button" onClick={() => setStatusTab('rejected')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'rejected' ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-200' : 'bg-slate-100 text-slate-600'}`}>旧版店铺已驳回：{rejectedCount}</button>
 
               <input
                 value={searchQuery}
@@ -1421,6 +1452,10 @@ export default function AdminModerationPage() {
         </div>
 
         <SubmissionQueue />
+
+        <p className="-mt-3 mb-6 text-xs text-slate-500">
+          规范投稿统计来自 place_submissions；页面顶部的旧版店铺筛选来自 shops。
+        </p>
 
         {error && (
           <div className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

@@ -1,20 +1,14 @@
 'use client';
 
-import {FormEvent, useEffect, useMemo, useState} from 'react';
+import {FormEvent, useMemo, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {getCanonicalTagsForAdminAndSubmit} from '@/lib/tags/schema';
+import AmapPoiSelector from '@/components/AmapPoiSelector';
 import ImageUpload from '@/components/ImageUpload';
-import {useDebounce} from '@/lib/hooks/useDebounce';
+import type {AmapPoiOption} from '@/lib/amap/place-search';
 import {authenticatedApiRequest} from '@/lib/api/client';
 import type {PlaceCategorySlug} from '@/lib/domain/taxonomy';
 import {supabase} from '@/lib/supabase';
-
-type GeocodeOption = {
-  placeId: string;
-  name: string;
-  fullAddress: string;
-  coordinates: [number, number];
-};
 
 interface ContributionFormProps {
   onSuccess: () => Promise<void> | void;
@@ -23,46 +17,6 @@ interface ContributionFormProps {
   manualCoordinates: [number, number] | null;
 }
 
-type AMapPlaceSearchPoi = {
-  id?: string;
-  name?: string;
-  address?: string;
-  pname?: string;
-  cityname?: string;
-  adname?: string;
-  location?: {
-    lng?: number;
-    lat?: number;
-  };
-};
-
-type AMapPlaceSearchResult = {
-  info?: string;
-  poiList?: {
-    pois?: AMapPlaceSearchPoi[];
-  };
-};
-
-type AMapPlaceSearchInstance = {
-  search: (keyword: string, callback: (status: string, result: AMapPlaceSearchResult) => void) => void;
-};
-
-type AMapNamespace = {
-  plugin: (name: string, callback: () => void) => void;
-  PlaceSearch: new (options: {
-    city: string;
-    citylimit: boolean;
-    pageSize: number;
-    pageIndex: number;
-    extensions: 'base' | 'all';
-  }) => AMapPlaceSearchInstance;
-};
-
-type AMapWindow = Window & {
-  AMap?: AMapNamespace;
-  __amapPlaceLoadingPromise?: Promise<AMapNamespace>;
-  _AMapSecurityConfig?: {securityJsCode?: string};
-};
 
 const CATEGORY_L1_BY_KEY: Record<string, string> = {
   food: '美食',
@@ -82,58 +36,6 @@ type SubmitResponse =
   | {submitted: true; submission: SubmissionDraftResponse}
   | {submitted: false; duplicateCandidates: DuplicateCandidate[]};
 
-function loadAmapPlaceSdk(key: string): Promise<AMapNamespace> {
-  if (typeof window === 'undefined') {
-    return Promise.reject(new Error('AMap only works in browser'));
-  }
-
-  const w = window as AMapWindow;
-  const securityCode = process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE;
-
-  if (securityCode && !w._AMapSecurityConfig) {
-    w._AMapSecurityConfig = {securityJsCode: securityCode};
-  }
-
-  if (w.AMap) {
-    return Promise.resolve(w.AMap);
-  }
-
-  if (w.__amapPlaceLoadingPromise) {
-    return w.__amapPlaceLoadingPromise;
-  }
-
-  w.__amapPlaceLoadingPromise = new Promise((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>('script[data-amap="true"]');
-
-    if (existingScript) {
-      existingScript.addEventListener('load', () => {
-        if (w.AMap) resolve(w.AMap);
-      });
-      existingScript.addEventListener('error', () => reject(new Error('Failed to load AMap script')));
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.PlaceSearch`;
-    script.async = true;
-    script.defer = true;
-    script.dataset.amap = 'true';
-
-    script.onload = () => {
-      if (w.AMap) {
-        resolve(w.AMap);
-      } else {
-        reject(new Error('AMap script loaded but AMap is unavailable'));
-      }
-    };
-    script.onerror = () => reject(new Error('Failed to load AMap script'));
-
-    document.head.appendChild(script);
-  });
-
-  return w.__amapPlaceLoadingPromise;
-}
-
 export default function ContributionForm({
   onSuccess,
   onCancel,
@@ -142,11 +44,7 @@ export default function ContributionForm({
 }: ContributionFormProps) {
   const tContribute = useTranslations('Contribute');
 
-  const [geocodeQuery, setGeocodeQuery] = useState('');
-  const debouncedGeocodeQuery = useDebounce(geocodeQuery, 300);
-  const [geocodeResults, setGeocodeResults] = useState<GeocodeOption[]>([]);
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
-  const [selectedPlace, setSelectedPlace] = useState<GeocodeOption | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<AmapPoiOption | null>(null);
   const [isDuplicate, setIsDuplicate] = useState(false);
 
   const [manualMode, setManualMode] = useState(false);
@@ -187,114 +85,7 @@ export default function ContributionForm({
     return allL2Groups.filter((group) => group.id !== l1);
   }, [allL2Groups, category]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const runGeocode = async () => {
-      const amapKey = process.env.NEXT_PUBLIC_AMAP_WEB_KEY;
-      const keyword = debouncedGeocodeQuery.trim();
-
-      if (!amapKey || keyword.length < 2 || manualMode) {
-        setGeocodeResults([]);
-        return;
-      }
-
-      setGeocodeLoading(true);
-      setContributeError(null);
-
-      try {
-        const AMap = await loadAmapPlaceSdk(amapKey);
-
-        const searchWithPlaceSearch = (city: string, searchKeyword: string): Promise<GeocodeOption[]> =>
-          new Promise((resolve, reject) => {
-            AMap.plugin('AMap.PlaceSearch', () => {
-              const placeSearch = new AMap.PlaceSearch({
-                city,
-                citylimit: true,
-                pageSize: 8,
-                pageIndex: 1,
-                extensions: 'base'
-              });
-
-              placeSearch.search(searchKeyword, (status: string, result: AMapPlaceSearchResult) => {
-                if (status !== 'complete' || !result?.poiList?.pois) {
-                  if (result?.info && result.info !== 'OK') {
-                    reject(new Error(result.info));
-                    return;
-                  }
-                  resolve([]);
-                  return;
-                }
-
-                const options = result.poiList.pois
-                  .map((poi) => {
-                    const lng = Number(poi?.location?.lng);
-                    const lat = Number(poi?.location?.lat);
-
-                    if (!poi?.id || Number.isNaN(lng) || Number.isNaN(lat)) {
-                      return null;
-                    }
-
-                    const region = [poi.pname, poi.cityname, poi.adname].filter(Boolean).join(' ');
-                    const address = [region, poi.address].filter(Boolean).join(' ');
-
-                    return {
-                      placeId: String(poi.id),
-                      name: String(poi.name || '').trim() || tContribute('unnamedPlace'),
-                      fullAddress: address.trim(),
-                      coordinates: [lng, lat] as [number, number]
-                    };
-                  })
-                  .filter((item): item is GeocodeOption => item !== null);
-
-                resolve(options);
-              });
-            });
-          });
-
-        const [macauOptions, zhuhaiOptions] = await Promise.all([
-          searchWithPlaceSearch('澳门', keyword),
-          searchWithPlaceSearch('珠海', keyword)
-        ]);
-
-        let options = [...macauOptions, ...zhuhaiOptions].filter(
-          (item, index, arr) => arr.findIndex((x) => x.placeId === item.placeId) === index
-        );
-
-        if (options.length === 0) {
-          const [macauFallback, zhuhaiFallback] = await Promise.all([
-            searchWithPlaceSearch('澳门', `澳门特别行政区 ${keyword}`),
-            searchWithPlaceSearch('珠海', `珠海市 ${keyword}`)
-          ]);
-
-          options = [...macauFallback, ...zhuhaiFallback].filter(
-            (item, index, arr) => arr.findIndex((x) => x.placeId === item.placeId) === index
-          );
-        }
-
-        if (!cancelled) {
-          setGeocodeResults(options);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setGeocodeResults([]);
-          setContributeError(error instanceof Error ? error.message : tContribute('searchFailed'));
-        }
-      } finally {
-        if (!cancelled) {
-          setGeocodeLoading(false);
-        }
-      }
-    };
-
-    runGeocode();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [debouncedGeocodeQuery, manualMode, tContribute]);
-
-  const handleChoosePlace = (option: GeocodeOption) => {
+  const handleChoosePlace = (option: AmapPoiOption) => {
     setSelectedPlace(option);
     setContributeError(null);
     setContributeMessage(null);
@@ -462,43 +253,25 @@ export default function ContributionForm({
       {!manualMode && (
         <>
           <div className="mt-4">
-            <label className="mb-1 block text-sm font-medium text-slate-700">{tContribute('searchLabel')}</label>
-            <input
-              type="text"
-              value={geocodeQuery}
-              onChange={(e) => {
-                setGeocodeQuery(e.target.value);
+            <AmapPoiSelector
+              selectedPlace={selectedPlace}
+              onSelect={handleChoosePlace}
+              onClearSelection={() => {
                 setSelectedPlace(null);
                 setIsDuplicate(false);
                 setContributeError(null);
                 setContributeMessage(null);
               }}
-              placeholder={tContribute('searchPlaceholder')}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              labels={{
+                label: tContribute('searchLabel'),
+                placeholder: tContribute('searchPlaceholder'),
+                searching: tContribute('searching'),
+                empty: tContribute('searchEmpty'),
+                searchFailed: tContribute('searchFailed'),
+                unnamedPlace: tContribute('unnamedPlace'),
+                poiId: 'AMap POI ID'
+              }}
             />
-
-            {geocodeLoading && <p className="mt-2 text-sm text-slate-500">{tContribute('searching')}</p>}
-
-            {!geocodeLoading && geocodeQuery.trim().length >= 2 && geocodeResults.length === 0 && !selectedPlace && (
-              <p className="mt-2 text-sm text-slate-500">{tContribute('searchEmpty')}</p>
-            )}
-
-            {geocodeResults.length > 0 && !selectedPlace && (
-              <ul className="mt-3 space-y-2">
-                {geocodeResults.map((option) => (
-                  <li key={option.placeId}>
-                    <button
-                      type="button"
-                      onClick={() => handleChoosePlace(option)}
-                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-left transition hover:border-indigo-300 hover:bg-indigo-50"
-                    >
-                      <p className="text-sm font-medium text-slate-900">{option.name}</p>
-                      <p className="text-xs text-slate-500">{option.fullAddress}</p>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
 
           <button
@@ -508,7 +281,6 @@ export default function ContributionForm({
               setContributeError(null);
               setContributeMessage(null);
               setSelectedPlace(null);
-              setGeocodeResults([]);
               onRequestMapPick();
             }}
             className="mt-3 inline-flex rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
@@ -523,14 +295,6 @@ export default function ContributionForm({
           {manualCoordinates
             ? `${tContribute('manualSelected')}: ${manualCoordinates[1].toFixed(6)}, ${manualCoordinates[0].toFixed(6)}`
             : tContribute('manualSelectHint')}
-        </div>
-      )}
-
-      {selectedPlace && !manualMode && (
-        <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-          <p className="text-sm font-semibold text-slate-900">{selectedPlace.name}</p>
-          <p className="text-xs text-slate-500">{selectedPlace.fullAddress}</p>
-          <p className="mt-1 text-xs text-slate-500">AMap POI ID: {selectedPlace.placeId}</p>
         </div>
       )}
 

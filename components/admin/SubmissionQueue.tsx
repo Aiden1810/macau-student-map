@@ -1,7 +1,9 @@
 'use client';
 
-import {useCallback, useEffect, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {authenticatedApiRequest} from '@/lib/api/client';
+import {createRequestGuard} from '@/lib/data/async-request';
+import {createComponentLifecycleGuard} from '@/lib/data/component-lifecycle';
 import {supabase} from '@/lib/supabase';
 
 type QueueItem = {
@@ -14,13 +16,30 @@ type QueueItem = {
   submittedAt: string | null;
 };
 
+type QueueStats = {
+  pending: number;
+  approved: number;
+  merged: number;
+  rejected: number;
+};
+
+type QueueResponse = {
+  items: QueueItem[];
+  stats: QueueStats;
+};
+
+type LoadingKind = 'initial' | 'refresh' | null;
+
 export default function SubmissionQueue() {
   const [items, setItems] = useState<QueueItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<QueueStats | null>(null);
+  const [loadingKind, setLoadingKind] = useState<LoadingKind>('initial');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [mergeTargets, setMergeTargets] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const requestGuardRef = useRef(createRequestGuard());
+  const lifecycleGuardRef = useRef(createComponentLifecycleGuard());
 
   const accessToken = async () => {
     const {data} = await supabase.auth.getSession();
@@ -28,25 +47,50 @@ export default function SubmissionQueue() {
     return data.session.access_token;
   };
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (kind: Exclude<LoadingKind, null>) => {
+    if (!lifecycleGuardRef.current.isActive()) return;
+    const requestToken = requestGuardRef.current.begin();
+    setLoadingKind(kind);
     setError(null);
     try {
       const token = await accessToken();
-      const data = await authenticatedApiRequest<{items: QueueItem[]}>(
+      if (!lifecycleGuardRef.current.isActive()) return;
+      const data = await authenticatedApiRequest<QueueResponse>(
         '/api/admin/submissions',
-        token
+        token,
+        {cache: 'no-store'}
       );
+      if (
+        !lifecycleGuardRef.current.isActive() ||
+        !requestGuardRef.current.isCurrent(requestToken)
+      ) return;
       setItems(data.items);
+      setStats(data.stats);
     } catch (loadError) {
+      if (
+        !lifecycleGuardRef.current.isActive() ||
+        !requestGuardRef.current.isCurrent(requestToken)
+      ) return;
       setError(loadError instanceof Error ? loadError.message : '审核队列加载失败。');
     } finally {
-      setLoading(false);
+      if (
+        lifecycleGuardRef.current.isActive() &&
+        requestGuardRef.current.isCurrent(requestToken)
+      ) {
+        setLoadingKind(null);
+      }
     }
   }, []);
 
   useEffect(() => {
-    void load();
+    lifecycleGuardRef.current.activate();
+    void load('initial');
+    const requestGuard = requestGuardRef.current;
+    const lifecycleGuard = lifecycleGuardRef.current;
+    return () => {
+      lifecycleGuard.deactivate();
+      requestGuard.invalidate();
+    };
   }, [load]);
 
   const moderate = async (item: QueueItem, action: 'approve' | 'merge' | 'reject') => {
@@ -59,6 +103,7 @@ export default function SubmissionQueue() {
       setError('合并时必须填写目标地点 UUID。');
       return;
     }
+    if (!lifecycleGuardRef.current.tryBeginExclusive()) return;
 
     setBusyId(item.id);
     setError(null);
@@ -73,11 +118,16 @@ export default function SubmissionQueue() {
         token,
         {method: 'POST', body: JSON.stringify(body)}
       );
+      if (!lifecycleGuardRef.current.isActive()) return;
       setItems((current) => current.filter((candidate) => candidate.id !== item.id));
+      await load('refresh');
     } catch (moderationError) {
-      setError(moderationError instanceof Error ? moderationError.message : '审核操作失败。');
+      if (lifecycleGuardRef.current.isActive()) {
+        setError(moderationError instanceof Error ? moderationError.message : '审核操作失败。');
+      }
     } finally {
-      setBusyId(null);
+      lifecycleGuardRef.current.finishExclusive();
+      if (lifecycleGuardRef.current.isActive()) setBusyId(null);
     }
   };
 
@@ -88,13 +138,25 @@ export default function SubmissionQueue() {
           <h2 className="text-lg font-bold text-slate-900">规范投稿审核队列</h2>
           <p className="mt-1 text-sm text-slate-500">批准、合并、驳回均经过服务端权限校验和数据库事务函数。</p>
         </div>
-        <button type="button" onClick={() => void load()} className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">
-          刷新
+        <button
+          type="button"
+          onClick={() => void load('refresh')}
+          disabled={loadingKind !== null || busyId !== null}
+          className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loadingKind === 'refresh' ? '刷新中…' : '刷新'}
         </button>
       </div>
 
+      <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+        <span className="rounded-full bg-amber-50 px-3 py-1.5 text-amber-700">待审核：{stats?.pending ?? '—'}</span>
+        <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700">已批准：{stats?.approved ?? '—'}</span>
+        <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-indigo-700">已合并：{stats?.merged ?? '—'}</span>
+        <span className="rounded-full bg-rose-50 px-3 py-1.5 text-rose-700">已驳回：{stats?.rejected ?? '—'}</span>
+      </div>
+
       {error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-      {loading ? (
+      {loadingKind === 'initial' ? (
         <p className="mt-4 text-sm text-slate-500">加载审核队列中……</p>
       ) : items.length === 0 ? (
         <p className="mt-4 text-sm text-slate-500">当前没有待审核投稿。</p>
@@ -124,9 +186,9 @@ export default function SubmissionQueue() {
                 className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
               <div className="mt-3 flex flex-wrap gap-2">
-                <button disabled={busyId === item.id} onClick={() => void moderate(item, 'approve')} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">批准为新地点</button>
-                <button disabled={busyId === item.id} onClick={() => void moderate(item, 'merge')} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">合并到已有地点</button>
-                <button disabled={busyId === item.id} onClick={() => void moderate(item, 'reject')} className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">驳回</button>
+                <button disabled={busyId !== null} onClick={() => void moderate(item, 'approve')} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">批准为新地点</button>
+                <button disabled={busyId !== null} onClick={() => void moderate(item, 'merge')} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">合并到已有地点</button>
+                <button disabled={busyId !== null} onClick={() => void moderate(item, 'reject')} className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">驳回</button>
               </div>
             </article>
           ))}
