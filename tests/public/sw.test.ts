@@ -61,7 +61,10 @@ describe('public/sw.js', () => {
 
     const response = await responsePromise;
     expect(await response?.json()).toEqual({items: ['fresh']});
-    expect(worker.fetchFromNetwork).toHaveBeenCalledOnce();
+    expect(worker.fetchFromNetwork).toHaveBeenCalledWith(
+      expect.objectContaining({url: 'https://www.aiden-macau-map.top/api/places'}),
+      {cache: 'no-store'}
+    );
     expect(worker.match).not.toHaveBeenCalled();
     expect(worker.put).not.toHaveBeenCalled();
   });
