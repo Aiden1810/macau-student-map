@@ -1,4 +1,5 @@
 import {deriveTrustLabel} from '../ranking/confidence';
+import type {Place} from '../domain/place';
 import type {Shop, ShopFeature, ShopRegion} from '../../types/shop';
 
 const REGION_LABELS: Record<string, ShopRegion> = {
@@ -92,4 +93,38 @@ export function mapCanonicalPlaceToShop(row: CanonicalPlaceRow): Shop {
     sharpReview: null,
     phone: null
   };
+}
+
+/**
+ * Convert a canonical Place domain object (as produced by the place
+ * repository) into the Shop shape the front-end consumes, reusing the raw-row
+ * mapping above instead of duplicating the field conversion.
+ */
+export function mapPlaceToShop(place: Place): Shop {
+  const canonicalMedia = place.media.filter((media) => !media.id.startsWith('legacy:'));
+  const legacyMedia = place.media.filter((media) => media.id.startsWith('legacy:'));
+
+  const row: CanonicalPlaceRow = {
+    id: place.id,
+    name: place.name,
+    address: place.address,
+    category_slug: place.category,
+    region: place.region,
+    longitude: place.longitude,
+    latitude: place.latitude,
+    price_per_person: place.pricePerPerson,
+    rating_average: place.ratingAverage,
+    review_count: place.reviewCount,
+    status: place.status,
+    legacy_image_urls: legacyMedia.map((media) => media.url),
+    place_tags: place.tags.map((tag) => ({
+      tags: {id: tag.id, slug: tag.slug, label_zh_mo: tag.label}
+    })),
+    place_media: canonicalMedia.map((media) => ({
+      public_url: media.url,
+      sort_order: media.sortOrder
+    }))
+  };
+
+  return mapCanonicalPlaceToShop(row);
 }

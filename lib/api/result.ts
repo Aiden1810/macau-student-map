@@ -6,6 +6,7 @@ export type ApiErrorCode =
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
+  | 'SCHEMA_UNAVAILABLE'
   | 'CONFLICT'
   | 'INTERNAL_ERROR';
 

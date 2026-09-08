@@ -5,18 +5,35 @@ import Link from 'next/link';
 import {ImagePlus, MessageCirclePlus, Phone} from 'lucide-react';
 import {useParams} from 'next/navigation';
 import {useLocale} from 'next-intl';
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import AdminImageManager from '@/components/AdminImageManager';
 import ImageLightbox from '@/components/ImageLightbox';
 import MobileImageSlider from '@/components/MobileImageSlider';
 import StarRating from '@/components/StarRating';
+import {createRequestGuard, runLatest} from '@/lib/data/async-request';
+import {loadAuthRole} from '@/lib/data/auth-role';
+import {loadComments} from '@/lib/data/comments';
+import type {ReviewRow} from '@/lib/data/comments';
+import {canManageLegacyImages, loadShopDetail} from '@/lib/data/shop-detail';
+import type {ShopSource} from '@/lib/data/shop-detail';
 import {mapSingleShop} from '@/lib/mappers/shop';
+import {resolvePriceDisplay} from '@/lib/utils/price';
 import {getRatingTag} from '@/lib/utils/ratingTag';
 import {supabase} from '@/lib/supabase';
 import {Comment, Shop} from '@/types/shop';
 
 type CommentWithImages = Comment & {
   comment_images: Array<{image_url: string}>;
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  food: '美食',
+  drink: '饮品甜点',
+  shopping: '购物',
+  entertainment: '娱乐',
+  service: '生活服务',
+  vibe: '场景',
+  deal: '优惠'
 };
 
 function ShopImageGallery({
@@ -114,6 +131,26 @@ function ShopHero({
   const averageScore = shop.rating;
   const ratingTag = getRatingTag(averageScore);
 
+  const categoryLabel = shop.category ? CATEGORY_LABELS[shop.category] ?? null : null;
+  const priceDisplay = resolvePriceDisplay(shop.pricePerPerson);
+  const priceText =
+    priceDisplay.kind === 'free'
+      ? '免费'
+      : priceDisplay.kind === 'paid'
+        ? `人均 MOP ${priceDisplay.value}`
+        : null;
+  const hasCoordinates =
+    shop.hasCoordinates &&
+    Array.isArray(shop.coordinates) &&
+    shop.coordinates.length === 2 &&
+    shop.coordinates.every((value) => typeof value === 'number' && Number.isFinite(value));
+  const coordinatesText = hasCoordinates
+    ? `坐标 (${Number(shop.coordinates[0]).toFixed(4)}, ${Number(shop.coordinates[1]).toFixed(4)})`
+    : null;
+  const rawTags = (shop.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
+  const displayTags = Array.from(new Set(rawTags));
+  const hasBasicInfo = Boolean(categoryLabel || priceText || coordinatesText || displayTags.length > 0);
+
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="block md:hidden">
@@ -140,6 +177,30 @@ function ShopHero({
 
         <div className="rounded-xl bg-slate-50 px-3 py-2">
           <p className="text-xs text-slate-500">{shop.address}</p>
+          {hasBasicInfo && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {categoryLabel && (
+                <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                  {categoryLabel}
+                </span>
+              )}
+              {displayTags.map((tag, index) => (
+                <span key={`${tag}-${index}`} className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                  {tag}
+                </span>
+              ))}
+              {priceText && (
+                <span className="rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                  {priceText}
+                </span>
+              )}
+              {coordinatesText && (
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-500">
+                  {coordinatesText}
+                </span>
+              )}
+            </div>
+          )}
           <div className="mt-2 flex items-center gap-2">
             <StarRating score={averageScore} reviewCount={shop.reviews} />
             <span
@@ -229,7 +290,12 @@ export default function ShopDetailPage() {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isAdminImageManagerOpen, setIsAdminImageManagerOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [shopSource, setShopSource] = useState<ShopSource | null>(null);
+
+  const shopRequestRef = useRef(createRequestGuard());
+  const commentsRequestRef = useRef(createRequestGuard());
+  const authRequestRef = useRef(createRequestGuard());
 
   const galleryImages = useMemo(
     () => (shop?.imageUrls ?? []).filter((url) => typeof url === 'string' && url.trim().length > 0),
@@ -237,93 +303,186 @@ export default function ShopDetailPage() {
   );
 
   const fetchShop = useCallback(async () => {
-    if (!shopId) {
-      setShopError('店铺 ID 无效');
-      setShopLoading(false);
-      return;
-    }
-
     setShopLoading(true);
     setShopError(null);
+    setShopSource(null);
 
-    const {data, error} = await supabase
-      .from('shops')
-      .select('id,name,address,phone,image_urls,category,student_discount,tags,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text')
-      .eq('id', shopId)
-      .maybeSingle();
+    const decision = await runLatest(shopRequestRef.current, () =>
+      loadShopDetail(
+        shopId,
+        async (id) => {
+          const {data, error} = await supabase
+            .from('shops')
+            .select('id,name,address,phone,image_urls,category,student_discount,tags,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text')
+            .eq('id', id)
+            .maybeSingle();
+
+          return {
+            shop: data ? mapSingleShop(data as Record<string, unknown>) : null,
+            errorMessage: error?.message ?? null
+          };
+        },
+        async (id) => {
+          try {
+            const response = await fetch(`/api/places/${id}`);
+            const body = (await response.json().catch(() => null)) as {
+              ok?: boolean;
+              data?: Shop;
+              error?: {code?: string; message?: string};
+            } | null;
+
+            return {
+              ok: Boolean(response.ok && body?.ok),
+              status: response.status,
+              shop: body?.ok ? (body.data ?? null) : null,
+              errorCode: body && !body.ok ? (body.error?.code ?? null) : null,
+              errorMessage: body && !body.ok ? (body.error?.message ?? null) : null
+            };
+          } catch {
+            return {ok: false, status: 0, shop: null, errorCode: null, errorMessage: '网络错误'};
+          }
+        }
+      )
+    );
+
+    // A newer request (or a shopId navigation) replaced this one; discard it.
+    if (decision === null) {
+      return;
+    }
 
     setShopLoading(false);
 
-    if (error) {
-      setShopError(error.message);
-      setShop(null);
+    if (decision.kind === 'use-shop') {
+      setShop(decision.shop);
+      setShopSource(decision.source);
       return;
     }
 
-    if (!data) {
+    setShop(null);
+
+    if (decision.kind === 'not-found') {
       setShopError('店铺不存在或已被删除');
-      setShop(null);
       return;
     }
 
-    setShop(mapSingleShop(data as Record<string, unknown>));
+    setShopError(decision.message);
   }, [shopId]);
 
   const fetchComments = useCallback(async () => {
+    // Clear the previous place's comments and begin a new generation so a
+    // stale reply for another place can never overwrite this one.
+    const token = commentsRequestRef.current.begin();
+    const isCurrent = () => commentsRequestRef.current.isCurrent(token);
+    setComments([]);
     setCommentsLoading(true);
     setCommentsError(null);
 
-    const response = await fetch(`/api/places/${shopId}/reviews`);
-    const result = (await response.json().catch(() => null)) as {
-      ok?: boolean;
-      data?: {items?: Array<{id: string; placeId: string; content: string | null; rating: number; createdAt: string}>};
-      error?: {message?: string};
-    } | null;
-    setCommentsLoading(false);
+    try {
+      const result = await loadComments(shopId, async (id) => {
+        const response = await fetch(`/api/places/${id}/reviews`);
+        const body = (await response.json().catch(() => null)) as {
+          ok?: boolean;
+          data?: {items?: ReviewRow[]};
+          error?: {message?: string};
+        } | null;
 
-    if (!response.ok || !result?.ok) {
-      setCommentsError(result?.error?.message ?? '评论加载失败');
+        return {
+          ok: Boolean(response.ok && body?.ok),
+          rows: body?.ok ? (body.data?.items ?? []) : [],
+          errorMessage: body && !body.ok ? (body.error?.message ?? null) : null
+        };
+      });
+
+      if (!isCurrent()) return;
+
+      if (result.error) {
+        setCommentsError(result.error);
+        return;
+      }
+
+      setComments(
+        result.items.map((item) => ({...item, comment_images: []}))
+      );
+    } catch {
+      if (!isCurrent()) return;
       setComments([]);
-      return;
+      setCommentsError('评论加载失败，请稍后再试');
+    } finally {
+      // Only the freshest request may end the loading state.
+      if (isCurrent()) {
+        setCommentsLoading(false);
+      }
     }
-
-    const normalized = (result.data?.items ?? []).map((row) => ({
-      id: String(row.id),
-      shopId: String(row.placeId),
-      content: String(row.content ?? ''),
-      rating: Number(row.rating ?? 0) as 1 | 2 | 3 | 4 | 5,
-      createdAt: String(row.createdAt),
-      comment_images: []
-    }));
-
-    setComments(normalized);
   }, [shopId]);
 
   const fetchAuthState = useCallback(async () => {
-    const {data, error} = await supabase.auth.getUser();
-    if (error || !data?.user) {
-      setIsAuthenticated(false);
+    const result = await loadAuthRole(
+      authRequestRef.current,
+      async () => {
+        const {data, error} = await supabase.auth.getUser();
+        if (error || !data?.user) return null;
+        return data.user.id;
+      },
+      async (userId) => {
+        const {data, error} = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .maybeSingle();
+        return {role: data?.role ?? null, error: error?.message ?? null};
+      }
+    );
+
+    if (!result.isCurrent) return;
+    if (result.signedOut) {
+      setUserRole(null);
+      setIsAdminImageManagerOpen(false);
       return;
     }
-
-    setIsAuthenticated(true);
+    setUserRole(result.role);
   }, []);
 
   useEffect(() => {
+    // Guard objects are stable across renders; capture them so the cleanup
+    // closes over the same instances React warns about otherwise.
+    const shopGuard = shopRequestRef.current;
+    const commentsGuard = commentsRequestRef.current;
+    const authGuard = authRequestRef.current;
+
     void fetchShop();
     void fetchComments();
     void fetchAuthState();
 
     const {
       data: {subscription}
-    } = supabase.auth.onAuthStateChange(() => {
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        setUserRole(null);
+        setIsAdminImageManagerOpen(false);
+      }
       void fetchAuthState();
     });
 
     return () => {
       subscription.unsubscribe();
+      // Invalidate in-flight requests when the shop changes or the page unmounts.
+      shopGuard.invalidate();
+      commentsGuard.invalidate();
+      authGuard.invalidate();
     };
   }, [fetchShop, fetchComments, fetchAuthState]);
+
+  const canManageImages = canManageLegacyImages(userRole, shopSource);
+
+  useEffect(() => {
+    setIsAdminImageManagerOpen(false);
+  }, [shopId]);
+
+  useEffect(() => {
+    if (!canManageImages) {
+      setIsAdminImageManagerOpen(false);
+    }
+  }, [canManageImages]);
 
   if (shopLoading) {
     return <div className="mx-auto max-w-5xl px-4 py-6 text-sm text-slate-500">加载中...</div>;
@@ -343,7 +502,7 @@ export default function ShopDetailPage() {
             setIsLightboxOpen(true);
           }}
           onOpenAdminManager={() => setIsAdminImageManagerOpen(true)}
-          canManageImages={isAuthenticated}
+          canManageImages={canManageImages}
         />
 
         <section className="space-y-2">
@@ -370,16 +529,18 @@ export default function ShopDetailPage() {
         </Link>
       </div>
 
-      <AdminImageManager
-        open={isAdminImageManagerOpen}
-        shopId={shop.id}
-        shopName={shop.name}
-        imageUrls={shop.imageUrls ?? []}
-        onClose={() => setIsAdminImageManagerOpen(false)}
-        onUpdated={async () => {
-          await fetchShop();
-        }}
-      />
+      {canManageImages && (
+        <AdminImageManager
+          open={isAdminImageManagerOpen}
+          shopId={shop.id}
+          shopName={shop.name}
+          imageUrls={shop.imageUrls ?? []}
+          onClose={() => setIsAdminImageManagerOpen(false)}
+          onUpdated={async () => {
+            await fetchShop();
+          }}
+        />
+      )}
     </>
   );
 }
