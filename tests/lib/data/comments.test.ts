@@ -72,7 +72,7 @@ describe('loadComments', () => {
     const tokenA = guard.begin();
     const loadAStarted = loadComments('A', loadA as never);
     const tokenB = guard.begin();
-    const loadB = await loadComments('B', async () => ({ok: true, rows: [{id: 'c-b', placeId: 'B'}], errorMessage: null}));
+    const loadB = await loadComments('B', async () => ({ok: true, rows: [{...rowA, id: 'c-b', placeId: 'B'}], errorMessage: null}));
 
     resolveA({ok: true, rows: [{id: 'c-a', placeId: 'A'}], errorMessage: null});
     const resultA = await loadAStarted;

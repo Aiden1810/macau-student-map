@@ -17,6 +17,19 @@
     "noReviews": "暂无评价",
     "noRatingYet": "暂无评分"
   },
+  "PlaceNavigation": {
+    "navigate": "用高德导航",
+    "navigateTo": "用高德导航前往{name}（新窗口）",
+    "copyAddress": "复制地址",
+    "copied": "已复制店名和地址",
+    "copyFailed": "自动复制失败，请长按或选中下方地址复制。",
+    "addressToCopy": "可手动复制的店名和地址",
+    "missingCoordinates": "地点坐标尚未确认，暂不能导航。",
+    "missingAddress": "地址尚未补充，暂不能复制。",
+    "help": "导航打不开？",
+    "webRoute": "打开高德网页版路线（新窗口）",
+    "helpText": "默认规划步行路线，请在高德中确认起点。微信或 QQ 内可能无法打开高德 App，可在手机浏览器打开本页，或复制地址到常用地图。"
+  },
   "Filters": {
     "all": "全部",
     "food": "美食",

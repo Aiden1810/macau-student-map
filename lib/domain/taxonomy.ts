@@ -34,7 +34,7 @@ export const TAG_CATALOG: readonly TaxonomyTag[] = [
     labelZhMO: '中餐',
     labelEn: 'Chinese cuisine',
     aliases: ['中餐', '中菜', '粵菜', '粤菜', '飯', '饭'],
-    legacyLabels: ['粉面', '粥店', '粉面 / 粥店']
+    legacyLabels: ['粉面', '粥店', '粉面 / 粥店', '粤菜 / 早茶']
   },
   {
     id: '00000000-0000-0000-0000-000000000102',
@@ -86,7 +86,8 @@ export const TAG_CATALOG: readonly TaxonomyTag[] = [
     kind: 'cuisine',
     labelZhMO: '韓餐',
     labelEn: 'Korean cuisine',
-    aliases: ['韓餐', '韩餐', '韓式', '韩式', 'korean food']
+    aliases: ['韓餐', '韩餐', '韓式', '韩式', 'korean food'],
+    legacyLabels: ['日韩料理']
   },
   {
     id: '00000000-0000-0000-0000-000000000108',
@@ -145,7 +146,8 @@ export const TAG_CATALOG: readonly TaxonomyTag[] = [
     kind: 'product',
     labelZhMO: '果茶',
     labelEn: 'Fruit tea',
-    aliases: ['果茶', '水果茶', '檸檬茶', '柠檬茶', 'fruit tea']
+    aliases: ['果茶', '水果茶', '檸檬茶', '柠檬茶', 'fruit tea'],
+    legacyLabels: ['柠茶 / 果汁']
   },
   {
     id: '00000000-0000-0000-0000-000000000301',
@@ -163,7 +165,7 @@ export const TAG_CATALOG: readonly TaxonomyTag[] = [
     labelZhMO: '甜品',
     labelEn: 'Dessert',
     aliases: ['甜品', '甜點', '甜点', '糖水', 'dessert', 'sweets'],
-    legacyLabels: ['传统糖水', '西式甜品']
+    legacyLabels: ['传统糖水', '西式甜品', '冰品 / 雪糕']
   },
   {
     id: '00000000-0000-0000-0000-000000000303',
@@ -248,6 +250,22 @@ export const TAG_CATALOG: readonly TaxonomyTag[] = [
     aliases: ['打印', '影印', '複印', '复印', '打印店', 'printing']
   },
   {
+    id: '00000000-0000-0000-0000-000000000704',
+    slug: 'bar',
+    kind: 'category',
+    labelZhMO: '酒吧',
+    labelEn: 'Bar',
+    aliases: ['酒吧', '清吧', '酒館', '酒馆', 'pub', 'bars']
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000705',
+    slug: 'murder-mystery',
+    kind: 'category',
+    labelZhMO: '劇本殺',
+    labelEn: 'Murder mystery',
+    aliases: ['剧本杀', '劇本殺', '剧本杀店', '劇本殺店', '剧本推理', 'scripted roleplay']
+  },
+  {
     id: '00000000-0000-0000-0000-000000000902',
     slug: 'hair-salon',
     kind: 'category',
@@ -304,9 +322,48 @@ export const TAG_CATALOG: readonly TaxonomyTag[] = [
     kind: 'deal',
     labelZhMO: '學生優惠',
     labelEn: 'Student discount',
-    aliases: ['學生優惠', '学生优惠', '學生折扣', '学生折扣', '學生價', '学生价', 'student discount']
+    aliases: ['學生優惠', '学生优惠', '學生折扣', '学生折扣', '學生價', '学生价', 'student discount'],
+    legacyLabels: ['学生证折扣']
   }
 ] as const;
+
+const TAG_LABELS_ZH_CN: Readonly<Record<string, string>> = {
+  'chinese-cuisine': '中餐',
+  'portuguese-cuisine': '葡国菜',
+  'cha-chaan-teng': '茶餐厅',
+  'hot-pot': '火锅',
+  'western-cuisine': '西餐',
+  'japanese-cuisine': '日料',
+  'korean-cuisine': '韩餐',
+  barbecue: '烧烤',
+  snack: '小食',
+  'fast-food': '快餐',
+  'southeast-asian-cuisine': '东南亚菜',
+  coffee: '咖啡',
+  'milk-tea': '奶茶',
+  'fruit-tea': '果茶',
+  bread: '面包烘焙',
+  dessert: '甜品',
+  cake: '蛋糕',
+  burger: '汉堡',
+  'fried-chicken': '炸鸡',
+  clothing: '服饰',
+  electronics: '电子产品',
+  supermarket: '超市便利店',
+  karaoke: '卡拉 OK',
+  cinema: '电影院',
+  'board-games': '桌游',
+  bar: '酒吧',
+  'murder-mystery': '剧本杀',
+  printing: '打印影印',
+  'hair-salon': '理发美发',
+  'repair-service': '维修服务',
+  'group-gathering': '聚餐',
+  'photo-friendly': '适合拍照',
+  delivery: '可外卖',
+  'late-night': '深夜营业',
+  'student-discount': '学生优惠'
+};
 
 const TRADITIONAL_TO_SIMPLIFIED: Readonly<Record<string, string>> = {
   漢: '汉',
@@ -347,7 +404,14 @@ const tagById = new Map(TAG_CATALOG.map((tag) => [tag.id, tag]));
 const tagBySlug = new Map(TAG_CATALOG.map((tag) => [tag.slug, tag]));
 
 const tagsByAlias = TAG_CATALOG.reduce<Map<string, TaxonomyTag[]>>((index, tag) => {
-  const terms = [tag.slug, tag.labelZhMO, tag.labelEn, ...tag.aliases, ...(tag.legacyLabels ?? [])];
+  const terms = [
+    tag.slug,
+    tag.labelZhMO,
+    TAG_LABELS_ZH_CN[tag.slug],
+    tag.labelEn,
+    ...tag.aliases,
+    ...(tag.legacyLabels ?? [])
+  ].filter((term): term is string => Boolean(term));
 
   for (const term of terms) {
     const normalized = normalizeSearchText(term);
@@ -362,6 +426,11 @@ const tagsByAlias = TAG_CATALOG.reduce<Map<string, TaxonomyTag[]>>((index, tag) 
 
 export function findTaxonomyTag(idOrSlug: string): TaxonomyTag | null {
   return tagById.get(idOrSlug) ?? tagBySlug.get(idOrSlug) ?? null;
+}
+
+export function getTaxonomyTagLabelZhCN(idOrSlug: string): string | null {
+  const tag = findTaxonomyTag(idOrSlug);
+  return tag ? TAG_LABELS_ZH_CN[tag.slug] ?? tag.labelZhMO : null;
 }
 
 export function resolveTagAlias(query: string): TaxonomyTag[] {

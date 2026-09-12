@@ -1,6 +1,7 @@
 import {
   TAG_CATALOG,
   findTaxonomyTag,
+  getTaxonomyTagLabelZhCN,
   resolveTagAlias,
   type TaxonomyTag
 } from '../domain/taxonomy';
@@ -45,16 +46,17 @@ const DISPLAY_GROUP_SLUGS: ReadonlyArray<{
   {level1: '甜点', slugs: ['bread', 'dessert', 'cake']},
   {level1: '场景', slugs: ['group-gathering', 'photo-friendly', 'delivery', 'late-night', 'student-discount']},
   {level1: '购物', slugs: ['clothing', 'electronics', 'supermarket']},
-  {level1: '娱乐', slugs: ['karaoke', 'cinema', 'board-games']},
+  {level1: '娱乐', slugs: ['karaoke', 'cinema', 'board-games', 'bar', 'murder-mystery']},
   {level1: '生活服务', slugs: ['printing', 'hair-salon', 'repair-service']}
 ] as const;
 
 function toOption(tag: TaxonomyTag, level1: CanonicalLevel1): CanonicalTagOption {
+  const tagName = getTaxonomyTagLabelZhCN(tag.slug) ?? tag.labelZhMO;
   return {
     tag_id: tag.id,
-    tag_name: tag.labelZhMO,
+    tag_name: tagName,
     level1,
-    level2: tag.labelZhMO
+    level2: tagName
   };
 }
 
@@ -93,6 +95,6 @@ export function migrateLegacyTagsForSubmission(inputTags: string[]): {tagIds: st
 
   return {
     tagIds: matchedTags.map((tag) => tag.id),
-    tagNames: matchedTags.map((tag) => tag.labelZhMO)
+    tagNames: matchedTags.map((tag) => getTaxonomyTagLabelZhCN(tag.slug) ?? tag.labelZhMO)
   };
 }

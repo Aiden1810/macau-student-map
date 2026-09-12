@@ -23,4 +23,12 @@ describe('discovery URL state', () => {
       updateDiscoverySearchParams(params, {query: '', category: 'all', tags: []}).toString()
     ).toBe('campaign=campus');
   });
+
+  it('migrates a legacy Chinese tag in a shared URL to canonical slugs', () => {
+    const state = parseDiscoveryUrlState(
+      `?category=food&tags=${encodeURIComponent('汉堡 / 炸鸡')}`
+    );
+
+    expect(state.tags).toEqual(['burger', 'fried-chicken']);
+  });
 });

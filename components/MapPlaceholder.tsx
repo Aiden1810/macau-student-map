@@ -3,6 +3,8 @@
 import toast from 'react-hot-toast';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {Shop} from '@/types/shop';
+import {buildPlacePinHtml} from '@/lib/amap/place-marker';
+import {formatPlacePrice, getPlacePresentation} from '@/lib/domain/place-types';
 
 interface MapPlaceholderProps {
   shops: Shop[];
@@ -153,36 +155,6 @@ function loadAmapScript(key: string): Promise<AMapNamespace> {
   return w.__amapLoadingPromise;
 }
 
-function buildShopPinHtml(size: 'default' | 'selected' = 'default', anchored = true): string {
-  const width = size === 'selected' ? 44 : 36;
-  const height = size === 'selected' ? 54 : 46;
-  const iconScale = size === 'selected' ? 1 : 0.9;
-  const anchorTransform = anchored ? 'transform:translate(-50%,-100%);' : '';
-  const randId = Math.random().toString(36).slice(2, 9);
-  const filterId = `shopPinShadow-${randId}`;
-
-  return `<div style="width:${width}px;height:${height}px;${anchorTransform}display:flex;align-items:flex-start;justify-content:center;">
-    <svg width="${width}" height="${height}" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <filter id="${filterId}" x="-60%" y="-50%" width="220%" height="220%">
-          <feDropShadow dx="0" dy="3" stdDeviation="2.4" flood-color="rgba(22,101,52,0.28)"/>
-        </filter>
-      </defs>
-      <g filter="url(#${filterId})">
-        <path d="M22 52C22 52 7 38.2 7 24.6C7 15.3 13.7 8 22 8C30.3 8 37 15.3 37 24.6C37 38.2 22 52 22 52Z" fill="#ffffff"/>
-        <circle cx="22" cy="24" r="11.4" fill="#166534"/>
-        <g transform="translate(${22 - 6.5 * iconScale} ${24 - 6.5 * iconScale}) scale(${iconScale})" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none">
-          <path d="M2.4 1.5V5.2C2.4 6.3 3.25 7.15 4.35 7.15V12.5"/>
-          <path d="M4.35 1.5V7.15"/>
-          <path d="M6.3 1.5V5.2"/>
-          <path d="M8.95 3.2C8.95 1.95 9.95 0.95 11.2 0.95V12.5"/>
-          <path d="M8.95 3.2H11.2"/>
-        </g>
-      </g>
-    </svg>
-  </div>`;
-}
-
 function buildUserPinHtml(anchored = true): string {
   const width = 36;
   const height = 46;
@@ -220,7 +192,7 @@ function escapeHtml(raw: unknown): string {
 }
 
 function buildSelectedShopMarkerHtml(shop: Shop): string {
-  const pinHtml = buildShopPinHtml('selected', false);
+  const pinHtml = buildPlacePinHtml(shop, 'selected', false);
   const name = escapeHtml(shop.name);
   const ratingLabel = escapeHtml(shop.ratingLabel);
   const roundedRating = Math.max(0, Math.min(5, Number.isFinite(shop.rating) ? shop.rating : 0));
@@ -233,8 +205,8 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
   const halfStarHtml = hasHalfStar ? '<span style="color:#f59e0b;opacity:.55;">★</span>' : '';
   const emptyStarHtml = '<span style="color:#cbd5e1;">☆</span>'.repeat(emptyStars);
   const starsHtml = `${fullStarHtml}${halfStarHtml}${emptyStarHtml}`;
-  const primaryTag = escapeHtml(shop.tags[0] ?? '暂无标签');
-  const price = shop.pricePerPerson ? `MOP ${shop.pricePerPerson}` : '暂无';
+  const primaryTag = escapeHtml(getPlacePresentation(shop).label);
+  const price = escapeHtml(formatPlacePrice(shop));
 
   // Position: Tip of the pin is at the coordinate, card is below it
   // Pin height is 54px, tip is ~52px from top.
@@ -246,7 +218,7 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
       <div style="font-size:14px;font-weight:700;line-height:1.3;color:#166534;word-break:break-word;">${name}</div>
       <div style="margin-top:5px;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;">
         <span style="border-radius:9999px;background:rgba(245,158,11,0.14);color:#f59e0b;padding:3px 8px;">${ratingLabel}</span>
-        <span style="border-radius:9999px;background:rgba(22,101,52,0.08);color:#166534;padding:3px 8px;">人均 ${price}</span>
+        <span style="border-radius:9999px;background:rgba(22,101,52,0.08);color:#166534;padding:3px 8px;">${price}</span>
       </div>
       <div style="margin-top:7px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.2;">
         <span style="color:#f59e0b;letter-spacing:0.5px;">${starsHtml}</span>
@@ -259,10 +231,10 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
 }
 
 function buildTopRankMarkerHtml(shop: Shop): string {
-  const pinHtml = buildShopPinHtml('selected', false);
+  const pinHtml = buildPlacePinHtml(shop, 'selected', false);
   const name = escapeHtml(shop.name);
   const score = Number.isFinite(shop.rating) ? shop.rating.toFixed(1) : '0';
-  const price = shop.pricePerPerson ? `￥${shop.pricePerPerson}` : '暂无';
+  const price = escapeHtml(formatPlacePrice(shop));
 
   return `<div style="display:flex;flex-direction:column;align-items:center;transform:translate(-50%, -52px);">
     <div style="width:44px;height:54px;display:flex;justify-content:center;">
@@ -273,14 +245,10 @@ function buildTopRankMarkerHtml(shop: Shop): string {
       <div style="font-size:10px;font-weight:600;color:#666;white-space:nowrap;display:flex;align-items:center;gap:4px;">
         <span style="color:#f59e0b;">★ ${score}</span>
         <span style="color:#eee;">|</span>
-        <span>人均 ${price}</span>
+        <span>${price}</span>
       </div>
     </div>
   </div>`;
-}
-
-function buildMinorMarkerHtml(): string {
-  return `<div style="width:14px;height:14px;transform:translate(-50%,-50%);border-radius:9999px;background:#16a34a;border:2px solid #ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.18);"></div>`;
 }
 
 function isShopInsideBounds(shop: Shop, bounds: AMapBounds | null): boolean {
@@ -338,14 +306,6 @@ export default function MapPlaceholder({
     () => shops.find((shop) => shop.id === selectedShopId && shop.hasCoordinates) ?? null,
     [shops, selectedShopId]
   );
-
-  const buildMarkerHtml = (isActive: boolean, isHovered: boolean, isFilteredView = false) => {
-    if (isActive || isHovered || isFilteredView) {
-      return buildShopPinHtml('selected');
-    }
-
-    return buildShopPinHtml('default');
-  };
 
   const topRankShopIds = useMemo(() => {
     const isFilteredView = activeL1 !== 'all' && activeL1 !== 'region';
@@ -490,7 +450,7 @@ export default function MapPlaceholder({
       const marker = new AMap.Marker({
         position: shop.coordinates,
         offset: new AMap.Pixel(0, 0),
-        content: isFilteredView ? (isTopRank ? buildTopRankMarkerHtml(shop) : buildMinorMarkerHtml()) : buildMarkerHtml(false, false),
+        content: isFilteredView && isTopRank ? buildTopRankMarkerHtml(shop) : buildPlacePinHtml(shop),
         zIndex: isFilteredView ? (isTopRank ? 120 : 90) : 100,
         extData: {shopId: shop.id}
       });

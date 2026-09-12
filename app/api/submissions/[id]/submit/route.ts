@@ -3,6 +3,7 @@ import {parseJsonBody} from '@/lib/api/request';
 import {createRequestId, errorResponse, successResponse} from '@/lib/api/result';
 import {createAuthenticatedSupabaseClient, requireUser} from '@/lib/auth/require-user';
 import {mapSubmissionRow} from '@/lib/data/submission-repository';
+import {checkActiveTagCatalog} from '@/lib/data/tag-catalog';
 import {placeSubmissionDraftSchema} from '@/lib/domain/submission';
 import {
   findDuplicateCandidates,
@@ -84,6 +85,13 @@ export async function POST(request: Request, {params}: RouteContext) {
       );
     }
     throw error;
+  }
+
+  const catalogReady = await checkActiveTagCatalog(pendingRow.tag_ids, () => client
+    .from('tags').select('id').in('id', pendingRow.tag_ids).eq('is_active', true));
+  if (!catalogReady) {
+    return errorResponse({code: 'SCHEMA_UNAVAILABLE', status: 503,
+      message: '地点标签暂不可用，请稍后重试或联系管理员确认标签迁移；草稿已保留。'}, requestId);
   }
 
   const latitudeRadius = 0.002;

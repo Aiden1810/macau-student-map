@@ -17,6 +17,19 @@
     "noReviews": "No reviews yet",
     "noRatingYet": "No rating yet"
   },
+  "PlaceNavigation": {
+    "navigate": "Directions in AMap",
+    "navigateTo": "Directions to {name} in AMap (new window)",
+    "copyAddress": "Copy address",
+    "copied": "Place name and address copied",
+    "copyFailed": "Could not copy automatically. Select or long-press the address below to copy it.",
+    "addressToCopy": "Place name and address to copy manually",
+    "missingCoordinates": "The location is not confirmed yet. Directions are unavailable.",
+    "missingAddress": "The address is not available to copy yet.",
+    "help": "Having trouble opening directions?",
+    "webRoute": "Open the AMap web route (new window)",
+    "helpText": "Walking directions open by default. Confirm your starting point in AMap. WeChat or QQ may block opening the AMap app. Open this page in your phone browser, or copy the address into your preferred map."
+  },
   "Filters": {
     "all": "All",
     "food": "Food",

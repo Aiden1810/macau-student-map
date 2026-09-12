@@ -9,6 +9,9 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import AdminImageManager from '@/components/AdminImageManager';
 import ImageLightbox from '@/components/ImageLightbox';
 import MobileImageSlider from '@/components/MobileImageSlider';
+import PlaceNavigationActions from '@/components/PlaceNavigationActions';
+import PlaceTypeBadge from '@/components/PlaceTypeBadge';
+import {formatPlacePrice} from '@/lib/domain/place-types';
 import StarRating from '@/components/StarRating';
 import {createRequestGuard, runLatest} from '@/lib/data/async-request';
 import {loadAuthRole} from '@/lib/data/auth-role';
@@ -137,7 +140,7 @@ function ShopHero({
     priceDisplay.kind === 'free'
       ? '免费'
       : priceDisplay.kind === 'paid'
-        ? `人均 MOP ${priceDisplay.value}`
+        ? formatPlacePrice(shop)
         : null;
   const hasCoordinates =
     shop.hasCoordinates &&
@@ -163,6 +166,7 @@ function ShopHero({
       <div className="px-4 pb-4 pt-3">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold text-slate-900">{shop.name}</h1>
+          <PlaceTypeBadge place={shop} />
           {canManageImages && (
             <button
               type="button"
@@ -209,6 +213,10 @@ function ShopHero({
               {ratingTag.label}
             </span>
           </div>
+        </div>
+
+        <div className="mt-3">
+          <PlaceNavigationActions key={shop.id} place={shop} />
         </div>
 
         {hasPhone && phoneHref && (

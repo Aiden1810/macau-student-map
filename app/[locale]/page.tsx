@@ -6,7 +6,7 @@ import {useLocale, useTranslations} from 'next-intl';
 import toast from 'react-hot-toast';
 import {Link} from '@/i18n/navigation';
 import ContributionForm from '@/components/ContributionForm';
-import {getL2ValuesByCategory} from '@/components/FilterBar';
+import {getL2OptionByValue, getL2ValuesByCategory} from '@/lib/search/filter-options';
 import Header from '@/components/Header';
 import MapPlaceholder from '@/components/MapPlaceholder';
 import ShopList from '@/components/ShopList';
@@ -17,6 +17,9 @@ import {
 } from '@/lib/search/tag-search';
 import {normalizePlaceSearchRequest} from '@/lib/domain/search';
 import {resolveTagAlias} from '@/lib/domain/taxonomy';
+import {isLaunchCategory, matchesLaunchCategory, LAUNCH_CATEGORIES} from '@/lib/domain/place-types';
+import {createRequestGuard} from '@/lib/data/async-request';
+import {loadCanonicalPlaces} from '@/lib/data/canonical-places';
 import {filterBySelectedFacet} from '@/lib/search/legacy-filters';
 import {parseDiscoveryUrlState, updateDiscoverySearchParams} from '@/lib/search/url-state';
 import {rankCompatibilityPlaces} from '@/lib/services/search-places';
@@ -40,6 +43,10 @@ const DEFAULT_DRAWER_FILTERS: DrawerFiltersState = {
 };
 
 const L1_KEYS: ShopCategoryKey[] = [
+  'all',
+  'hair-salon',
+  'bar',
+  'tabletop',
   'food',
   'drink',
   'shopping',
@@ -58,6 +65,7 @@ function hasDrawerFilters(filters: DrawerFiltersState): boolean {
 
 function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
   if (tabKey === 'all' || tabKey === 'region') return shops;
+  if (isLaunchCategory(tabKey)) return shops.filter(shop => matchesLaunchCategory(shop, tabKey));
   
   if (tabKey === 'review') {
     return shops.filter((s) => ['封神之作', '强烈推荐'].includes(s.ratingLabel));
@@ -65,24 +73,29 @@ function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
 
   if (tabKey === 'deal') {
     const dealTags = getL2ValuesByCategory('deal');
+    const tagMatches = new Set(filterBySelectedFacet(dealTags, shops, 'deal').map((shop) => shop.id));
     return shops.filter(
       (s) =>
         s.category === 'deal' ||
         s.features.includes('有折扣') ||
         s.features.includes('学生价') ||
-        s.tags.some((t) => dealTags.includes(t))
+        tagMatches.has(s.id)
     );
   }
 
-  if (tabKey === 'food' || tabKey === 'drink' || tabKey === 'vibe') {
+  if (tabKey === 'drink' || tabKey === 'vibe') {
     const groupTags = getL2ValuesByCategory(tabKey);
-    return shops.filter((s) => s.category === tabKey || s.tags.some((t) => groupTags.includes(t)));
+    const tagMatches = new Set(filterBySelectedFacet(groupTags, shops, tabKey).map((shop) => shop.id));
+    return shops.filter((s) => s.category === tabKey || tagMatches.has(s.id));
   }
 
   return shops.filter((s) => s.category === tabKey);
 }
 
 function filterByL2(tags: string[], shops: Shop[], l1Key: ShopCategoryKey): Shop[] {
+  if (l1Key === 'review') {
+    return tags.length === 0 ? shops : shops.filter((shop) => tags.includes(shop.ratingLabel));
+  }
   return filterBySelectedFacet(tags, shops, l1Key);
 }
 
@@ -142,6 +155,8 @@ export default function Page() {
   const [searchFallbackMessage, setSearchFallbackMessage] = useState<string | null>(null);
   const [mobileSheetTopOffset, setMobileSheetTopOffset] = useState(116);
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
+  const shopsRequestGuardRef = useRef(createRequestGuard());
+  const roleRequestGuardRef = useRef(createRequestGuard());
   const hasFetchedRef = useRef(false);
   const lastLoggedQueryRef = useRef<{query: string; at: number} | null>(null);
 
@@ -171,6 +186,7 @@ export default function Page() {
   }, [activeL1, activeL2, searchQuery, urlStateReady]);
 
   const fetchShops = useCallback(async () => {
+    const requestToken = shopsRequestGuardRef.current.begin();
     setLoading(true);
 
     try {
@@ -183,11 +199,16 @@ export default function Page() {
             'id,name,name_i18n,category,student_discount,tags,tags_i18n,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text,review_text_i18n,image_urls,address,main_category,sub_tags,price_per_person,region,signature_dish,sharp_review'
           )
           .or(statusFilter),
-        fetch('/api/places').then(async (response) => {
+        loadCanonicalPlaces(async () => {
+          const response = await fetch('/api/places');
           const body = (await response.json().catch(() => null)) as {ok?: boolean; data?: {items?: Shop[]}} | null;
-          return response.ok && body?.ok ? body.data?.items ?? [] : [];
+          return response.ok && body?.ok ? {ok: true, items: body.data?.items ?? []} : {ok: false, items: []};
         })
       ]);
+
+      if (!shopsRequestGuardRef.current.isCurrent(requestToken)) {
+        return;
+      }
 
       if (legacyResult.error && canonicalResult.length === 0) {
         console.error('Failed to fetch shops:', legacyResult.error.message);
@@ -206,13 +227,27 @@ export default function Page() {
       }
 
       hasFetchedRef.current = true;
+    } catch (error) {
+      if (!shopsRequestGuardRef.current.isCurrent(requestToken)) {
+        return;
+      }
+      console.error('Failed to fetch shops:', error);
+      setShops([]);
+      toast.error(tHome('toast.loadFailed'));
     } finally {
-      setLoading(false);
+      if (shopsRequestGuardRef.current.isCurrent(requestToken)) {
+        setLoading(false);
+      }
     }
   }, [locale, tHome, userRole]);
 
   const fetchCurrentUserRole = useCallback(async () => {
+    const requestToken = roleRequestGuardRef.current.begin();
     const {data: authData, error: authError} = await supabase.auth.getUser();
+
+    if (!roleRequestGuardRef.current.isCurrent(requestToken)) {
+      return;
+    }
 
     if (authError || !authData?.user) {
       setUserRole(null);
@@ -220,13 +255,18 @@ export default function Page() {
       return;
     }
 
-    setUserEmail(authData.user.email ?? null);
+    const user = authData.user;
+    setUserEmail(user.email ?? null);
 
     const {data: profile, error: profileError} = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', authData.user.id)
+      .eq('id', user.id)
       .maybeSingle();
+
+    if (!roleRequestGuardRef.current.isCurrent(requestToken)) {
+      return;
+    }
 
     if (profileError) {
       console.error('Failed to fetch profile role:', profileError.message);
@@ -234,10 +274,24 @@ export default function Page() {
       return;
     }
 
+    const {data: currentAuthData} = await supabase.auth.getUser();
+    if (!roleRequestGuardRef.current.isCurrent(requestToken)) {
+      return;
+    }
+
+    if (currentAuthData.user?.id !== user.id) {
+      setUserRole(null);
+      setUserEmail(currentAuthData.user?.email ?? null);
+      return;
+    }
+
     setUserRole(profile?.role ?? null);
   }, []);
 
   useEffect(() => {
+    // Guard objects are stable across renders; capture them so the cleanup
+    // closes over the same instances instead of re-reading the ref.
+    const roleGuard = roleRequestGuardRef.current;
     fetchCurrentUserRole();
 
     const {
@@ -248,11 +302,17 @@ export default function Page() {
 
     return () => {
       subscription.unsubscribe();
+      roleGuard.invalidate();
     };
   }, [fetchCurrentUserRole]);
 
   useEffect(() => {
+    const shopsGuard = shopsRequestGuardRef.current;
     fetchShops();
+
+    return () => {
+      shopsGuard.invalidate();
+    };
   }, [fetchShops]);
 
   useEffect(() => {
@@ -416,11 +476,15 @@ export default function Page() {
     }
 
     if (activeL1 !== 'all') {
-      labels.push(`${tHome('activeFilter.channelPrefix')}: ${tFilters(activeL1 === 'drink' ? 'drinksDesserts' : activeL1 === 'vibe' ? 'scenario' : activeL1 === 'region' ? 'area' : activeL1 === 'review' ? 'topPicks' : activeL1)}`);
+      labels.push(`${tHome('activeFilter.channelPrefix')}: ${LAUNCH_CATEGORIES.find(item => item.key === activeL1)?.label ?? tFilters(activeL1 === 'drink' ? 'drinksDesserts' : activeL1 === 'vibe' ? 'scenario' : activeL1 === 'region' ? 'area' : activeL1 === 'review' ? 'topPicks' : activeL1)}`);
     }
 
     if (activeL2.length > 0) {
-      labels.push(...activeL2.map((l2) => `${tHome('activeFilter.l2Prefix')}: ${l2}`));
+      labels.push(
+        ...activeL2.map((l2) =>
+          `${tHome('activeFilter.l2Prefix')}: ${getL2OptionByValue(l2)?.labelZhCN ?? l2}`
+        )
+      );
     }
 
     if (drawerFilters.shopType !== '全部') {

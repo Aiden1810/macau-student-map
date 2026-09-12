@@ -5,6 +5,8 @@ import {authenticatedApiRequest} from '@/lib/api/client';
 import {createRequestGuard} from '@/lib/data/async-request';
 import {createComponentLifecycleGuard} from '@/lib/data/component-lifecycle';
 import {supabase} from '@/lib/supabase';
+import PlaceTypeBadge from '@/components/PlaceTypeBadge';
+import {getTaxonomyTagLabelZhCN} from '@/lib/domain/taxonomy';
 
 type QueueItem = {
   id: string;
@@ -167,7 +169,9 @@ export default function SubmissionQueue() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h3 className="font-semibold text-slate-900">{item.name}</h3>
-                  <p className="mt-1 text-xs text-slate-500">{item.address || '未填写地址'} · {item.categorySlug}</p>
+                  <p className="mt-1 text-xs text-slate-500">{item.address || '未填写地址'}</p>
+                  <PlaceTypeBadge place={{category: item.categorySlug, tags: item.tagIds}} />
+                  <p className="mt-1 text-xs text-slate-500">{item.tagIds.map(id => getTaxonomyTagLabelZhCN(id) ?? '未知标签').join(' · ')}</p>
                   <p className="mt-1 break-all text-[11px] text-slate-400">{item.id}</p>
                 </div>
                 <span className="rounded-full bg-amber-50 px-2 py-1 text-xs text-amber-700">{item.tagIds.length} 个标签</span>

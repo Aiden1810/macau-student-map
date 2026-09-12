@@ -58,7 +58,29 @@ describe('mapCanonicalPlaceToShop', () => {
     });
   });
 
+  it('displays canonical tags in Simplified Chinese on the current public map', () => {
+    const shop = mapCanonicalPlaceToShop({
+      id: 'place-burger',
+      name: '汉堡店',
+      address: '澳门',
+      category_slug: 'food',
+      region: 'macau-peninsula',
+      longitude: 113.55,
+      latitude: 22.19,
+      price_per_person: 50,
+      rating_average: null,
+      review_count: 0,
+      status: 'published',
+      legacy_image_urls: [],
+      place_tags: [
+        {tags: {id: 'tag-burger', slug: 'burger', label_zh_mo: '漢堡'}},
+        {tags: {id: 'tag-chicken', slug: 'fried-chicken', label_zh_mo: '炸雞'}}
+      ],
+      place_media: []
+    });
 
+    expect(shop.tags).toEqual(['汉堡', '炸鸡']);
+  });
 });
 
 describe('mapPlaceToShop', () => {
@@ -78,7 +100,7 @@ describe('mapPlaceToShop', () => {
       reviews: 8,
       region: '氹仔岛',
       status: 'verified',
-      tags: ['漢堡'],
+      tags: ['汉堡'],
       imageUrls: ['https://example.com/cover.webp']
     });
   });

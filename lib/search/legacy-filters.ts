@@ -1,7 +1,18 @@
+import {normalizeSearchText, resolveTagAlias} from '../domain/taxonomy';
+
 export type LegacyFilterablePlace = {
   tags: readonly string[];
   region?: string | null;
 };
+
+function canonicalTagKeys(value: string): string[] {
+  const matchedSlugs = resolveTagAlias(value).map((tag) => tag.slug);
+  if (matchedSlugs.length > 0) {
+    return matchedSlugs;
+  }
+
+  return [normalizeSearchText(value)];
+}
 
 /**
  * Applies one selected filter group to the legacy shop data used by the map.
@@ -17,15 +28,16 @@ export function filterBySelectedFacet<T extends LegacyFilterablePlace>(
     return [...places];
   }
 
-  const selected = new Set(selectedValues);
-
   if (facet === 'region') {
+    const selected = new Set(selectedValues);
     return places.filter((place) =>
       place.region ? selected.has(place.region) : false,
     );
   }
 
+  const selected = new Set(selectedValues.flatMap(canonicalTagKeys));
+
   return places.filter((place) =>
-    place.tags.some((tag) => selected.has(tag)),
+    place.tags.some((tag) => canonicalTagKeys(tag).some((key) => selected.has(key))),
   );
 }

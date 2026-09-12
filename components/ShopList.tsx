@@ -3,8 +3,11 @@ import Link from 'next/link';
 import {ChevronDown, Navigation, Search, SlidersHorizontal, Star, StarHalf} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
-import {L2_TAGS} from '@/components/FilterBar';
+import {DISCOVERY_TABS, L2_TAGS} from '@/lib/search/filter-options';
 import ShopCard from '@/components/ShopCard';
+import FilterBar from '@/components/FilterBar';
+import PlaceTypeBadge from '@/components/PlaceTypeBadge';
+import {formatPlacePrice} from '@/lib/domain/place-types';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
 import {DrawerFiltersState, Shop, ShopCategoryKey, ShopFeature} from '@/types/shop';
 
@@ -206,6 +209,12 @@ export default function ShopList({
 
   const desktopListContent = (
     <>
+      <div className="mb-3 hidden md:block">
+        <FilterBar activeL1={activeL1} activeL2={activeL2[0] ?? null} onChange={(l1, l2) => {
+          if (l2 !== null) onL2Change?.(l1, l2);
+          else onL1Change?.(l1);
+        }} />
+      </div>
       <div className="mb-2 relative md:hidden">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
@@ -419,12 +428,13 @@ export default function ShopList({
         </div>
 
         <div className="hide-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-1">
-          {(Object.keys(L2_TAGS) as Exclude<ShopCategoryKey, 'all'>[]).map((l1Key) => {
+          {DISCOVERY_TABS.map(({key: l1Key, label}) => {
             const isActive = activeL1 === l1Key;
             return (
               <button
                 key={l1Key}
                 type="button"
+                aria-pressed={isActive}
                 onClick={() => onL1Change?.(l1Key)}
                 className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                   isActive
@@ -433,7 +443,7 @@ export default function ShopList({
                 }`}
               >
                 <span>
-                  {tFilters(l1Key === 'drink' ? 'drinksDesserts' : l1Key === 'vibe' ? 'scenario' : l1Key === 'region' ? 'area' : l1Key === 'review' ? 'topPicks' : l1Key)}
+                  {label}
                 </span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isActive ? 'rotate-180' : ''}`} />
               </button>
@@ -461,7 +471,7 @@ export default function ShopList({
                           : 'bg-white/60 text-[#0d2918]'
                       }`}
                     >
-                      {tFilters(`l2Tags.${tag.labelKey}`)}
+                      {tag.labelZhCN}
                     </button>
                   );
                 })}
@@ -522,9 +532,9 @@ export default function ShopList({
                             </span>
                           </div>
                           <p className="mt-0.5 truncate text-xs text-[#1A5C2E]/80">
-                            {shop.shopType}
+                            <PlaceTypeBadge place={shop} />
                             <span className="mx-1 text-[#1A5C2E]/30">|</span>
-                            {tShopDetail('avgSpend', {value: shop.pricePerPerson ? `MOP ${shop.pricePerPerson}` : tShopDetail('notAvailable')})}
+                            {formatPlacePrice(shop)}
                           </p>
 
                           <div className="mt-1 flex items-center gap-1">

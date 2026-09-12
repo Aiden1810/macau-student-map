@@ -1,66 +1,149 @@
-# CityU Local Life Map
+# Macau Student Map
 
-面向澳门高校学生的本地生活平台 MVP。公开用户可以浏览地图、搜索和筛选地点；登录用户可以投稿、上传图片、收藏和评价；管理员可以批准新地点、合并重复地点、驳回投稿并查看搜索缺口。
+面向澳门学生的本地生活信息地图，用于探索餐饮及校园周边生活地点。
 
-## 当前产品边界
+A local-life map for students in Macau to discover food and useful places around campus.
 
-- 支持美食、购物、娱乐、生活服务四类地点。
-- 投稿与公开地点分离：`draft → pending → approved / rejected / merged`。
-- 搜索支持名称、规范标签、中英/简繁别名和诚实的零结果。
-- 同组筛选为 OR，不同筛选维度为 AND；查询与顶部筛选写入 URL。
-- 一名用户对一个地点最多一条评价；评分榜采用置信度规则，少量五星不会直接“封神”。
-- 现有 `shops` 数据保留，应用采用规范 `places` + 旧表兼容双读。
+## Project Overview
 
-本版本不包含支付、外卖配送、商家结算或广告竞价。这些能力涉及许可证、风控、履约和财务系统，不属于首个可上线 MVP。
+I started this personal project because I wanted a simpler way for students in Macau to find restaurants and other useful places near their campuses. The project turns that idea into an online Web application where users can browse a map, search by names or tags, save places, share reviews, and contribute new location information.
 
-## Windows 本地运行
+The project is an actively developed student prototype rather than a mature commercial product.
 
-要求 Node.js 20+。数据库本地重建还要求 Docker Desktop。
+## Demo
 
-```powershell
+[https://macau-student-map.vercel.app/zh-CN](https://macau-student-map.vercel.app/zh-CN)
+
+## Screenshots
+
+### Map homepage
+
+![Map homepage](docs/screenshots/map-home.png)
+
+### Search and filters
+
+![Search and filters](docs/screenshots/search-filters.png)
+
+### Place contribution flow
+
+![Place contribution flow](docs/screenshots/contribution-flow.png)
+
+The screenshots were captured from the current local build without a signed-in account or private user data.
+
+## Features
+
+- Map-based place discovery with markers, marker clustering, map selection, and geolocation
+- Name, address, tag-alias, category, region, price, rating, and saved-place filtering
+- Shareable search state through URL query parameters
+- Simplified Chinese, Traditional Chinese, and English routes using next-intl
+- Email OTP login for members, with a separate role-checked administrator login
+- Place contribution workflow with drafts, duplicate-place checking, submission, and review status
+- Client-side image compression followed by controlled Supabase Storage uploads
+- Favorites, one rating/review per user and place, and confidence-aware rating display
+- Administrator approval, duplicate merging, rejection, media management, and audit records
+
+## Tech Stack
+
+| Area | Technologies |
+| --- | --- |
+| Frontend | Next.js 15, React 19, TypeScript, Tailwind CSS, next-intl |
+| Backend / Application | Next.js App Router, Route Handlers, Zod |
+| Database / Auth / Storage | Supabase, PostgreSQL, Supabase Auth, Storage, Realtime, Row Level Security (RLS) |
+| Map | AMap JavaScript API 2.0 |
+| Testing | Vitest, ESLint, Supabase CLI and pgTAP database tests |
+| Deployment | Vercel |
+
+## Architecture
+
+~~~text
+Browser
+  ├─> Next.js application
+  │     ├─> React user interface
+  │     └─> Next.js Route Handlers
+  ├─> Supabase client / Data API
+  │     ├─> PostgreSQL + Row Level Security
+  │     ├─> Auth
+  │     ├─> Storage
+  │     └─> Realtime
+  └─> AMap JavaScript SDK
+~~~
+
+The browser renders the React interface and loads the AMap SDK for map interactions. Public and authenticated data requests use the Supabase publishable/anonymous key, while database RLS policies enforce which rows each user can read or change. Next.js Route Handlers validate request data and user sessions for submission, review, upload, and moderation workflows.
+
+## Project Structure
+
+~~~text
+app/                  Next.js pages, layouts, and API Route Handlers
+components/           Map, search, place, contribution, review, and admin UI
+lib/                  Domain rules, data mapping, search, auth, and services
+messages/             Simplified Chinese, Traditional Chinese, and English text
+supabase/migrations/  PostgreSQL schema, functions, RLS, and Storage policies
+supabase/tests/       pgTAP database and security tests
+tests/                Vitest unit and component tests
+docs/                 Screenshots and project design notes
+~~~
+
+## Local Development
+
+Requirements: Node.js 20 or later. Docker Desktop is only required when running the local Supabase database tests.
+
+~~~powershell
+git clone https://github.com/Aiden1810/macau-student-map.git
+Set-Location macau-student-map
+npm install
 Copy-Item .env.example .env.local
-npm ci
-npm run doctor
-npm test
-npm run i18n:check
 npm run dev
-```
+~~~
 
-打开 `http://localhost:3000`。`.env.local` 只填写 publishable/anon key；不要把 `service_role` 密钥放入任何 `NEXT_PUBLIC_*` 变量。
+Open [http://localhost:3000/zh-CN](http://localhost:3000/zh-CN).
 
-## 数据库初始化
+Configure these values in **.env.local**:
 
-```powershell
-npx supabase start
-npx supabase db reset --local
-npx supabase test db --local
-```
+| Variable | Purpose |
+| --- | --- |
+| NEXT_PUBLIC_SUPABASE_URL | Supabase project URL |
+| NEXT_PUBLIC_SUPABASE_ANON_KEY | Supabase publishable/anonymous key |
+| NEXT_PUBLIC_AMAP_WEB_KEY | AMap Web JavaScript API key |
+| NEXT_PUBLIC_AMAP_SECURITY_CODE | Optional AMap security code, when enabled in the AMap console |
 
-迁移、RLS、Storage 和生产推送步骤见 [数据库迁移手册](docs/database-migration-runbook.md)。生产环境不能运行远程 reset，也不能把 `supabase/seed.sql` 的演示数据推入生产。
+Variables prefixed with **NEXT_PUBLIC_** are included in browser code. Do not place a Supabase **service_role** key, administrator password, or another private secret in them.
 
-## 质量检查
+Useful checks:
 
-```powershell
+~~~powershell
+npm run doctor
 npm test
 npm run lint
 npm run i18n:check
-npm audit --omit=dev --audit-level=high
 npm run build
-```
+~~~
 
-数据库测试需要 Docker Desktop；没有 Docker 时仍可运行 TypeScript 单元测试、lint 和生产构建，但不能声称 pgTAP 已在真实 PostgreSQL 上执行。
+Local database tests can be run separately after Docker Desktop is available:
 
-## 上线顺序
+~~~powershell
+npx supabase start
+npx supabase db reset --local
+npx supabase test db --local
+~~~
 
-1. 备份生产 Supabase 数据库和 Storage 清单。
-2. 在 staging 项目执行 migration dry-run、迁移和 pgTAP。
-3. 创建 `submission-media` 私有桶及 `place-media` 公开桶，限制 JPEG/PNG/WebP、单图 10 MiB。
-4. 配置 Vercel 环境变量和 Supabase Auth redirect URL。
-5. 在 staging 完成注册、搜索、投稿、上传、重复确认、审核、评价全流程验收。
-6. 再把同一迁移推送生产，最后部署 Web 应用。
+## Current Status
 
-GitHub Actions 会执行依赖安装、lint、单元测试、翻译键检查、安全审计和生产构建；只有 `main` 分支 push 才进入 Vercel 部署任务。
+**Personal Project / Prototype**
 
-## 回滚
+The application is deployed and usable for demonstrations, but it is still being iterated and should not be described as production-ready or enterprise-grade.
 
-应用兼容旧 `shops` 表。若规范模型上线后出现问题，先回滚 Web 部署到上一版本并停止新的审核操作，再按备份恢复数据库。不要手工删除 Storage 元数据；对象清理由 Storage API 完成并核对 `place_media` 记录。
+## Development Process
+
+This project was developed with an AI-assisted workflow. I was primarily responsible for product ideation, requirement and feature planning, evaluating the interface, iterative testing, identifying problems, and making implementation decisions. AI coding tools were extensively used to assist with code generation, debugging, testing, and refactoring. I am now using the project as a structured way to strengthen my understanding of TypeScript, React, Next.js, databases, and Web engineering.
+
+## Current Limitations / Future Improvements
+
+- The application still supports both the canonical **places** model and the legacy **shops** model, which increases mapping and maintenance complexity.
+- Search and ranking for the compatibility data path currently run mainly in the browser; larger datasets will need a clearer server-side search and pagination strategy.
+- Simplified Chinese is the current iteration priority. Traditional Chinese and English routes exist, but new taxonomy and interface changes need a later consistency review.
+- POI search covers Macau and Zhuhai, while strict server-side service-area and coordinate-boundary validation can be improved.
+- Unit tests and database security tests exist, but end-to-end browser coverage and repeatable staging verification are still limited.
+
+## Repository Notice
+
+This is a public repository, but it currently does not include a license and is not presented as open source. All rights remain reserved by default.

@@ -1,8 +1,10 @@
-import {ShopRegion, ShopRatingLabel} from '@/types/shop';
-import {dedupeTrimmedList, deriveRatingLabelFromScore, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
-import {findTagById, migrateLegacyTagsForSubmission} from '@/lib/tags/schema';
+import {ShopRegion, ShopRatingLabel} from '../../types/shop';
+import {dedupeTrimmedList, deriveRatingLabelFromScore, deriveRegionFromCoordinates} from './normalization';
+import {findTagById, migrateLegacyTagsForSubmission} from '../tags/schema';
+import {findTaxonomyTag, resolveTagAlias, type PlaceCategorySlug} from '../domain/taxonomy';
+import {isPrimaryTag, PRIMARY_TAG_SLUGS} from '../domain/place-types';
 
-export type ShopCategory = 'food' | 'drink' | 'vibe' | 'deal';
+export type ShopCategory = PlaceCategorySlug | 'drink' | 'vibe' | 'deal';
 export type ShopType = '正餐' | '快餐小吃' | '饮品甜点' | '服务';
 
 export type ShopPayloadBuildInput = {
@@ -38,14 +40,23 @@ function deriveShopTypeFromCategory(category: ShopCategory): ShopType {
 export function buildNormalizedShopPayload(input: ShopPayloadBuildInput): Record<string, unknown> {
   const name = input.name.trim();
 
-  const normalizedLegacy = migrateLegacyTagsForSubmission(input.selectedPresetTags ?? []);
-  const normalizedTagIds = dedupeTrimmedList([...(input.selectedTagIds ?? []), ...normalizedLegacy.tagIds], 8);
+  const allInputTags = [...(input.selectedPresetTags ?? []), ...(input.customTags ?? [])];
+  const normalizedLegacy = migrateLegacyTagsForSubmission(allInputTags);
+  const normalizedTagIds = dedupeTrimmedList([...(input.selectedTagIds ?? []), ...normalizedLegacy.tagIds]);
+  const primaryTags = normalizedTagIds.map(findTaxonomyTag).filter(tag => tag && isPrimaryTag(tag));
+  const canonicalCategory = input.category === 'drink' ? 'food' : input.category;
+  if (canonicalCategory in PRIMARY_TAG_SLUGS && primaryTags.some(tag => tag && !PRIMARY_TAG_SLUGS[canonicalCategory as PlaceCategorySlug].includes(tag.slug))) {
+    throw new Error('地点类型与标签不一致，请重新选择对应的类型和标签。');
+  }
   const canonicalTagNames = normalizedTagIds
     .map((tagId) => findTagById(tagId)?.tag_name)
     .filter((x): x is string => Boolean(x));
 
-  const customTags = dedupeTrimmedList(input.customTags ?? [], 5);
-  const mergedDisplayTags = dedupeTrimmedList([...canonicalTagNames, ...customTags], 8);
+  const customTags = dedupeTrimmedList(allInputTags.filter(tag => resolveTagAlias(tag).length === 0));
+  const mergedDisplayTags = dedupeTrimmedList([...canonicalTagNames, ...customTags]);
+  if (normalizedTagIds.length > 8 || mergedDisplayTags.length > 8) {
+    throw new Error('最多选择 8 个标签，请手动调整后再保存。');
+  }
   const englishTags = dedupeTrimmedList(input.tagsEn ?? [], 8);
   const reviewText = input.reviewText?.trim() ?? '';
   const reviewTextEn = input.reviewTextEn?.trim() ?? '';
@@ -53,7 +64,7 @@ export function buildNormalizedShopPayload(input: ShopPayloadBuildInput): Record
   const longitude = Number.isFinite(input.longitude) ? Number(input.longitude) : null;
   const latitude = Number.isFinite(input.latitude) ? Number(input.latitude) : null;
 
-  const normalizedMainCategory = canonicalTagNames[0] ?? mergedDisplayTags[0] ?? null;
+  const normalizedMainCategory = primaryTags[0] ? findTagById(primaryTags[0].id)?.tag_name ?? null : canonicalTagNames[0] ?? mergedDisplayTags[0] ?? null;
   const normalizedSubTags = mergedDisplayTags.filter((tag) => tag !== normalizedMainCategory);
 
   const ratingScore = typeof input.ratingScore === 'number' && Number.isFinite(input.ratingScore)

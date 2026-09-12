@@ -8,6 +8,10 @@ import {
 
 const burgerTagId = '00000000-0000-0000-0000-000000000501';
 const clothingTagId = '00000000-0000-0000-0000-000000000601';
+const foodTagIds = Array.from(
+  {length: 9},
+  (_, index) => `00000000-0000-0000-0000-${String(index + 101).padStart(12, '0')}`
+);
 
 const validDraft = {
   name: '校園漢堡研究所',
@@ -38,6 +42,26 @@ describe('place submission validation', () => {
     expect(() =>
       prepareSubmissionForSubmit({...validDraft, tagIds: [clothingTagId]})
     ).toThrow(/category/i);
+  });
+
+  it('accepts at most eight unique tags and rejects larger selections', () => {
+    expect(
+      prepareSubmissionForSubmit({...validDraft, tagIds: foodTagIds.slice(0, 8)}).tag_ids
+    ).toEqual(foodTagIds.slice(0, 8));
+
+    expect(() =>
+      prepareSubmissionForSubmit({...validDraft, tagIds: foodTagIds})
+    ).toThrow(/8/);
+
+    expect(() =>
+      placeSubmissionDraftSchema.parse({
+        ...validDraft,
+        tagIds: Array.from(
+          {length: 21},
+          (_, index) => `10000000-0000-0000-0000-${String(index + 1).padStart(12, '0')}`
+        )
+      })
+    ).toThrow();
   });
 
   it('trims user text and returns a pending-row payload without rating fields', () => {

@@ -1,5 +1,6 @@
 import type {PlaceSubmissionDraftInput} from '../domain/submission';
 import {placeSubmissionDraftSchema} from '../domain/submission';
+import {PRIMARY_TAG_SLUGS} from '../domain/place-types';
 import {
   findTaxonomyTag,
   normalizeSearchText,
@@ -18,50 +19,38 @@ export class SubmissionValidationError extends Error {
 }
 
 const PRIMARY_SLUGS: Readonly<Record<PlaceCategorySlug, ReadonlySet<string>>> = {
-  food: new Set([
-    'chinese-cuisine',
-    'portuguese-cuisine',
-    'cha-chaan-teng',
-    'hot-pot',
-    'western-cuisine',
-    'japanese-cuisine',
-    'korean-cuisine',
-    'barbecue',
-    'snack',
-    'fast-food',
-    'southeast-asian-cuisine',
-    'coffee',
-    'milk-tea',
-    'fruit-tea',
-    'bread',
-    'dessert',
-    'cake',
-    'burger',
-    'fried-chicken'
-  ]),
-  shopping: new Set(['clothing', 'electronics', 'supermarket']),
-  entertainment: new Set(['karaoke', 'cinema', 'board-games']),
-  service: new Set(['printing', 'hair-salon', 'repair-service'])
+  food: new Set(PRIMARY_TAG_SLUGS.food),
+  shopping: new Set(PRIMARY_TAG_SLUGS.shopping),
+  entertainment: new Set(PRIMARY_TAG_SLUGS.entertainment),
+  service: new Set(PRIMARY_TAG_SLUGS.service)
 };
 
 const PRIMARY_KINDS = new Set<TaxonomyTag['kind']>(['category', 'cuisine', 'product']);
 
 function validateTags(category: PlaceCategorySlug, tagIds: readonly string[]): string[] {
-  if (tagIds.length === 0) {
+  const uniqueTagIds = Array.from(new Set(tagIds));
+
+  if (uniqueTagIds.length === 0) {
     throw new SubmissionValidationError('tagIds', 'At least one canonical tag is required.');
   }
+  if (uniqueTagIds.length > 8) {
+    throw new SubmissionValidationError('tagIds', 'No more than 8 canonical tags may be selected.');
+  }
 
-  const tags = tagIds.map((id) => findTaxonomyTag(id));
+  const tags = uniqueTagIds.map((id) => findTaxonomyTag(id));
   if (tags.some((tag) => tag === null)) {
     throw new SubmissionValidationError('tagIds', 'Every tag must be a canonical tag.');
   }
 
   const primaryTags = (tags as TaxonomyTag[]).filter((tag) => PRIMARY_KINDS.has(tag.kind));
+  if (primaryTags.length === 0) {
+    throw new SubmissionValidationError('tagIds', 'At least one primary type tag is required.');
+  }
   if (primaryTags.some((tag) => !PRIMARY_SLUGS[category].has(tag.slug))) {
     throw new SubmissionValidationError('categorySlug', 'A selected primary tag conflicts with the category.');
   }
 
-  return Array.from(new Set(tagIds));
+  return uniqueTagIds;
 }
 
 export function prepareSubmissionForSubmit(input: PlaceSubmissionDraftInput) {

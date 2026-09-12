@@ -17,14 +17,14 @@ describe('legacy tag compatibility adapter', () => {
         '00000000-0000-0000-0000-000000000501',
         '00000000-0000-0000-0000-000000000502'
       ],
-      tagNames: ['漢堡', '炸雞']
+      tagNames: ['汉堡', '炸鸡']
     });
   });
 
   it('exposes non-food product tags without a second hard-coded catalog', () => {
     const allOptions = getCanonicalTagsForAdminAndSubmit().flatMap((group) => group.options);
     expect(allOptions.find((option) => option.tag_id === '00000000-0000-0000-0000-000000000601')).toMatchObject({
-      tag_name: '服飾'
+      tag_name: '服饰'
     });
   });
 });

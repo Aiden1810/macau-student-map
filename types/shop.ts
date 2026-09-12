@@ -10,6 +10,9 @@ export type ShopStatus = 'pending' | 'verified' | 'rejected';
 
 export type ShopCategoryKey =
   | 'all'
+  | 'hair-salon'
+  | 'bar'
+  | 'tabletop'
   | 'food'
   | 'drink'
   | 'shopping'

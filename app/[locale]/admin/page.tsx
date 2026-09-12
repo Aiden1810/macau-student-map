@@ -2,17 +2,19 @@
 
 import {FormEvent, useCallback, useEffect, useMemo, useState} from 'react';
 import toast from 'react-hot-toast';
-import {getCanonicalTagsForAdminAndSubmit} from '@/lib/tags/schema';
+import {getCanonicalTagsForAdminAndSubmit, migrateLegacyTagsForSubmission} from '@/lib/tags/schema';
+import LaunchCategorySelector from '@/components/LaunchCategorySelector';
+import {getPlacePresentation, getLaunchTagOptions, isPrimaryTag, selectLaunchCategory, type LaunchCategoryKey} from '@/lib/domain/place-types';
+import {getTaxonomyTagLabelZhCN, resolveTagAlias} from '@/lib/domain/taxonomy';
 import {Link} from '@/i18n/navigation';
 import {dedupeTrimmedList, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
-import {buildNormalizedShopPayload} from '@/lib/shops/payload';
+import {buildNormalizedShopPayload, type ShopCategory} from '@/lib/shops/payload';
 import {supabase} from '@/lib/supabase';
 import {toLegacyShopPoiFields, type AmapPoiOption} from '@/lib/amap/place-search';
 import AmapPoiSelector from '@/components/AmapPoiSelector';
 import SubmissionQueue from '@/components/admin/SubmissionQueue';
 
 type ShopStatus = 'pending' | 'verified' | 'rejected';
-type ShopCategory = 'food' | 'drink' | 'vibe' | 'deal';
 type ShopType = '正餐' | '快餐小吃' | '饮品甜点' | '服务';
 type RatingLabel = '封神之作' | '强烈推荐' | '还行吧' | '建议避雷' | '暂无评分';
 type Feature = '有折扣' | '学生价' | '深夜营业' | '适合拍照' | '外卖可达';
@@ -227,6 +229,9 @@ function mapAdminRealtimeRow(row: Record<string, unknown>): ShopRow {
 
 const CATEGORY_OPTIONS: Array<{value: ShopCategory; label: string}> = [
   {value: 'food', label: '美食'},
+  {value: 'service', label: '生活服务'},
+  {value: 'entertainment', label: '娱乐'},
+  {value: 'shopping', label: '购物（兼容旧数据）'},
   {value: 'drink', label: '饮品'},
   {value: 'vibe', label: '氛围'},
   {value: 'deal', label: '优惠'}
@@ -335,10 +340,17 @@ function AdminShopForm({
 }) {
   const [form, setForm] = useState<ShopFormValue>(toFormValue(initial));
   const [selectedPoi, setSelectedPoi] = useState<AmapPoiOption | null>(null);
+  const [launchCategory, setLaunchCategory] = useState<LaunchCategoryKey | null>(() => initial ? getPlacePresentation({category: initial.category, tags: initial.tags ?? []}).launch : 'food');
+  const availableTags = useMemo(() => {
+    if (!launchCategory) return ADMIN_ALL_PRESET_TAGS;
+    const allowed = new Set(getLaunchTagOptions(launchCategory).map(tag => tag.slug));
+    return ADMIN_ALL_PRESET_TAGS.filter(name => resolveTagAlias(name).some(tag => !isPrimaryTag(tag) || allowed.has(tag.slug)));
+  }, [launchCategory]);
 
   useEffect(() => {
     setForm(toFormValue(initial));
     setSelectedPoi(null);
+    setLaunchCategory(initial ? getPlacePresentation({category: initial.category, tags: initial.tags ?? []}).launch : 'food');
   }, [initial]);
 
   const toggleFeature = (feature: Feature) => {
@@ -373,36 +385,45 @@ function AdminShopForm({
     const pricePerPerson = parsePrice(form.price_per_person);
 
     if (form.price_per_person.trim() && pricePerPerson === null) {
-      return toast.error('人均消费必须是有效数字');
+      return toast.error('消费参考必须是有效数字');
     }
 
     if (lng !== null && lat !== null && !isLikelyMacauArea(lng, lat)) {
       return toast.error('经纬度不在澳门/珠海范围内，请确认坐标是否正确');
     }
 
-    const payload = buildNormalizedShopPayload({
-      name,
-      nameEn: form.name_en.trim() || null,
-      address: form.address,
-      amapPoiId: form.amap_poi_id,
-      longitude: lng,
-      latitude: lat,
-      category: form.category,
-      selectedPresetTags: form.tags,
-      customTags,
-      ratingLabel: form.rating_label,
-      shopType: form.shop_type,
-      imageUrls,
-      reviewText: form.review_text,
-      reviewTextEn: form.review_text_en,
-      tagsEn: englishTags,
-      features: form.features,
-      status: form.status,
-      pricePerPerson,
-      region: form.region || deriveRegionFromCoordinates(lng, lat)
-    });
+    if (launchCategory) {
+      const selectedIds = migrateLegacyTagsForSubmission([...form.tags, ...customTags]).tagIds;
+      if (!getLaunchTagOptions(launchCategory).some(tag => selectedIds.includes(tag.id))) return toast.error('请至少选择 1 个实际提供的地点类型标签');
+    }
 
-    await onSubmit(payload);
+    try {
+      const payload = buildNormalizedShopPayload({
+        name,
+        nameEn: form.name_en.trim() || null,
+        address: form.address,
+        amapPoiId: form.amap_poi_id,
+        longitude: lng,
+        latitude: lat,
+        category: form.category,
+        selectedPresetTags: form.tags,
+        customTags,
+        ratingLabel: form.rating_label,
+        shopType: form.shop_type,
+        imageUrls,
+        reviewText: form.review_text,
+        reviewTextEn: form.review_text_en,
+        tagsEn: englishTags,
+        features: form.features,
+        status: form.status,
+        pricePerPerson,
+        region: form.region || deriveRegionFromCoordinates(lng, lat)
+      });
+
+      await onSubmit(payload);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '保存失败，请重试');
+    }
   };
 
   return (
@@ -411,6 +432,16 @@ function AdminShopForm({
         <h3 className="text-lg font-bold text-slate-900">{mode === 'create' ? '新增店铺（管理员直发）' : '编辑店铺信息'}</h3>
 
         <form onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <LaunchCategorySelector value={launchCategory} onChange={(key) => {
+              const next = selectLaunchCategory(key, migrateLegacyTagsForSubmission(form.tags).tagIds);
+              setLaunchCategory(key);
+              setForm(prev => ({...prev, category: next.category, shop_type: key === 'food' ? '正餐' : '服务', tags: [
+                ...next.tagIds.map(id => getTaxonomyTagLabelZhCN(id)!),
+                ...prev.tags.filter(name => resolveTagAlias(name).length === 0)
+              ]}));
+            }} />
+          </div>
           {mode === 'create' && (
             <div className="sm:col-span-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
               <AmapPoiSelector
@@ -455,7 +486,10 @@ function AdminShopForm({
 
           <label>
             <span className="mb-1 block text-sm font-medium text-slate-700">主分类</span>
-            <select value={form.category} onChange={(e) => setForm((prev) => ({...prev, category: e.target.value as ShopCategory}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]">
+            <select value={form.category} disabled={mode === 'create'} onChange={(e) => {
+              setLaunchCategory(null);
+              setForm((prev) => ({...prev, category: e.target.value as ShopCategory}));
+            }} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]">
               {CATEGORY_OPTIONS.map((item) => (
                 <option key={item.value} value={item.value}>{item.label}</option>
               ))}
@@ -509,9 +543,9 @@ function AdminShopForm({
           </div>
 
           <div className="sm:col-span-2">
-            <p className="mb-1 text-sm font-medium text-slate-700">标签（最多5个）</p>
+            <p className="mb-1 text-sm font-medium text-slate-700">类型与场景标签（最多8个）</p>
             <div className="flex flex-wrap gap-2">
-              {ADMIN_ALL_PRESET_TAGS.map((tag) => (
+              {Array.from(new Set([...availableTags, ...form.tags])).map((tag) => (
                 <button key={tag} type="button" onClick={() => toggleTag(tag)} className={`rounded-full border px-3 py-1 text-xs font-medium ${form.tags.includes(tag) ? 'border-[#006633] bg-[#006633] text-white' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
                   {tag}
                 </button>
@@ -545,7 +579,7 @@ function AdminShopForm({
           </label>
 
           <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">人均消费（MOP）</span>
+            <span className="mb-1 block text-sm font-medium text-slate-700">消费参考（MOP/人次；不填每小时或包场总价）</span>
             <input value={form.price_per_person} onChange={(e) => setForm((prev) => ({...prev, price_per_person: e.target.value}))} placeholder="例如 68" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
           </label>
 

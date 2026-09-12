@@ -2,6 +2,9 @@ import Image from 'next/image';
 import {Check, Heart, Navigation, Tag, Trash2} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import StarRating from '@/components/StarRating';
+import PlaceNavigationActions from '@/components/PlaceNavigationActions';
+import PlaceTypeBadge from '@/components/PlaceTypeBadge';
+import {formatPlacePrice} from '@/lib/domain/place-types';
 import {getRatingTagFromData} from '@/lib/utils/ratingTag';
 import {deriveTrustLabel} from '@/lib/ranking/confidence';
 import {supabase} from '@/lib/supabase';
@@ -126,8 +129,9 @@ export default function ShopCard({
             {shop.name}
           </h3>
           <div className="mt-1 flex items-center gap-1.5 flex-wrap text-sm text-slate-500">
+            <PlaceTypeBadge place={shop} />
             <span className="font-medium text-emerald-700">
-              人均 {shop.pricePerPerson ? `MOP ${shop.pricePerPerson}` : '暂无'}
+              {formatPlacePrice(shop)}
             </span>
             {shop.region && <span className="text-slate-300">|</span>}
             {shop.region && <span className="font-medium text-indigo-700">{shop.region}</span>}
@@ -234,6 +238,9 @@ export default function ShopCard({
             <Navigation className="w-3.5 h-3.5" />
             {t('viewLocation')}
           </button>
+        </div>
+        <div className="mt-3">
+          <PlaceNavigationActions key={shop.id} place={shop} />
         </div>
       </div>
     </div>

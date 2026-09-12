@@ -23,4 +23,16 @@ describe('filterBySelectedFacet', () => {
   it('returns all items when no secondary filter is selected', () => {
     expect(filterBySelectedFacet([], places, 'food')).toEqual(places);
   });
+
+  it('matches a canonical slug against canonical and legacy display labels', () => {
+    const mixedGenerationPlaces = [
+      {id: 'legacy-burger', tags: ['汉堡 / 炸鸡']},
+      {id: 'canonical-burger', tags: ['漢堡']},
+      {id: 'unrelated', tags: ['咖啡']}
+    ];
+
+    expect(
+      filterBySelectedFacet(['burger'], mixedGenerationPlaces, 'food').map((place) => place.id)
+    ).toEqual(['legacy-burger', 'canonical-burger']);
+  });
 });

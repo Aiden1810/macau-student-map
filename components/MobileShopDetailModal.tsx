@@ -5,6 +5,9 @@ import {MessageCircle, Navigation, Star, StarHalf, X} from 'lucide-react';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import MobileImageSlider from '@/components/MobileImageSlider';
 import ImageLightbox from '@/components/ImageLightbox';
+import PlaceNavigationActions from '@/components/PlaceNavigationActions';
+import PlaceTypeBadge from '@/components/PlaceTypeBadge';
+import {formatPlacePrice} from '@/lib/domain/place-types';
 import ReviewForm from '@/components/reviews/ReviewForm';
 import {Shop} from '@/types/shop';
 
@@ -134,6 +137,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
           {/* Shop Info */}
           <div className="px-4 pt-3">
             <h3 className="text-xl font-bold text-slate-900">{shop.name}</h3>
+            <PlaceTypeBadge place={shop} />
             <p className="mt-1 text-sm text-slate-500">
               {shop.address?.trim() || '地址信息收录中 (Address pending)'}
             </p>
@@ -141,7 +145,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
             <div className="mt-2 flex items-center gap-3">
               <InlineStarRating score={shop.rating} reviewCount={shop.reviews} />
               <span className="text-sm font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                人均 {shop.pricePerPerson ? `MOP ${shop.pricePerPerson}` : '暂无'}
+                {formatPlacePrice(shop)}
               </span>
             </div>
 
@@ -169,6 +173,9 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
                 <Navigation className="h-4 w-4" />
                 查看位置
               </button>
+            </div>
+            <div className="mt-3">
+              <PlaceNavigationActions key={shop.id} place={shop} />
             </div>
           </div>
 

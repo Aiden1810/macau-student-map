@@ -3,6 +3,9 @@
 import {FormEvent, useMemo, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {getCanonicalTagsForAdminAndSubmit} from '@/lib/tags/schema';
+import LaunchCategorySelector from '@/components/LaunchCategorySelector';
+import {getLaunchTagOptions, isPrimaryTag, selectLaunchCategory, type LaunchCategoryKey} from '@/lib/domain/place-types';
+import {findTaxonomyTag, getTaxonomyTagLabelZhCN} from '@/lib/domain/taxonomy';
 import AmapPoiSelector from '@/components/AmapPoiSelector';
 import ImageUpload from '@/components/ImageUpload';
 import type {AmapPoiOption} from '@/lib/amap/place-search';
@@ -18,12 +21,6 @@ interface ContributionFormProps {
 }
 
 
-const CATEGORY_L1_BY_KEY: Record<string, string> = {
-  food: '美食',
-  shopping: '购物',
-  entertainment: '娱乐',
-  service: '生活服务'
-};
 
 type SubmissionDraftResponse = {
   id: string;
@@ -51,6 +48,7 @@ export default function ContributionForm({
   const [manualShopName, setManualShopName] = useState('');
 
   const [category, setCategory] = useState<PlaceCategorySlug | ''>('');
+  const [launchCategory, setLaunchCategory] = useState<LaunchCategoryKey | null>(null);
   const [selectedPresetTagIds, setSelectedPresetTagIds] = useState<string[]>([]);
   const [expandedSecondaryTagGroups, setExpandedSecondaryTagGroups] = useState(false);
 
@@ -74,16 +72,16 @@ export default function ContributionForm({
   }, []);
 
   const primaryTagGroup = useMemo(() => {
-    if (!category) return null;
-    const l1 = CATEGORY_L1_BY_KEY[category];
-    return allL2Groups.find((group) => group.id === l1) ?? null;
-  }, [allL2Groups, category]);
+    if (!launchCategory) return null;
+    return {title: '地点类型', tags: getLaunchTagOptions(launchCategory).map(tag => ({id: tag.id, name: getTaxonomyTagLabelZhCN(tag.slug)!}))};
+  }, [launchCategory]);
 
   const secondaryTagGroups = useMemo(() => {
-    if (!category) return allL2Groups;
-    const l1 = CATEGORY_L1_BY_KEY[category];
-    return allL2Groups.filter((group) => group.id !== l1);
-  }, [allL2Groups, category]);
+    return allL2Groups.map(group => ({...group, tags: group.tags.filter(option => {
+      const tag = findTaxonomyTag(option.id);
+      return tag && !isPrimaryTag(tag);
+    })})).filter(group => group.tags.length > 0);
+  }, [allL2Groups]);
 
   const handleChoosePlace = (option: AmapPoiOption) => {
     setSelectedPlace(option);
@@ -107,8 +105,15 @@ export default function ContributionForm({
     if ((!canUseSearch && !canUseManual) || !category) {
       throw new Error('请先完成地点、名称和主分类。');
     }
-    if (selectedPresetTagIds.length === 0) {
+    const normalizedTagIds = Array.from(new Set(selectedPresetTagIds));
+    if (normalizedTagIds.length === 0) {
       throw new Error('请至少选择 1 个标准标签。');
+    }
+    if (normalizedTagIds.length > 8) {
+      throw new Error('最多选择 8 个标签，请手动调整后再继续。');
+    }
+    if (!primaryTagGroup?.tags.some(tag => normalizedTagIds.includes(tag.id))) {
+      throw new Error('请至少选择 1 个实际提供的地点类型。');
     }
 
     const coordinates = canUseSearch ? selectedPlace!.coordinates : manualCoordinates!;
@@ -121,7 +126,7 @@ export default function ContributionForm({
       longitude: coordinates[0],
       latitude: coordinates[1],
       pricePerPerson: pricePerPerson.trim() ? Number(pricePerPerson) : null,
-      tagIds: Array.from(new Set(selectedPresetTagIds)).slice(0, 20),
+      tagIds: normalizedTagIds,
       notes: canUseSearch ? `AMap POI: ${selectedPlace!.placeId}` : null,
       version: draftVersion
     };
@@ -178,14 +183,6 @@ export default function ContributionForm({
     setSubmitLoading(true);
     setContributeError(null);
     setContributeMessage(null);
-
-    const normalizedTagIds = Array.from(new Set(selectedPresetTagIds)).slice(0, 8);
-
-    if (normalizedTagIds.length === 0) {
-      setSubmitLoading(false);
-      setContributeError('请至少选择1个标准标签');
-      return;
-    }
 
     try {
       const {draft, accessToken} = await saveDraft();
@@ -316,34 +313,13 @@ export default function ContributionForm({
       {(selectedPlace || (manualMode && manualCoordinates)) && (
         <form onSubmit={handleSubmitContribute} className="mt-4 space-y-4">
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              店铺主分类 <span className="font-normal text-slate-400">（决定基础展示位置，可跨界组合下方标签）</span>
-            </label>
-            <div className="flex gap-2">
-              {[
-                { value: 'food', label: '美食' },
-                { value: 'shopping', label: '购物' },
-                { value: 'entertainment', label: '娱乐' },
-                { value: 'service', label: '生活服务' }
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    setCategory(opt.value as PlaceCategorySlug);
-                    setSelectedPresetTagIds([]);
-                    setExpandedSecondaryTagGroups(false);
-                  }}
-                  className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
-                    category === opt.value
-                      ? 'border-[#006633] bg-[#006633] text-white'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            <LaunchCategorySelector value={launchCategory} onChange={(key) => {
+              const next = selectLaunchCategory(key, selectedPresetTagIds);
+              setLaunchCategory(key);
+              setCategory(next.category);
+              setSelectedPresetTagIds(next.tagIds);
+              setExpandedSecondaryTagGroups(false);
+            }} />
           </div>
 
           {manualMode && (
@@ -361,7 +337,7 @@ export default function ContributionForm({
           )}
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">人均消费 (MOP/人) <span className="font-normal text-slate-400">（可选）</span></label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">消费参考 (MOP/人次) <span className="font-normal text-slate-400">（可选；请勿填写每小时或包场总价）</span></label>
             <input
               type="number"
               value={pricePerPerson}
@@ -372,13 +348,13 @@ export default function ContributionForm({
           </div>
 
           <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
-            <label className="mb-3 block text-sm font-medium text-slate-700">全库扩展标签（可跨类多选）</label>
+            <label className="mb-3 block text-sm font-medium text-slate-700">这家店属于哪一类？</label>
 
             {category && primaryTagGroup && (
               <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold text-emerald-800">主分类优先：{primaryTagGroup.title}</p>
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700">推荐优先选择</span>
+                  <p className="text-xs font-semibold text-emerald-800">优先选择：{primaryTagGroup.title}</p>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700">至少选择 1 个</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {primaryTagGroup.tags.map((tag) => {
@@ -407,7 +383,7 @@ export default function ContributionForm({
             )}
 
             <div className="mb-3 flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold text-slate-500">其他标签组（次级）</p>
+              <p className="text-xs font-semibold text-slate-500">还可以补充（可选）</p>
               <button
                 type="button"
                 onClick={() => setExpandedSecondaryTagGroups((prev) => !prev)}

@@ -1,5 +1,7 @@
 # Product-grade Local Life Platform Implementation Plan
 
+> **近期执行入口（2026-09-11）：** 见 [产品路线图与竞品借鉴](2026-09-11-product-roadmap.md)。本文保留原技术任务拆分；复工时以近期路线图确定优先级，并核对当前代码。下方历史复选框尚未逐项重新验收，未勾选不代表功能完全未实现。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Upgrade CityU Food into a deployable and operable Macau student local-life platform MVP while preserving existing data and public functionality.

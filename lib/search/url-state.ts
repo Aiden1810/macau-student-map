@@ -1,7 +1,11 @@
 import type {ShopCategoryKey} from '../../types/shop';
+import {resolveTagAlias} from '../domain/taxonomy';
 
 const CATEGORY_VALUES = new Set<ShopCategoryKey>([
   'all',
+  'hair-salon',
+  'bar',
+  'tabletop',
   'food',
   'drink',
   'shopping',
@@ -19,20 +23,29 @@ export type DiscoveryUrlState = {
   tags: string[];
 };
 
+function normalizeTagValues(values: readonly string[]): string[] {
+  return Array.from(
+    new Set(
+      values.flatMap((value) => {
+        const matches = resolveTagAlias(value);
+        return matches.length > 0 ? matches.map((tag) => tag.slug) : [value];
+      })
+    )
+  ).slice(0, 20);
+}
+
 export function parseDiscoveryUrlState(search: string | URLSearchParams): DiscoveryUrlState {
   const params = typeof search === 'string' ? new URLSearchParams(search) : search;
   const rawCategory = params.get('category');
   const category = rawCategory && CATEGORY_VALUES.has(rawCategory as ShopCategoryKey)
     ? (rawCategory as ShopCategoryKey)
     : 'all';
-  const tags = Array.from(
-    new Set(
-      (params.get('tags') ?? '')
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean)
-    )
-  ).slice(0, 20);
+  const tags = normalizeTagValues(
+    (params.get('tags') ?? '')
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+  );
 
   return {query: (params.get('q') ?? '').slice(0, 200), category, tags};
 }
