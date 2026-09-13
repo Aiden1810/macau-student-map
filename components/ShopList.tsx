@@ -1,15 +1,17 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import {ChevronDown, Navigation, Search, SlidersHorizontal, Star, StarHalf} from 'lucide-react';
+import {ChevronDown, Navigation, Search, Star, StarHalf} from 'lucide-react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
-import {DISCOVERY_TABS, L2_TAGS} from '@/lib/search/filter-options';
+import {DISCOVERY_TABS} from '@/lib/search/filter-options';
 import ShopCard from '@/components/ShopCard';
 import FilterBar from '@/components/FilterBar';
+import SecondaryFilters from '@/components/SecondaryFilters';
+import QuickFilters from '@/components/QuickFilters';
 import PlaceTypeBadge from '@/components/PlaceTypeBadge';
 import {formatPlacePrice} from '@/lib/domain/place-types';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
-import {DrawerFiltersState, Shop, ShopCategoryKey, ShopFeature} from '@/types/shop';
+import {DrawerFiltersState, Shop, ShopCategoryKey} from '@/types/shop';
 
 interface ShopListProps {
   filteredShops: Shop[];
@@ -37,7 +39,7 @@ interface ShopListProps {
   activeL1?: ShopCategoryKey;
   activeL2?: string[];
   onL1Change?: (l1: ShopCategoryKey) => void;
-  onL2Change?: (l1: ShopCategoryKey, l2: string) => void;
+  onL2Change?: (l1: ShopCategoryKey, l2: string | null) => void;
   showFavorites?: boolean;
   setShowFavorites?: (next: boolean) => void;
   favorites?: string[];
@@ -207,13 +209,18 @@ export default function ShopList({
   const currentSheetHeight = mobileHeight > 0 ? mobileHeight : getSnapHeight(mobileSnap);
   const currentSheetHeightStyle = `${currentSheetHeight}px`;
 
+  const quickFilters = (
+    <QuickFilters count={filteredShops.length} loading={loading} filters={drawerFilters}
+      onChange={onChangeDrawerFilters} showFavorites={showFavorites} onFavoritesChange={setShowFavorites}
+      hasActiveFilters={hasActiveFilters} extraLabels={activeFilterLabels} onClear={onClearAllFilters} />
+  );
+
   const desktopListContent = (
     <>
       <div className="mb-3 hidden md:block">
-        <FilterBar activeL1={activeL1} activeL2={activeL2[0] ?? null} onChange={(l1, l2) => {
-          if (l2 !== null) onL2Change?.(l1, l2);
-          else onL1Change?.(l1);
-        }} />
+        <FilterBar activeL1={activeL1} activeL2={activeL2}
+          onCategoryChange={l1 => onL1Change?.(l1)}
+          onSecondaryChange={value => onL2Change?.(activeL1, value)} />
       </div>
       <div className="mb-2 relative md:hidden">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -235,91 +242,7 @@ export default function ShopList({
         )}
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/50 px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4 text-[#1A5C2E]" />
-            <span className="text-sm font-semibold text-[#0d2918]">{tFilters('quickFilters')}</span>
-            <span className="rounded-full bg-[#1A5C2E]/10 px-2 py-0.5 text-[11px] font-semibold text-[#1A5C2E]">{tFilters('currentTotal', {count: filteredShops.length})}</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClearAllFilters}
-            className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-50"
-          >
-            {tFilters('clearFilters')}
-          </button>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
-          {showFavorites !== undefined && setShowFavorites !== undefined && (
-            <label className="flex cursor-pointer items-center gap-2">
-              <span className="text-xs font-semibold text-rose-600 truncate">{tFilters('myFavorites')}</span>
-              <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-100 transition-colors duration-200 ease-in-out has-[:checked]:bg-rose-500">
-                <input
-                  type="checkbox"
-                  className="peer sr-only"
-                  checked={showFavorites}
-                  onChange={(e) => setShowFavorites(e.target.checked)}
-                />
-                <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
-              </div>
-            </label>
-          )}
-
-          <label className="flex cursor-pointer items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600">{tFilters('deliveryAvailable')}</span>
-            <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-200 transition-colors duration-200 ease-in-out has-[:checked]:bg-[#006633]">
-              <input
-                type="checkbox"
-                className="peer sr-only"
-                checked={drawerFilters.features.includes('外卖可达')}
-                onChange={(e) => {
-                  const next = e.target.checked
-                    ? [...drawerFilters.features, '外卖可达']
-                    : drawerFilters.features.filter((f) => f !== '外卖可达');
-                  onChangeDrawerFilters({...drawerFilters, features: next as ShopFeature[]});
-                }}
-              />
-              <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
-            </div>
-          </label>
-
-          <label className="flex cursor-pointer items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600">{tFilters('openLate')}</span>
-            <div className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-slate-200 transition-colors duration-200 ease-in-out has-[:checked]:bg-[#006633]">
-              <input
-                type="checkbox"
-                className="peer sr-only"
-                checked={drawerFilters.features.includes('深夜营业')}
-                onChange={(e) => {
-                  const next = e.target.checked
-                    ? [...drawerFilters.features, '深夜营业']
-                    : drawerFilters.features.filter((f) => f !== '深夜营业');
-                  onChangeDrawerFilters({...drawerFilters, features: next as ShopFeature[]});
-                }}
-              />
-              <span className="pointer-events-none absolute left-[2px] top-[2px] h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out peer-checked:translate-x-4"></span>
-            </div>
-          </label>
-        </div>
-
-        {activeFilterLabels.length > 0 && (
-          <div className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50/60 p-2 flex items-center justify-between">
-            <div className="flex flex-wrap gap-1.5 flex-1">
-              {activeFilterLabels.map((label) => (
-                <span key={label} className="rounded-full border border-emerald-200 bg-white px-2 py-0.5 text-[11px] text-emerald-700">
-                  {label}
-                </span>
-              ))}
-            </div>
-            <button type="button" onClick={onClearAllFilters} className="ml-2 whitespace-nowrap text-[11px] font-medium text-emerald-700 hover:underline">
-              {tHome('common.clear')}
-            </button>
-          </div>
-        )}
-      </div>
+      {quickFilters}
       <div className="mt-2 flex-1 space-y-4 overflow-y-auto pb-1 pr-1">
         {loading ? (
           Array.from({length: 6}).map((_, index) => <ShopCardSkeleton key={`skeleton-${index}`} />)
@@ -365,7 +288,7 @@ export default function ShopList({
 
   return (
     <>
-      <div className="hidden w-full flex-col gap-4 md:flex">{desktopListContent}</div>
+      <div className="hidden w-full flex-col gap-2 md:flex">{desktopListContent}</div>
 
       <div
         className={`fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden ${!isDragging ? 'transition-[height] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
@@ -408,10 +331,10 @@ export default function ShopList({
           )}
         </div>
 
-        <div className="mb-2 flex items-center justify-between gap-2">
+        {mobileSnap === 'collapsed' && <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <p className="truncate text-sm font-semibold text-[#0d2918]">{tHome('mobile.pullUpHint')}</p>
-            {showFavorites !== undefined && setShowFavorites !== undefined && (
+            {mobileSnap === 'collapsed' && showFavorites !== undefined && setShowFavorites !== undefined && (
               <button
                 onClick={() => setShowFavorites(!showFavorites)}
                 className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold transition ${
@@ -425,7 +348,7 @@ export default function ShopList({
             )}
           </div>
           <span className="shrink-0 rounded-2xl bg-[rgba(26,92,46,0.10)] px-2.5 py-1 text-xs font-semibold text-[#1A5C2E]">{tFilters('currentTotal', {count: filteredShops.length})}</span>
-        </div>
+        </div>}
 
         <div className="hide-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-1">
           {DISCOVERY_TABS.map(({key: l1Key, label}) => {
@@ -435,7 +358,7 @@ export default function ShopList({
                 key={l1Key}
                 type="button"
                 aria-pressed={isActive}
-                onClick={() => onL1Change?.(l1Key)}
+                onClick={() => {onL1Change?.(l1Key); setMobileSnap('full');}}
                 className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                   isActive
                     ? 'border-[rgba(26,92,46,0.35)] bg-[rgba(22,80,38,0.12)] text-[#0d2918]'
@@ -451,34 +374,12 @@ export default function ShopList({
           })}
         </div>
 
-        {activeL1 !== 'all' && onL2Change && (() => {
-          const groups = L2_TAGS[activeL1 as Exclude<ShopCategoryKey, 'all'>] ?? [];
-          const allTags = groups.flatMap((group) => group.options);
-          if (allTags.length === 0) return null;
-          return (
-            <div className="mb-2 max-h-[108px] overflow-y-auto pr-1">
-              <div className="hide-scrollbar flex flex-wrap gap-1.5 pb-1">
-                {allTags.map((tag) => {
-                  const isActive = activeL2.includes(tag.value);
-                  return (
-                    <button
-                      key={tag.value}
-                      type="button"
-                      onClick={() => onL2Change(activeL1, tag.value)}
-                      className={`inline-flex shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
-                        isActive
-                          ? 'bg-[#006633] text-white shadow-sm'
-                          : 'bg-white/60 text-[#0d2918]'
-                      }`}
-                    >
-                      {tag.labelZhCN}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })()}
+        {activeL1 !== 'all' && onL2Change && (
+          <div className="mb-2">
+            <SecondaryFilters key={activeL1} category={activeL1} selected={activeL2} onSelect={value => onL2Change(activeL1, value)} />
+          </div>
+        )}
+        {mobileSnap === 'full' && quickFilters}
 
         <div className="mt-1 min-h-0 flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom,0px),72px)]">
             {loading ? (

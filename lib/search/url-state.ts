@@ -47,7 +47,7 @@ export function parseDiscoveryUrlState(search: string | URLSearchParams): Discov
       .filter(Boolean)
   );
 
-  return {query: (params.get('q') ?? '').slice(0, 200), category, tags};
+  return {query: (params.get('q') ?? '').slice(0, 200), category, tags: category === 'region' ? tags.slice(-1) : tags};
 }
 export function updateDiscoverySearchParams(
   current: URLSearchParams,

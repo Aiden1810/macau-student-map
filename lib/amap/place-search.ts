@@ -1,9 +1,22 @@
+export type AmapPoiCity = 'macau' | 'zhuhai' | 'unknown';
+export type AmapPoiDistanceSource = 'user' | 'map';
+
+export type AmapPoiSearchOrigin = {
+  coordinates: [number, number];
+  source: AmapPoiDistanceSource;
+};
+
 export type AmapPoiOption = {
   placeId: string;
   name: string;
   fullAddress: string;
   coordinates: [number, number];
+  city: AmapPoiCity;
+  distanceMeters?: number;
+  distanceSource?: AmapPoiDistanceSource;
 };
+
+export type AmapSearchScope = 'all' | 'macau' | 'zhuhai';
 
 export type AmapPlaceSearchPoi = {
   id?: string;
@@ -12,6 +25,7 @@ export type AmapPlaceSearchPoi = {
   pname?: string;
   cityname?: string;
   adname?: string;
+  adcode?: string;
   location?: {
     lng?: number;
     lat?: number;
@@ -49,9 +63,56 @@ type AmapWindow = Window & {
   _AMapSecurityConfig?: {securityJsCode?: string};
 };
 
+function inferAmapPoiCity(poi: AmapPlaceSearchPoi, fallbackCity?: string): AmapPoiCity {
+  const adcode = String(poi.adcode ?? '');
+  const administrativeText = [poi.pname, poi.cityname, poi.adname, fallbackCity]
+    .filter(Boolean)
+    .join(' ');
+
+  if (adcode.startsWith('82') || administrativeText.includes('澳门')) return 'macau';
+  if (
+    adcode.startsWith('4404') ||
+    ['珠海', '香洲', '斗门', '金湾', '横琴'].some(name => administrativeText.includes(name))
+  ) return 'zhuhai';
+  return 'unknown';
+}
+
+function distanceMeters(from: [number, number], to: [number, number]): number {
+  const earthRadius = 6_371_000;
+  const radians = (value: number) => (value * Math.PI) / 180;
+  const latitudeDelta = radians(to[1] - from[1]);
+  const longitudeDelta = radians(to[0] - from[0]);
+  const haversine = Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(radians(from[1])) * Math.cos(radians(to[1])) * Math.sin(longitudeDelta / 2) ** 2;
+  return 2 * earthRadius * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+export function rankAmapPoiOptions(
+  options: readonly AmapPoiOption[],
+  origin: AmapPoiSearchOrigin | null
+): AmapPoiOption[] {
+  if (!origin) return [...options];
+
+  return options
+    .map((option, originalIndex) => ({
+      option: {
+        ...option,
+        distanceMeters: distanceMeters(origin.coordinates, option.coordinates),
+        distanceSource: origin.source
+      },
+      originalIndex
+    }))
+    .sort((left, right) =>
+      left.option.distanceMeters - right.option.distanceMeters ||
+      left.originalIndex - right.originalIndex
+    )
+    .map(({option}) => option);
+}
+
 export function mapAmapPois(
   pois: readonly AmapPlaceSearchPoi[],
-  unnamedPlaceLabel: string
+  unnamedPlaceLabel: string,
+  fallbackCity?: string
 ): AmapPoiOption[] {
   return pois
     .map((poi) => {
@@ -61,14 +122,15 @@ export function mapAmapPois(
         return null;
       }
 
-      const region = [poi.pname, poi.cityname, poi.adname].filter(Boolean).join(' ');
+      const region = [poi.pname, poi.cityname, poi.adname].filter(Boolean).join(' ') || fallbackCity;
       const fullAddress = [region, poi.address].filter(Boolean).join(' ').trim();
 
       return {
         placeId: String(poi.id),
         name: String(poi.name || '').trim() || unnamedPlaceLabel,
         fullAddress,
-        coordinates: [longitude, latitude] as [number, number]
+        coordinates: [longitude, latitude] as [number, number],
+        city: inferAmapPoiCity(poi, fallbackCity)
       };
     })
     .filter((option): option is AmapPoiOption => option !== null);
@@ -159,6 +221,10 @@ async function searchCity(
       });
 
       placeSearch.search(keyword, (status, result) => {
+        if (status === 'no_data' || result?.info === 'NO_DATA') {
+          resolve([]);
+          return;
+        }
         if (status !== 'complete' || !result?.poiList?.pois) {
           if (result?.info && result.info !== 'OK') {
             reject(new Error(result.info));
@@ -167,7 +233,7 @@ async function searchCity(
           resolve([]);
           return;
         }
-        resolve(mapAmapPois(result.poiList.pois, unnamedPlaceLabel));
+        resolve(mapAmapPois(result.poiList.pois, unnamedPlaceLabel, city));
       });
     });
   });
@@ -176,19 +242,24 @@ async function searchCity(
 export async function searchAmapPoiOptions(
   key: string,
   keyword: string,
-  unnamedPlaceLabel: string
+  unnamedPlaceLabel: string,
+  scope: AmapSearchScope = 'all',
+  origin: AmapPoiSearchOrigin | null = null
 ): Promise<AmapPoiOption[]> {
   const amap = await loadAmapPlaceSdk(key);
-  const [macauOptions, zhuhaiOptions] = await Promise.all([
-    searchCity(amap, '澳门', keyword, unnamedPlaceLabel),
-    searchCity(amap, '珠海', keyword, unnamedPlaceLabel)
-  ]);
-  const options = mergeUniqueAmapPoiOptions(macauOptions, zhuhaiOptions);
-  if (options.length > 0) return options;
-
-  const [macauFallback, zhuhaiFallback] = await Promise.all([
-    searchCity(amap, '澳门', `澳门特别行政区 ${keyword}`, unnamedPlaceLabel),
-    searchCity(amap, '珠海', `珠海市 ${keyword}`, unnamedPlaceLabel)
-  ]);
-  return mergeUniqueAmapPoiOptions(macauFallback, zhuhaiFallback);
+  const cities = scope === 'macau' ? ['澳门'] : scope === 'zhuhai' ? ['珠海'] : ['澳门', '珠海'];
+  const groups = await Promise.all(cities.map(async city => {
+    const options = await searchCity(amap, city, keyword, unnamedPlaceLabel);
+    if (options.length > 0) return options;
+    const prefix = city === '澳门' ? '澳门特别行政区' : '珠海市';
+    return searchCity(amap, city, `${prefix} ${keyword}`, unnamedPlaceLabel);
+  }));
+  // Keep both cities visible without making the user scroll past all Macau hits.
+  const interleaved: AmapPoiOption[] = [];
+  for (let index = 0; index < Math.max(...groups.map(group => group.length)); index++) {
+    for (const group of groups) {
+      if (group[index]) interleaved.push(group[index]);
+    }
+  }
+  return rankAmapPoiOptions(mergeUniqueAmapPoiOptions(interleaved), origin);
 }

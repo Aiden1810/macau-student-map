@@ -90,7 +90,7 @@ export function buildNormalizedShopPayload(input: ShopPayloadBuildInput): Record
     shop_type: shopType,
     rating_label: normalizedRatingLabel,
     rating: ratingScore,
-    total_sum: ratingScore,
+    total_sum: ratingScore ?? 0,
     rating_count: ratingScore !== null ? 1 : 0,
     review_count: reviewText ? 1 : 0,
     features: dedupeTrimmedList(input.features ?? []),

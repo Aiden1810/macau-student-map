@@ -8,7 +8,7 @@ import {getLaunchTagOptions, isPrimaryTag, selectLaunchCategory, type LaunchCate
 import {findTaxonomyTag, getTaxonomyTagLabelZhCN} from '@/lib/domain/taxonomy';
 import AmapPoiSelector from '@/components/AmapPoiSelector';
 import ImageUpload from '@/components/ImageUpload';
-import type {AmapPoiOption} from '@/lib/amap/place-search';
+import type {AmapPoiOption, AmapPoiSearchOrigin} from '@/lib/amap/place-search';
 import {authenticatedApiRequest} from '@/lib/api/client';
 import type {PlaceCategorySlug} from '@/lib/domain/taxonomy';
 import {supabase} from '@/lib/supabase';
@@ -18,6 +18,7 @@ interface ContributionFormProps {
   onCancel: () => void;
   onRequestMapPick: () => void;
   manualCoordinates: [number, number] | null;
+  poiSearchOrigin?: AmapPoiSearchOrigin | null;
 }
 
 
@@ -37,7 +38,8 @@ export default function ContributionForm({
   onSuccess,
   onCancel,
   onRequestMapPick,
-  manualCoordinates
+  manualCoordinates,
+  poiSearchOrigin = null
 }: ContributionFormProps) {
   const tContribute = useTranslations('Contribute');
 
@@ -252,6 +254,7 @@ export default function ContributionForm({
           <div className="mt-4">
             <AmapPoiSelector
               selectedPlace={selectedPlace}
+              searchOrigin={poiSearchOrigin}
               onSelect={handleChoosePlace}
               onClearSelection={() => {
                 setSelectedPlace(null);

@@ -1,7 +1,7 @@
 'use client';
 
 import toast from 'react-hot-toast';
-import {useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Shop} from '@/types/shop';
 import {buildPlacePinHtml} from '@/lib/amap/place-marker';
 import {formatPlacePrice, getPlacePresentation} from '@/lib/domain/place-types';
@@ -19,6 +19,8 @@ interface MapPlaceholderProps {
     latitude: number;
     name?: string;
   } | null;
+  onViewportCenterChange?: (center: [number, number]) => void;
+  onUserLocationChange?: (coordinates: [number, number]) => void;
 }
 
 // Distance tool removed since 5km limit was relaxed for better UX
@@ -281,7 +283,9 @@ export default function MapPlaceholder({
   onSelectShop,
   contributionPickMode = false,
   onPickCoordinates,
-  highlightedLocation = null
+  highlightedLocation = null,
+  onViewportCenterChange,
+  onUserLocationChange
 }: MapPlaceholderProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<AMapMapInstance | null>(null);
@@ -325,7 +329,7 @@ export default function MapPlaceholder({
     return new Set(top5.map((shop) => shop.id));
   }, [activeL1, shops, mapViewport]);
 
-  const flyToLocation = (longitude: number, latitude: number) => {
+  const flyToLocation = useCallback((longitude: number, latitude: number) => {
     const map = mapRef.current;
     if (!map) return;
 
@@ -334,8 +338,10 @@ export default function MapPlaceholder({
     map.setZoomAndCenter(isMobile ? 15.4 : 16, [longitude, latitude], true, {
       duration: isMobile ? 620 : 800
     });
-    setMapViewport({zoom: isMobile ? 15.4 : 16, center: [longitude, latitude]});
-  };
+    const nextCenter: [number, number] = [longitude, latitude];
+    setMapViewport({zoom: isMobile ? 15.4 : 16, center: nextCenter});
+    onViewportCenterChange?.(nextCenter);
+  }, [onViewportCenterChange]);
 
   useEffect(() => {
     contributionPickModeRef.current = contributionPickMode;
@@ -376,6 +382,12 @@ export default function MapPlaceholder({
         });
 
         map.addControl(new AMap.Scale());
+        const initialCenter = map.getCenter?.();
+        const initialCoordinates: [number, number] = initialCenter
+          ? [initialCenter.getLng(), initialCenter.getLat()]
+          : MACAU_CENTER;
+        setMapViewport({zoom: map.getZoom?.() ?? 14, center: initialCoordinates});
+        onViewportCenterChange?.(initialCoordinates);
 
         map.on('click', (event) => {
           if (!contributionPickModeRef.current || !onPickCoordinatesRef.current) return;
@@ -394,10 +406,9 @@ export default function MapPlaceholder({
         map.on('moveend', () => {
           const currentZoom = map.getZoom?.() ?? 14;
           const currentCenter = map.getCenter?.();
-          setMapViewport({
-            zoom: currentZoom,
-            center: currentCenter ? [currentCenter.getLng(), currentCenter.getLat()] : null
-          });
+          const nextCenter = currentCenter ? [currentCenter.getLng(), currentCenter.getLat()] as [number, number] : null;
+          setMapViewport({zoom: currentZoom, center: nextCenter});
+          if (nextCenter) onViewportCenterChange?.(nextCenter);
         });
 
         mapRef.current = map;
@@ -422,7 +433,7 @@ export default function MapPlaceholder({
       hoveredShopPinRef.current = null;
       myLocationPinRef.current = null;
     };
-  }, []);
+  }, [onViewportCenterChange]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -553,7 +564,7 @@ export default function MapPlaceholder({
     if (shouldRefocus || selectionChanged) {
       flyToLocation(selectedShop.coordinates[0], selectedShop.coordinates[1]);
     }
-  }, [selectedShop, locateSignal]);
+  }, [selectedShop, locateSignal, flyToLocation]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -604,7 +615,7 @@ export default function MapPlaceholder({
     selectedPinRef.current = marker;
 
     flyToLocation(highlightedLocation.longitude, highlightedLocation.latitude);
-  }, [highlightedLocation]);
+  }, [highlightedLocation, flyToLocation]);
 
   const handleLocateMe = () => {
     const map = mapRef.current;
@@ -648,6 +659,7 @@ export default function MapPlaceholder({
           myMarker.setMap(map);
           myLocationPinRef.current = myMarker;
 
+          onUserLocationChange?.([lng, lat]);
           flyToLocation(lng, lat);
           toast.success('已定位到你当前位置');
           return;

@@ -1,6 +1,8 @@
 import type {PlaceSubmissionDraftInput} from '../domain/submission';
 import {placeSubmissionDraftSchema} from '../domain/submission';
 import {PRIMARY_TAG_SLUGS} from '../domain/place-types';
+import type {PlaceRegion} from '../domain/place';
+import {deriveRegionFromCoordinates} from '../shops/normalization';
 import {
   findTaxonomyTag,
   normalizeSearchText,
@@ -26,6 +28,21 @@ const PRIMARY_SLUGS: Readonly<Record<PlaceCategorySlug, ReadonlySet<string>>> = 
 };
 
 const PRIMARY_KINDS = new Set<TaxonomyTag['kind']>(['category', 'cuisine', 'product']);
+
+const CANONICAL_REGION_BY_LEGACY_LABEL: Readonly<Record<string, PlaceRegion>> = {
+  澳门半岛: 'macau-peninsula',
+  氹仔岛: 'taipa',
+  路环岛: 'coloane',
+  横琴区: 'hengqin',
+  香洲区: 'zhuhai',
+  其它: 'other'
+};
+
+function resolveSubmissionRegion(region: string | null, longitude: number, latitude: number): string | null {
+  if (region) return region;
+  const label = deriveRegionFromCoordinates(longitude, latitude);
+  return label ? CANONICAL_REGION_BY_LEGACY_LABEL[label] : null;
+}
 
 function validateTags(category: PlaceCategorySlug, tagIds: readonly string[]): string[] {
   const uniqueTagIds = Array.from(new Set(tagIds));
@@ -67,7 +84,7 @@ export function prepareSubmissionForSubmit(input: PlaceSubmissionDraftInput) {
     name: draft.name,
     address: draft.address,
     category_slug: draft.categorySlug,
-    region: draft.region,
+    region: resolveSubmissionRegion(draft.region, draft.longitude, draft.latitude),
     longitude: draft.longitude,
     latitude: draft.latitude,
     price_per_person: draft.pricePerPerson,

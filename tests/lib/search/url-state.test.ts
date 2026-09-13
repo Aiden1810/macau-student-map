@@ -2,6 +2,11 @@ import {describe, expect, it} from 'vitest';
 import {parseDiscoveryUrlState, updateDiscoverySearchParams} from '../../../lib/search/url-state';
 
 describe('discovery URL state', () => {
+  it('restores only the latest region from an old multi-region link', () => {
+    const state = parseDiscoveryUrlState(`?category=region&tags=${encodeURIComponent('澳门半岛,香洲区')}`);
+    expect(state.tags).toEqual(['香洲区']);
+  });
+
   it('parses a shareable query and selected filters', () => {
     expect(parseDiscoveryUrlState('?q=burger&category=food&tags=coffee%2Cmilk-tea')).toEqual({
       query: 'burger',

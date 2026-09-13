@@ -150,7 +150,6 @@ export const L2_TAGS: Record<Exclude<ShopCategoryKey, 'all'>, readonly L2Group[]
         {value: '封神之作', labelKey: 'legendary', labelZhCN: '封神之作'},
         {value: '强烈推荐', labelKey: 'highlyRecommended', labelZhCN: '强烈推荐'},
         {value: '高性价比', labelKey: 'greatValue', labelZhCN: '高性价比'},
-        {value: '隐藏好店', labelKey: 'hiddenGem', labelZhCN: '隐藏好店'},
         {value: '本周新上', labelKey: 'newThisWeek', labelZhCN: '本周新上'}
       ]
     }

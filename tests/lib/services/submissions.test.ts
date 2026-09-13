@@ -38,6 +38,24 @@ describe('place submission validation', () => {
     expect(() => prepareSubmissionForSubmit({...validDraft, tagIds: []})).toThrow(/tag/i);
   });
 
+  it('derives a canonical Zhuhai region from coordinates when the client leaves region empty', () => {
+    expect(prepareSubmissionForSubmit({
+      ...validDraft,
+      address: '珠海市香洲区东风路93号',
+      region: null,
+      longitude: 113.576643,
+      latitude: 22.273229
+    }).region).toBe('zhuhai');
+
+    expect(prepareSubmissionForSubmit({
+      ...validDraft,
+      address: '珠海市横琴粤澳深度合作区',
+      region: null,
+      longitude: 113.53,
+      latitude: 22.13
+    }).region).toBe('hengqin');
+  });
+
   it('rejects a primary category tag that conflicts with the selected category', () => {
     expect(() =>
       prepareSubmissionForSubmit({...validDraft, tagIds: [clothingTagId]})

@@ -6,7 +6,8 @@ import {useLocale, useTranslations} from 'next-intl';
 import toast from 'react-hot-toast';
 import {Link} from '@/i18n/navigation';
 import ContributionForm from '@/components/ContributionForm';
-import {getL2OptionByValue, getL2ValuesByCategory} from '@/lib/search/filter-options';
+import {getL2ValuesByCategory} from '@/lib/search/filter-options';
+import {selectSecondaryFilter} from '@/lib/search/filter-selection';
 import Header from '@/components/Header';
 import MapPlaceholder from '@/components/MapPlaceholder';
 import ShopList from '@/components/ShopList';
@@ -17,12 +18,13 @@ import {
 } from '@/lib/search/tag-search';
 import {normalizePlaceSearchRequest} from '@/lib/domain/search';
 import {resolveTagAlias} from '@/lib/domain/taxonomy';
-import {isLaunchCategory, matchesLaunchCategory, LAUNCH_CATEGORIES} from '@/lib/domain/place-types';
+import {isLaunchCategory, matchesLaunchCategory} from '@/lib/domain/place-types';
 import {createRequestGuard} from '@/lib/data/async-request';
 import {loadCanonicalPlaces} from '@/lib/data/canonical-places';
 import {filterBySelectedFacet} from '@/lib/search/legacy-filters';
 import {parseDiscoveryUrlState, updateDiscoverySearchParams} from '@/lib/search/url-state';
 import {rankCompatibilityPlaces} from '@/lib/services/search-places';
+import type {AmapPoiSearchOrigin} from '@/lib/amap/place-search';
 import {supabase} from '@/lib/supabase';
 import {useFavorites} from '@/lib/hooks/useFavorites';
 import {DrawerFiltersState, Shop, ShopCategoryKey, ViewMode} from '@/types/shop';
@@ -121,7 +123,6 @@ export default function Page() {
   const t = useTranslations('Common');
   const tContribute = useTranslations('Contribute');
   const tShopCard = useTranslations('ShopCard');
-  const tFilters = useTranslations('Filters');
   const tHome = useTranslations('Home');
   const locale = useLocale() as 'zh-CN' | 'zh-MO' | 'en';
 
@@ -137,6 +138,8 @@ export default function Page() {
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
   const [collapseMobileSheetSignal, setCollapseMobileSheetSignal] = useState(0);
   const [locateSignal, setLocateSignal] = useState(0);
+  const [poiUserCoordinates, setPoiUserCoordinates] = useState<[number, number] | null>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -156,6 +159,11 @@ export default function Page() {
   const [mobileSheetTopOffset, setMobileSheetTopOffset] = useState(116);
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const shopsRequestGuardRef = useRef(createRequestGuard());
+  const poiSearchOrigin = useMemo<AmapPoiSearchOrigin | null>(() => {
+    if (poiUserCoordinates) return {coordinates: poiUserCoordinates, source: 'user'};
+    if (mapCenter) return {coordinates: mapCenter, source: 'map'};
+    return null;
+  }, [mapCenter, poiUserCoordinates]);
   const roleRequestGuardRef = useRef(createRequestGuard());
   const hasFetchedRef = useRef(false);
   const lastLoggedQueryRef = useRef<{query: string; at: number} | null>(null);
@@ -471,32 +479,16 @@ export default function Page() {
   const activeFilterLabels = useMemo(() => {
     const labels: string[] = [];
 
-    if (showFavorites) {
-      labels.push(tFilters('myFavorites'));
-    }
-
-    if (activeL1 !== 'all') {
-      labels.push(`${tHome('activeFilter.channelPrefix')}: ${LAUNCH_CATEGORIES.find(item => item.key === activeL1)?.label ?? tFilters(activeL1 === 'drink' ? 'drinksDesserts' : activeL1 === 'vibe' ? 'scenario' : activeL1 === 'region' ? 'area' : activeL1 === 'review' ? 'topPicks' : activeL1)}`);
-    }
-
-    if (activeL2.length > 0) {
-      labels.push(
-        ...activeL2.map((l2) =>
-          `${tHome('activeFilter.l2Prefix')}: ${getL2OptionByValue(l2)?.labelZhCN ?? l2}`
-        )
-      );
-    }
-
     if (drawerFilters.shopType !== '全部') {
-      labels.push(`${tHome('activeFilter.typePrefix')}: ${drawerFilters.shopType}`);
+      labels.push(drawerFilters.shopType);
     }
 
     if (drawerFilters.ratingLabel) {
-      labels.push(`${tHome('activeFilter.ratingPrefix')}: ${drawerFilters.ratingLabel}`);
+      labels.push(drawerFilters.ratingLabel);
     }
 
     if (drawerFilters.features.length > 0) {
-      labels.push(...drawerFilters.features.map((feature) => `${tHome('activeFilter.featurePrefix')}: ${feature}`));
+      labels.push(...drawerFilters.features.filter(feature => !['外卖可达', '深夜营业'].includes(feature)));
     }
 
     if (hasActiveSearch) {
@@ -504,7 +496,7 @@ export default function Page() {
     }
 
     return labels;
-  }, [activeL1, activeL2, drawerFilters, hasActiveSearch, searchQuery, showFavorites, tFilters, tHome]);
+  }, [drawerFilters, hasActiveSearch, searchQuery, tHome]);
 
   useEffect(() => {
     if (displayedShops.length === 0) {
@@ -533,16 +525,12 @@ export default function Page() {
     setActiveL2([]);
   };
 
-  const handleL2Change = (l1: ShopCategoryKey, l2: string) => {
+  const handleL2Change = (l1: ShopCategoryKey, l2: string | null) => {
     if (activeL1 !== l1) {
       return;
     }
 
-    if (l1 === 'vibe' || l1 === 'region') {
-      setActiveL2((prev) => (prev.includes(l2) ? prev.filter((item) => item !== l2) : [...prev, l2]));
-    } else {
-      setActiveL2((prev) => (prev[0] === l2 ? [] : [l2]));
-    }
+    setActiveL2(prev => selectSecondaryFilter(l1, prev, l2));
   };
 
   const resetAllFiltersAndSearch = () => {
@@ -644,6 +632,8 @@ export default function Page() {
               setManualCoordinates(coords);
               setMapPickMode(false);
             }}
+            onViewportCenterChange={setMapCenter}
+            onUserLocationChange={setPoiUserCoordinates}
           />
         </div>
 
@@ -760,6 +750,7 @@ export default function Page() {
             <div className="mt-2 max-h-[60dvh] overflow-y-auto">
               <ContributionForm
                 manualCoordinates={manualCoordinates}
+                poiSearchOrigin={poiSearchOrigin}
                 onRequestMapPick={() => {
                   setMapPickMode(true);
                   setViewMode('map');
@@ -815,6 +806,8 @@ export default function Page() {
                   setManualCoordinates(coords);
                   setMapPickMode(false);
                 }}
+                onViewportCenterChange={setMapCenter}
+                onUserLocationChange={setPoiUserCoordinates}
               />
             </div>
 
@@ -859,6 +852,7 @@ export default function Page() {
         <div className="fixed inset-x-0 bottom-0 z-[90] max-h-[90dvh] overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:hidden">
           <ContributionForm
             manualCoordinates={manualCoordinates}
+            poiSearchOrigin={poiSearchOrigin}
             onRequestMapPick={() => {
               setMapPickMode(true);
               setViewMode('map');
