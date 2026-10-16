@@ -31,6 +31,7 @@ export type Place = {
   reviewCount: number;
   confidenceScore: number | null;
   tags: PlaceTag[];
+  searchKeywords?: string[];
   media: PlaceMedia[];
   status: PlaceStatus;
   publishedAt: string | null;

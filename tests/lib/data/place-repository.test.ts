@@ -61,6 +61,7 @@ describe('mapPlaceRow', () => {
       reviewCount: 8,
       confidenceScore: 4.3077,
       tags: [{id: 'tag-burger', slug: 'burger', kind: 'product', label: '漢堡'}],
+      searchKeywords: [],
       media: [
         {
           id: 'media-1',

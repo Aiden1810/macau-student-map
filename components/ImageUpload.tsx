@@ -10,6 +10,7 @@ interface ImageUploadProps {
   buttonText?: string;
   processingText?: string;
   className?: string;
+  onProcessingChange?: (processing: boolean) => void;
 }
 
 export default function ImageUpload({
@@ -17,10 +18,12 @@ export default function ImageUpload({
   disabled = false,
   buttonText = '上传图片',
   processingText = '处理中...',
-  className = ''
+  className = '',
+  onProcessingChange
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handlePickFile = () => {
     if (disabled || isProcessing) return;
@@ -32,6 +35,8 @@ export default function ImageUpload({
     if (!selectedFile) return;
 
     setIsProcessing(true);
+    setError(null);
+    onProcessingChange?.(true);
 
     try {
       const compressedFile = await imageCompression(selectedFile, {
@@ -42,8 +47,11 @@ export default function ImageUpload({
       });
 
       await onUpload(compressedFile);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : '图片处理失败，请换一张图片重试');
     } finally {
       setIsProcessing(false);
+      onProcessingChange?.(false);
       event.target.value = '';
     }
   };
@@ -61,6 +69,7 @@ export default function ImageUpload({
         <ImagePlus className="h-4 w-4" />
         {isProcessing ? processingText : buttonText}
       </button>
+      {error && <p role="alert" className="mt-2 text-sm text-rose-700">{error}</p>}
     </div>
   );
 }

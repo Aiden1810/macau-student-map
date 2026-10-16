@@ -32,6 +32,7 @@ type CanonicalPlaceRow = {
   review_count: number | null;
   status: string;
   legacy_image_urls: string[] | null;
+  search_keywords_manual?: string[];
   place_tags?: Array<{tags: {id: string; slug: string; label_zh_mo: string} | null}>;
   place_media?: Array<{public_url?: string | null; sort_order?: number | null}>;
 };
@@ -45,7 +46,7 @@ export function mapCanonicalPlaceToShop(row: CanonicalPlaceRow): Shop {
   const tagRows = (row.place_tags ?? [])
     .map((relation) => relation.tags)
     .filter((tag): tag is NonNullable<typeof tag> => tag !== null);
-  const tags = tagRows.map((tag) => getTaxonomyTagLabelZhCN(tag.slug) ?? tag.label_zh_mo);
+  const tags = [...new Set([...tagRows.map((tag) => getTaxonomyTagLabelZhCN(tag.slug) ?? tag.label_zh_mo), ...(row.search_keywords_manual ?? [])])];
   const features = tagRows
     .map((tag) => FEATURE_BY_TAG[tag.slug])
     .filter((feature): feature is ShopFeature => Boolean(feature));
@@ -118,6 +119,7 @@ export function mapPlaceToShop(place: Place): Shop {
     review_count: place.reviewCount,
     status: place.status,
     legacy_image_urls: legacyMedia.map((media) => media.url),
+    search_keywords_manual: place.searchKeywords ?? [],
     place_tags: place.tags.map((tag) => ({
       tags: {id: tag.id, slug: tag.slug, label_zh_mo: tag.label}
     })),

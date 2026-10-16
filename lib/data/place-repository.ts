@@ -24,6 +24,7 @@ const placeRowSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   legacy_image_urls: z.array(z.string().url()).default([]),
+  search_keywords_manual: z.array(z.string()).default([]),
   place_tags: z.array(
     z.object({
       tags: z.object({
@@ -96,6 +97,7 @@ export function mapPlaceRow(row: unknown): Place {
       kind: tags.kind,
       label: tags.label_zh_mo
     })),
+    searchKeywords: value.search_keywords_manual,
     media: [...canonicalMedia, ...legacyMedia],
     status: value.status,
     publishedAt: value.published_at,
@@ -122,6 +124,7 @@ const PLACE_SELECT = `
   created_at,
   updated_at,
   legacy_image_urls,
+  search_keywords_manual,
   place_tags(tags(id, slug, kind, label_zh_mo)),
   place_media(id, bucket_id, storage_path, alt_text, sort_order)
 `;

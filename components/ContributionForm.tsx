@@ -340,7 +340,7 @@ export default function ContributionForm({
           )}
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">消费参考 (MOP/人次) <span className="font-normal text-slate-400">（可选；请勿填写每小时或包场总价）</span></label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">消费参考（人民币／人次） <span className="font-normal text-slate-400">（可选；请勿填写每小时或包场总价）</span></label>
             <input
               type="number"
               value={pricePerPerson}

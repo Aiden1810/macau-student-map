@@ -67,5 +67,5 @@ export function formatPlacePrice(place: PlaceTypeInput & {pricePerPerson?: numbe
   const price = resolvePriceDisplay(place.pricePerPerson);
   if (price.kind === 'none') return '消费待补充';
   if (price.kind === 'free') return '免费';
-  return getPlacePresentation(place).launch === 'food' ? `人均 MOP ${price.value}` : `消费参考 MOP ${price.value}/人次`;
+  return getPlacePresentation(place).launch === 'food' ? `人均人民币 ${price.value} 元` : `消费参考人民币 ${price.value} 元/人次`;
 }

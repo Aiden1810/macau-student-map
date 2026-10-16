@@ -7,6 +7,7 @@ import {createComponentLifecycleGuard} from '@/lib/data/component-lifecycle';
 import {supabase} from '@/lib/supabase';
 import PlaceTypeBadge from '@/components/PlaceTypeBadge';
 import {getTaxonomyTagLabelZhCN} from '@/lib/domain/taxonomy';
+import PlaceEditor from './PlaceEditor';
 
 type QueueItem = {
   id: string;
@@ -32,7 +33,7 @@ type QueueResponse = {
 
 type LoadingKind = 'initial' | 'refresh' | null;
 
-export default function SubmissionQueue() {
+export default function SubmissionQueue({onPublished}: {onPublished?: () => void} = {}) {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [stats, setStats] = useState<QueueStats | null>(null);
   const [loadingKind, setLoadingKind] = useState<LoadingKind>('initial');
@@ -40,6 +41,7 @@ export default function SubmissionQueue() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [mergeTargets, setMergeTargets] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [reviewId, setReviewId] = useState<string | null>(null);
   const requestGuardRef = useRef(createRequestGuard());
   const lifecycleGuardRef = useRef(createComponentLifecycleGuard());
 
@@ -137,8 +139,8 @@ export default function SubmissionQueue() {
     <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-slate-900">规范投稿审核队列</h2>
-          <p className="mt-1 text-sm text-slate-500">批准、合并、驳回均经过服务端权限校验和数据库事务函数。</p>
+          <h2 className="text-lg font-bold text-slate-900">用户投稿审核</h2>
+          <p className="mt-1 text-sm text-slate-500">打开完整资料和图片，补充信息后审核发布。</p>
         </div>
         <button
           type="button"
@@ -190,7 +192,7 @@ export default function SubmissionQueue() {
                 className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
               />
               <div className="mt-3 flex flex-wrap gap-2">
-                <button disabled={busyId !== null} onClick={() => void moderate(item, 'approve')} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">批准为新地点</button>
+                <button disabled={busyId !== null} onClick={() => setReviewId(item.id)} className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">编辑并审核</button>
                 <button disabled={busyId !== null} onClick={() => void moderate(item, 'merge')} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">合并到已有地点</button>
                 <button disabled={busyId !== null} onClick={() => void moderate(item, 'reject')} className="rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">驳回</button>
               </div>
@@ -198,6 +200,8 @@ export default function SubmissionQueue() {
           ))}
         </div>
       )}
+      {reviewId && <PlaceEditor key={reviewId} target={{kind: 'submission', id: reviewId}}
+        onClose={() => setReviewId(null)} onSaved={async () => {await load('refresh'); onPublished?.();}} />}
     </section>
   );
 }

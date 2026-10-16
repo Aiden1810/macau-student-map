@@ -13,6 +13,8 @@ import {supabase} from '@/lib/supabase';
 import {toLegacyShopPoiFields, type AmapPoiOption} from '@/lib/amap/place-search';
 import AmapPoiSelector from '@/components/AmapPoiSelector';
 import SubmissionQueue from '@/components/admin/SubmissionQueue';
+import PlacesManager from '@/components/admin/PlacesManager';
+import {LEGACY_STATUS_LABELS} from '@/lib/admin/place-editor';
 
 type ShopStatus = 'pending' | 'verified' | 'rejected';
 type ShopType = '正餐' | '快餐小吃' | '饮品甜点' | '服务';
@@ -579,7 +581,7 @@ function AdminShopForm({
           </label>
 
           <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">消费参考（MOP/人次；不填每小时或包场总价）</span>
+            <span className="mb-1 block text-sm font-medium text-slate-700">消费参考（人民币／人次；不填每小时或包场总价）</span>
             <input value={form.price_per_person} onChange={(e) => setForm((prev) => ({...prev, price_per_person: e.target.value}))} placeholder="例如 68" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
           </label>
 
@@ -596,9 +598,9 @@ function AdminShopForm({
           <label>
             <span className="mb-1 block text-sm font-medium text-slate-700">状态</span>
             <select value={form.status} onChange={(e) => setForm((prev) => ({...prev, status: e.target.value as ShopStatus}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]">
-              <option value="pending">pending</option>
-              <option value="verified">verified</option>
-              <option value="rejected">rejected</option>
+              <option value="pending">待审核</option>
+              <option value="verified">已上线</option>
+              <option value="rejected">已驳回</option>
             </select>
           </label>
 
@@ -622,6 +624,7 @@ export default function AdminModerationPage() {
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [placeRefreshSignal, setPlaceRefreshSignal] = useState(0);
   const [editingShop, setEditingShop] = useState<ShopRow | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [statusTab, setStatusTab] = useState<'pending' | 'verified' | 'rejected'>('pending');
@@ -1335,31 +1338,6 @@ export default function AdminModerationPage() {
     setActionLoadingById((prev) => ({...prev, [shopId]: null}));
   };
 
-  const handleCreate = async (payload: Record<string, unknown>) => {
-    setSaving(true);
-    const {data: createdRows, error: insertError} = await supabase.from('shops').insert(payload).select('id').limit(1);
-    if (insertError) {
-      setError(insertError.message);
-      toast.error(`新增失败：${insertError.message}`);
-      setSaving(false);
-      return;
-    }
-
-    await logAdminAudit({
-      action: 'create',
-      targetShopId: createdRows?.[0]?.id ? String(createdRows[0].id) : null,
-      note: '管理员后台直接新增店铺',
-      metadata: {
-        shop_name: readPayloadShopName(payload)
-      }
-    });
-
-    toast.success('店铺已新增并上线');
-    setShowCreateModal(false);
-    setSaving(false);
-    await fetchAllShops();
-  };
-
   const handleEdit = async (payload: Record<string, unknown>) => {
     if (!editingShop) return;
     setSaving(true);
@@ -1452,9 +1430,12 @@ export default function AdminModerationPage() {
             <div>
               <p className="text-sm font-semibold text-[#006633]">Admin CMS</p>
               <h1 className="mt-1 text-2xl font-bold text-slate-900">店铺管理后台</h1>
-              <p className="mt-1 text-sm text-slate-600">后台字段与前台筛选字段完全统一。</p>
+              <p className="mt-1 text-sm text-slate-600">新增地点与投稿审核使用同一套资料，可在地点管理中继续维护。</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <details className="w-full text-sm text-slate-600">
+                <summary className="cursor-pointer py-1">旧版筛选与维护工具</summary>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => setStatusTab('pending')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'pending' ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-200' : 'bg-slate-100 text-slate-600'}`}>旧版店铺待审核：{pendingCount}</button>
               <button type="button" onClick={() => setStatusTab('verified')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'verified' ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' : 'bg-slate-100 text-slate-600'}`}>旧版店铺已上线：{verifiedCount}</button>
               <button type="button" onClick={() => setStatusTab('rejected')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'rejected' ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-200' : 'bg-slate-100 text-slate-600'}`}>旧版店铺已驳回：{rejectedCount}</button>
@@ -1479,18 +1460,24 @@ export default function AdminModerationPage() {
 
               <button type="button" onClick={() => fetchAllShops({silent: true})} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700">{refreshing ? '刷新中...' : '刷新列表'}</button>
               <button type="button" onClick={handleBackfillMissingFields} disabled={backfilling} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 disabled:opacity-60">{backfilling ? '补全中...' : '补全缺失字段'}</button>
+                </div>
+              </details>
               <button type="button" onClick={() => setShowCreateModal(true)} className="rounded-lg bg-[#006633] px-4 py-2 text-sm font-semibold text-white">新增店铺</button>
               <Link href="/" className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700">返回首页</Link>
             </div>
           </div>
         </div>
 
-        <SubmissionQueue />
+        <PlacesManager createOpen={showCreateModal} onCreateClose={() => setShowCreateModal(false)} refreshSignal={placeRefreshSignal} />
+        <SubmissionQueue onPublished={() => setPlaceRefreshSignal(value => value + 1)} />
 
         <p className="-mt-3 mb-6 text-xs text-slate-500">
-          规范投稿统计来自 place_submissions；页面顶部的旧版店铺筛选来自 shops。
+          下方保留旧版数据统计与管理工具；新地点请使用上面的地点资料管理。
         </p>
 
+        <details className="rounded-2xl border border-slate-200 bg-white p-4">
+          <summary className="cursor-pointer py-1 font-medium text-slate-700">旧版统计与兼容管理（{shops.length} 条店铺）</summary>
+          <div className="mt-4">
         {error && (
           <div className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             <div>
@@ -1518,9 +1505,9 @@ export default function AdminModerationPage() {
 
         <section className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold text-slate-500">店铺总数</p>
+            <p className="text-xs font-semibold text-slate-500">旧版店铺总数</p>
             <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.total}</p>
-            <p className="mt-1 text-xs text-slate-500">pending {healthStats.pending} / verified {healthStats.verified} / rejected {healthStats.rejected}</p>
+            <p className="mt-1 text-xs text-slate-500">待审核 {healthStats.pending} / 已上线 {healthStats.verified} / 已驳回 {healthStats.rejected}</p>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold text-slate-500">最近 24 小时</p>
@@ -1914,7 +1901,7 @@ export default function AdminModerationPage() {
 
         {healthStats.total === 0 && (
           <div className="mb-4 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600">
-            当前数据库暂无店铺，这属于正常空库阶段。你可以点击右上角“新增店铺”先录入基础样本，再做前台回归测试。
+            旧版店铺表暂无记录。管理员新增和审核发布的地点，请在上方“地点资料管理”中查看。
           </div>
         )}
 
@@ -1966,7 +1953,7 @@ export default function AdminModerationPage() {
                                 ? 'bg-emerald-100 text-emerald-800'
                                 : 'bg-rose-100 text-rose-800'
                           }`}>
-                            {shop.status ?? 'pending'}
+                            {LEGACY_STATUS_LABELS[shop.status ?? 'pending']}
                           </span>
                         </td>
                         <td className="px-4 py-4 text-xs text-slate-600">
@@ -2034,9 +2021,10 @@ export default function AdminModerationPage() {
             </table>
           </div>
         </div>
+          </div>
+        </details>
       </div>
 
-      {showCreateModal && <AdminShopForm mode="create" submitting={saving} onSubmit={handleCreate} onCancel={() => setShowCreateModal(false)} />}
       {editingShop && <AdminShopForm mode="edit" initial={editingShop} submitting={saving} onSubmit={handleEdit} onCancel={() => setEditingShop(null)} />}
     </div>
   );
