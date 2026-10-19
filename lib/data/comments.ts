@@ -8,6 +8,7 @@ export type ReviewRow = {
   content: string | null;
   rating: number;
   createdAt: string;
+  updatedAt?: string;
 };
 
 export type ReviewsLoaderResult = {
@@ -24,7 +25,8 @@ export function normalizeComments(rows: ReviewRow[] | undefined): Comment[] {
     shopId: String(row.placeId),
     content: String(row.content ?? ''),
     rating: Number(row.rating ?? 0) as 1 | 2 | 3 | 4 | 5,
-    createdAt: String(row.createdAt)
+    createdAt: String(row.createdAt),
+    ...(row.updatedAt ? {updatedAt:row.updatedAt} : {})
   }));
 }
 

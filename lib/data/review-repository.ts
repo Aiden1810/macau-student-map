@@ -7,6 +7,9 @@ const reviewRowSchema = z.object({
   rating: z.number().int().min(1).max(5),
   content: z.string().nullable(),
   status: z.enum(['pending', 'published', 'rejected']),
+  moderation_status: z.enum(['pending', 'approved', 'rejected']),
+  moderation_reason: z.string().nullable(),
+  deleted_at: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string()
 });
@@ -20,6 +23,9 @@ export function mapReviewRow(input: unknown) {
     rating: row.rating,
     content: row.content,
     status: row.status,
+    moderationStatus: row.moderation_status,
+    moderationReason: row.moderation_reason,
+    deletedAt: row.deleted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

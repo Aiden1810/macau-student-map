@@ -4,6 +4,7 @@ import {FormEvent, useMemo, useState} from 'react';
 import {useLocale, useTranslations} from 'next-intl';
 import {Link} from '@/i18n/navigation';
 import {supabase} from '@/lib/supabase';
+import {safeReturnPath} from '@/lib/auth/return-path';
 
 export default function LoginPage() {
   const tAuth = useTranslations('Auth');
@@ -16,7 +17,8 @@ export default function LoginPage() {
 
   const emailRedirectTo = useMemo(() => {
     if (typeof window === 'undefined') return '';
-    return `${window.location.origin}/${locale}/auth/callback`;
+    const next=safeReturnPath(new URLSearchParams(window.location.search).get('next'));
+    return `${window.location.origin}/${locale}/auth/callback?next=${encodeURIComponent(next)}`;
   }, [locale]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

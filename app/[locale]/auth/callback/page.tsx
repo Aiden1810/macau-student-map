@@ -4,6 +4,7 @@ import {useEffect, useMemo, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {useRouter} from '@/i18n/navigation';
 import {supabase} from '@/lib/supabase';
+import {safeReturnPath} from '@/lib/auth/return-path';
 
 export default function AuthCallbackPage() {
   const tAuth = useTranslations('Auth');
@@ -37,6 +38,9 @@ export default function AuthCallbackPage() {
         return;
       }
 
+      const next=safeReturnPath(new URLSearchParams(window.location.search).get('next'));
+      // The destination already includes its locale; avoid adding it twice.
+      if(next!=='/') {window.location.replace(next);return;}
       router.replace('/');
       router.refresh();
     };

@@ -16,7 +16,7 @@ export default function StarRating({score, reviewCount}: StarRatingProps) {
   }
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       <div className="flex items-center gap-0.5">
         {Array.from({length: fullStars}).map((_, index) => (
           <Star key={`full-${index}`} className="h-4 w-4 fill-amber-400 text-amber-400" />
@@ -31,8 +31,9 @@ export default function StarRating({score, reviewCount}: StarRatingProps) {
 
       <div className="flex items-baseline gap-1">
         <span className="text-sm font-bold text-slate-700">{safeScore.toFixed(1)}</span>
-        {typeof reviewCount === 'number' && <span className="text-xs text-slate-400">({reviewCount} 条评论)</span>}
+        {typeof reviewCount === 'number' && <span className="text-xs text-slate-400">({reviewCount} 人评分)</span>}
       </div>
+      {typeof reviewCount==='number'&&reviewCount>0&&reviewCount<5&&<span className="text-xs text-slate-500">评分人数较少，仅供参考</span>}
     </div>
   );
 }

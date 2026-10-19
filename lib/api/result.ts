@@ -8,6 +8,7 @@ export type ApiErrorCode =
   | 'NOT_FOUND'
   | 'SCHEMA_UNAVAILABLE'
   | 'CONFLICT'
+  | 'RATE_LIMITED'
   | 'INTERNAL_ERROR';
 
 export type ApiErrorDescriptor = {

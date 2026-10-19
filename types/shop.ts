@@ -78,6 +78,7 @@ export interface Comment {
   content: string;
   rating: 1 | 2 | 3 | 4 | 5;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface CommentImage {

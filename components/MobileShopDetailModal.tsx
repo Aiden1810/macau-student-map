@@ -184,7 +184,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
 
           {/* Post Comment Section */}
           <div className="px-4 pt-4">
-            <ReviewForm placeId={shop.id} compact onSuccess={fetchComments} />
+            <ReviewForm placeId={shop.id} compact onSuccess={fetchComments} onRefresh={fetchComments} />
           </div>
 
           {/* Divider */}

@@ -18,6 +18,7 @@ import AdminNavigation, {type AdminSection} from '@/components/admin/AdminNaviga
 import TrafficOverview from '@/components/admin/TrafficOverview';
 import AdminQuickLinks from '@/components/admin/AdminQuickLinks';
 import FeedbackInbox, {type FeedbackStats} from '@/components/admin/FeedbackInbox';
+import ReviewInbox from '@/components/admin/ReviewInbox';
 import {summarizeTraffic, type TrafficRange} from '@/lib/admin/traffic';
 import {LEGACY_STATUS_LABELS} from '@/lib/admin/place-editor';
 
@@ -1392,6 +1393,7 @@ export default function AdminModerationPage() {
         <div hidden={section !== 'places'}><PlacesManager createOpen={showCreateModal} onCreateClose={() => setShowCreateModal(false)} refreshSignal={placeRefreshSignal} onSummaryChange={setPlaceSummary} /></div>
         <div hidden={section !== 'submissions'}><SubmissionQueue onPublished={() => setPlaceRefreshSignal(value => value + 1)} onStatsChange={setQueueStats} /></div>
         <div hidden={section !== 'feedback'}><FeedbackInbox onStatsChange={setFeedbackStats} /></div>
+        {section==='reviews'&&<ReviewInbox/>}
         <div hidden={section !== 'tools'}>
           <div className="mb-5 rounded-2xl border border-line bg-white p-5"><h2 className="text-lg font-semibold text-ink">更多工具</h2><p className="mt-1 text-sm text-muted">历史店铺、搜索分析和操作记录集中在这里，按需展开查看。</p>
               <details className="w-full text-sm text-slate-600">

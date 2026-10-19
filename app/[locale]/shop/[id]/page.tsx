@@ -17,6 +17,7 @@ import {createRequestGuard, runLatest} from '@/lib/data/async-request';
 import {loadAuthRole} from '@/lib/data/auth-role';
 import {loadComments} from '@/lib/data/comments';
 import type {ReviewRow} from '@/lib/data/comments';
+import ReviewForm from '@/components/reviews/ReviewForm';
 import {canManageLegacyImages, loadShopDetail} from '@/lib/data/shop-detail';
 import type {ShopSource} from '@/lib/data/shop-detail';
 import {mapSingleShop} from '@/lib/mappers/shop';
@@ -167,13 +168,13 @@ function CommentList({comments, loading, error}: {comments: CommentWithImages[];
         <div className="flex flex-col items-center gap-2 rounded-2xl bg-[#eeefeb]/60 px-4 py-7 text-center text-muted"><MessageCircle size={28} strokeWidth={1.4} aria-hidden="true" /><p className="text-sm">{t('emptyReviews')}</p></div>
       ) : (
         comments.map((comment) => {
-          const dateLabel = new Date(comment.createdAt).toLocaleString();
+          const dateLabel = new Date(comment.updatedAt ?? comment.createdAt).toLocaleString();
 
           return (
             <article key={comment.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between">
                 <StarRating score={comment.rating} />
-                <span className="text-xs text-slate-400">{dateLabel}</span>
+                <span className="text-xs text-slate-400">{comment.updatedAt&&comment.updatedAt!==comment.createdAt?'更新于 ':''}{dateLabel}</span>
               </div>
 
               <p className="mt-3 whitespace-pre-wrap text-sm text-slate-700">{comment.content?.trim() ? comment.content : '用户仅打分，未填写文字评论。'}</p>
@@ -214,6 +215,7 @@ export default function ShopDetailPage() {
   const [comments, setComments] = useState<CommentWithImages[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [ratingSummary,setRatingSummary]=useState<{shopId:string;average:number|null;count:number}|null>(null);
 
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -307,13 +309,14 @@ export default function ShopDetailPage() {
 
     try {
       const result = await loadComments(shopId, async (id) => {
-        const response = await fetch(`/api/places/${id}/reviews`);
+        const response = await fetch(`/api/places/${id}/reviews`,{cache:'no-store'});
         const body = (await response.json().catch(() => null)) as {
           ok?: boolean;
-          data?: {items?: ReviewRow[]};
+          data?: {items?: ReviewRow[];summary?:{average:number|null;count:number}};
           error?: {message?: string};
         } | null;
 
+        if(isCurrent()&&response.ok&&body?.ok&&body.data?.summary) setRatingSummary({shopId, ...body.data.summary});
         return {
           ok: Boolean(response.ok && body?.ok),
           rows: body?.ok ? (body.data?.items ?? []) : [],
@@ -431,7 +434,7 @@ export default function ShopDetailPage() {
       </header>
       <main className="mx-auto max-w-5xl space-y-7 px-4 pb-40 pt-4 md:pb-12 md:pt-6">
         <ShopHero
-          shop={shop}
+          shop={ratingSummary?.shopId===shopId?{...shop,rating:ratingSummary.average??0,reviews:ratingSummary.count}:shop}
           onOpenLightbox={(index) => {
             setLightboxIndex(index);
             setIsLightboxOpen(true);
@@ -442,6 +445,7 @@ export default function ShopDetailPage() {
 
         <section className="space-y-2">
           <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-ink">{t('reviews')}</h2><Link href={`/${locale}/shop/${shop.id}/review/new`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-pine-700"><MessageCirclePlus size={17} aria-hidden="true" />{t('writeReview')}</Link></div>
+          <ReviewForm key={shopId} placeId={shopId} compact onSuccess={fetchComments} onRefresh={fetchComments}/>
           <CommentList comments={comments} loading={commentsLoading} error={commentsError} />
         </section>
       </main>
