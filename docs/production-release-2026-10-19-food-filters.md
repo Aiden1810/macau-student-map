@@ -39,6 +39,8 @@
 
 本次没有创建、推送或合并Git提交，GitHub仍未同步这批已发布代码。下次从Git自动发布前，应同步当前代码，避免旧代码重新覆盖线上。
 
+后续更新（2026-10-19）：这批已发布代码已归档为 `942e493` 并推送至 `codex/admin-place-workflow`，详见 `docs/repository-and-bulk-status-2026-10-19.md`。
+
 如需回退到本轮发布前版本，可使用下列命令；仅记录，未执行：
 
 ```powershell

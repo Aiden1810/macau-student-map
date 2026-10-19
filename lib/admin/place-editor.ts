@@ -21,7 +21,7 @@ export const adminPlaceSchema = z.object({
 
 export type AdminPlaceInput = z.infer<typeof adminPlaceSchema>;
 export type EditorMedia = {id: string; url: string | null; sortOrder: number; previewError?: string};
-export type AdminPlaceRecord = AdminPlaceInput & {id: string; media: EditorMedia[]; pendingSubmissionIds?: string[]};
+export type AdminPlaceRecord = AdminPlaceInput & {id: string; updatedAt: string; media: EditorMedia[]; pendingSubmissionIds?: string[]};
 export type SubmissionEditorRecord = AdminPlaceInput & {id: string; version: number; notes: string | null; media: EditorMedia[]};
 
 export const PLACE_STATUS_LABELS = {draft: '草稿', published: '已上线', archived: '已下架'} as const;

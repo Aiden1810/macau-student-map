@@ -1,13 +1,13 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {AdminPlaceInput, AdminPlaceRecord, EditorMedia, SubmissionEditorRecord} from './place-editor';
 
-export const ADMIN_PLACE_COLUMNS = 'id,name,name_en,address,category_slug,region,longitude,latitude,price_per_person,status,search_keywords_manual,legacy_image_urls,place_tags(tag_id),place_media(id,bucket_id,storage_path,sort_order,lifecycle_status)';
+export const ADMIN_PLACE_COLUMNS = 'id,name,name_en,address,category_slug,region,longitude,latitude,price_per_person,status,updated_at,search_keywords_manual,legacy_image_urls,place_tags(tag_id),place_media(id,bucket_id,storage_path,sort_order,lifecycle_status)';
 type MediaRow = {id: string; bucket_id: string; storage_path: string; sort_order: number; lifecycle_status: string};
 type PlaceRow = {
   id: string; name: string; name_en: string | null; address: string | null;
   category_slug: AdminPlaceInput['categorySlug']; region: AdminPlaceInput['region'];
   longitude: number | null; latitude: number | null; price_per_person: number | null;
-  status: AdminPlaceInput['status']; search_keywords_manual: string[];
+  status: AdminPlaceInput['status']; updated_at: string; search_keywords_manual: string[];
   place_tags: {tag_id: string}[]; place_media: MediaRow[];
   legacy_image_urls?: string[];
 };
@@ -25,7 +25,7 @@ export async function editorMedia(client: SupabaseClient, rows: MediaRow[]): Pro
 }
 
 export async function mapAdminPlace(client: SupabaseClient, row: PlaceRow): Promise<AdminPlaceRecord> {
-  return {id: row.id, name: row.name, nameEn: row.name_en, address: row.address,
+  return {id: row.id, updatedAt: row.updated_at, name: row.name, nameEn: row.name_en, address: row.address,
     categorySlug: row.category_slug, region: row.region, longitude: row.longitude, latitude: row.latitude,
     pricePerPerson: row.price_per_person === null ? null : Number(row.price_per_person),
     tagIds: row.place_tags.map(tag => tag.tag_id), searchKeywords: row.search_keywords_manual ?? [], status: row.status,
