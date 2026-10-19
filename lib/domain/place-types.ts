@@ -10,7 +10,7 @@ export const PRIMARY_TAG_SLUGS: Readonly<Record<PlaceCategorySlug, readonly stri
 
 export type LaunchCategoryKey = 'food' | 'hair-salon' | 'bar' | 'tabletop';
 export const LAUNCH_CATEGORIES: readonly {key: LaunchCategoryKey; label: string; category: PlaceCategorySlug; tagSlugs: readonly string[]}[] = [
-  {key: 'food', label: '饭店', category: 'food', tagSlugs: PRIMARY_TAG_SLUGS.food},
+  {key: 'food', label: '美食', category: 'food', tagSlugs: PRIMARY_TAG_SLUGS.food},
   {key: 'hair-salon', label: '理发', category: 'service', tagSlugs: ['hair-salon']},
   {key: 'bar', label: '酒吧', category: 'entertainment', tagSlugs: ['bar']},
   {key: 'tabletop', label: '桌游／剧本杀', category: 'entertainment', tagSlugs: ['board-games', 'murder-mystery']}
@@ -52,7 +52,7 @@ export function getPlacePresentation(place: PlaceTypeInput): PlacePresentation {
   if (slugs.has('bar')) return {icon: 'wine', label: '酒吧', launch: 'bar', color: '#854d0e'};
   if (slugs.has('murder-mystery')) return {icon: 'mystery', label: slugs.has('board-games') ? '桌游／剧本杀' : '剧本杀', launch: 'tabletop', color: '#6b21a8'};
   if (slugs.has('board-games')) return {icon: 'dice', label: '桌游', launch: 'tabletop', color: '#1d4ed8'};
-  if (place.category === 'food' || place.category === 'drink' || PRIMARY_TAG_SLUGS.food.some(slug => slugs.has(slug))) return {icon: 'restaurant', label: '饭店', launch: 'food', color: '#166534'};
+  if (place.category === 'food' || place.category === 'drink' || PRIMARY_TAG_SLUGS.food.some(slug => slugs.has(slug))) return {icon: 'restaurant', label: '美食', launch: 'food', color: '#166534'};
   if (place.category === 'shopping') return {icon: 'shop', label: '购物', launch: null, color: '#475569'};
   if (place.category === 'service') return {icon: 'service', label: '生活服务', launch: null, color: '#475569'};
   if (place.category === 'entertainment') return {icon: 'entertainment', label: '娱乐', launch: null, color: '#475569'};
@@ -67,5 +67,5 @@ export function formatPlacePrice(place: PlaceTypeInput & {pricePerPerson?: numbe
   const price = resolvePriceDisplay(place.pricePerPerson);
   if (price.kind === 'none') return '消费待补充';
   if (price.kind === 'free') return '免费';
-  return getPlacePresentation(place).launch === 'food' ? `人均人民币 ${price.value} 元` : `消费参考人民币 ${price.value} 元/人次`;
+  return getPlacePresentation(place).launch === 'food' ? `人均 ¥${price.value}` : `消费参考人民币 ${price.value} 元/人次`;
 }

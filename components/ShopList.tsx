@@ -1,17 +1,14 @@
-import Image from 'next/image';
-import Link from 'next/link';
-import {ChevronDown, Navigation, Search, Star, StarHalf} from 'lucide-react';
-import {useEffect, useMemo, useRef, useState} from 'react';
-import {useLocale, useTranslations} from 'next-intl';
-import {DISCOVERY_TABS} from '@/lib/search/filter-options';
+import {ChevronDown, Heart, List, Map, Search, Sparkles} from 'lucide-react';
+import {useEffect, useId, useMemo, useRef, useState} from 'react';
+import {useTranslations} from 'next-intl';
 import ShopCard from '@/components/ShopCard';
+import MobilePlaceCard from '@/components/MobilePlaceCard';
 import FilterBar from '@/components/FilterBar';
 import SecondaryFilters from '@/components/SecondaryFilters';
 import QuickFilters from '@/components/QuickFilters';
-import PlaceTypeBadge from '@/components/PlaceTypeBadge';
-import {formatPlacePrice} from '@/lib/domain/place-types';
 import ShopCardSkeleton from '@/components/ShopCardSkeleton';
 import {DrawerFiltersState, Shop, ShopCategoryKey} from '@/types/shop';
+import {getSheetHeights, resolveSheetDrag, type MobileSheetSnap} from '@/lib/ui/mobile-sheet';
 
 interface ShopListProps {
   filteredShops: Shop[];
@@ -34,6 +31,7 @@ interface ShopListProps {
   onDeleteShop: (shopId: Shop['id']) => void;
   collapseMobileSheetSignal?: number;
   mobileTopOffsetPx?: number;
+  onToggleAssistant?: () => void;
   drawerFilters: DrawerFiltersState;
   onChangeDrawerFilters: (next: DrawerFiltersState) => void;
   activeL1?: ShopCategoryKey;
@@ -45,18 +43,6 @@ interface ShopListProps {
   favorites?: string[];
   onToggleFavorite?: (shopId: string, e: React.MouseEvent) => void;
 }
-
-const SHEET_COLLAPSED_HEIGHT = 280;
-
-type MobileSheetSnap = 'collapsed' | 'full';
-
-const MOBILE_GLASS_STYLE: React.CSSProperties = {
-  background: 'rgba(235, 245, 236, 0.75)',
-  backdropFilter: 'blur(32px) saturate(2) brightness(1.05)',
-  WebkitBackdropFilter: 'blur(32px) saturate(2) brightness(1.05)',
-  borderTop: '0.5px solid rgba(255, 255, 255, 0.85)',
-  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)'
-};
 
 export default function ShopList({
   filteredShops,
@@ -79,6 +65,7 @@ export default function ShopList({
   onDeleteShop,
   collapseMobileSheetSignal = 0,
   mobileTopOffsetPx = 116,
+  onToggleAssistant,
   drawerFilters,
   onChangeDrawerFilters,
   activeL1 = 'all',
@@ -92,20 +79,24 @@ export default function ShopList({
 }: ShopListProps) {
   const tFilters = useTranslations('Filters');
   const tHome = useTranslations('Home');
-  const tShopDetail = useTranslations('ShopDetail');
-  const locale = useLocale();
+  const sheetId = useId();
 
   const [mobileSnap, setMobileSnap] = useState<MobileSheetSnap>('collapsed');
-  const [mobileHeight, setMobileHeight] = useState(0);
+  const previousCategoryRef = useRef(activeL1);
+  const [mobileHeight, setMobileHeight] = useState<number | null>(null);
+  const [viewportHeight, setViewportHeight] = useState(844);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const restoreRef = useRef<HTMLButtonElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [recentlyLocatedShopId, setRecentlyLocatedShopId] = useState<Shop['id'] | null>(null);
   const dragStartYRef = useRef<number | null>(null);
+  const skipDragClickRef = useRef(false);
   const dragStartHeightRef = useRef<number>(0);
   const locateHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setMobileSnap('collapsed');
-    setMobileHeight(0);
+    if (collapseMobileSheetSignal > 0) setMobileSnap('hidden');
+    setMobileHeight(null);
   }, [collapseMobileSheetSignal]);
 
   useEffect(() => {
@@ -116,20 +107,41 @@ export default function ShopList({
     };
   }, []);
 
-  const getViewportHeight = () => (typeof window === 'undefined' ? 0 : window.innerHeight);
-  const getCollapsedHeightPx = () => SHEET_COLLAPSED_HEIGHT;
-  const getExpandedHeightPx = () => Math.max(300, getViewportHeight() - mobileTopOffsetPx);
+  useEffect(() => {
+    if (previousCategoryRef.current !== activeL1) {
+      setMobileSnap('full');
+      setMobileHeight(null);
+    }
+    previousCategoryRef.current = activeL1;
+  }, [activeL1]);
 
-  const getSnapHeight = (snap: MobileSheetSnap) => {
-    if (snap === 'collapsed') return getCollapsedHeightPx();
-    return getExpandedHeightPx();
-  };
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      setMobileSnap('full');
+      setMobileHeight(null);
+    }
+  }, [searchQuery]);
 
-  const resolveClosestSnap = (height: number): MobileSheetSnap => {
-    const collapsedDistance = Math.abs(getCollapsedHeightPx() - height);
-    const expandedDistance = Math.abs(getExpandedHeightPx() - height);
-    return expandedDistance < collapsedDistance ? 'full' : 'collapsed';
-  };
+  useEffect(() => {
+    const resize = () => {
+      setViewportHeight(window.innerHeight);
+      dragStartYRef.current = null;
+      setIsDragging(false);
+      setMobileHeight(null);
+    };
+    resize();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
+
+  useEffect(() => {
+    if (mobileSnap === 'hidden' && sheetRef.current?.contains(document.activeElement)) {
+      restoreRef.current?.focus({preventScroll: true});
+    }
+  }, [mobileSnap]);
+
+  const heights = getSheetHeights(viewportHeight, mobileTopOffsetPx);
+  const getSnapHeight = (snap: MobileSheetSnap) => heights[snap];
 
   const startDrag = (clientY: number) => {
     dragStartYRef.current = clientY;
@@ -141,7 +153,7 @@ export default function ShopList({
     if (dragStartYRef.current === null) return;
 
     const delta = dragStartYRef.current - clientY;
-    const next = Math.max(getCollapsedHeightPx(), Math.min(getExpandedHeightPx(), dragStartHeightRef.current + delta));
+    const next = Math.max(0, Math.min(heights.full, dragStartHeightRef.current + delta));
     setMobileHeight(next);
   };
 
@@ -149,16 +161,13 @@ export default function ShopList({
     if (dragStartYRef.current === null) return;
     setIsDragging(false);
 
-    const currentHeight = mobileHeight || dragStartHeightRef.current;
     const delta = clientY !== undefined ? dragStartYRef.current - clientY : 0;
-    let nextSnap = resolveClosestSnap(currentHeight);
+    const nextSnap = resolveSheetDrag(mobileSnap, dragStartHeightRef.current, delta, heights.full);
 
-    if (Math.abs(delta) > 36) {
-      nextSnap = delta > 0 ? 'full' : 'collapsed';
-    }
-
+    skipDragClickRef.current = Math.abs(delta) > 8;
+    setTimeout(() => {skipDragClickRef.current = false;}, 0);
     setMobileSnap(nextSnap);
-    setMobileHeight(0);
+    setMobileHeight(null);
     dragStartYRef.current = null;
   };
 
@@ -206,7 +215,7 @@ export default function ShopList({
     }, 1000);
   };
 
-  const currentSheetHeight = mobileHeight > 0 ? mobileHeight : getSnapHeight(mobileSnap);
+  const currentSheetHeight = mobileHeight ?? getSnapHeight(mobileSnap);
   const currentSheetHeightStyle = `${currentSheetHeight}px`;
 
   const quickFilters = (
@@ -288,203 +297,69 @@ export default function ShopList({
 
   return (
     <>
-      <div className="hidden w-full flex-col gap-2 md:flex">{desktopListContent}</div>
+      <div className="hidden h-full min-h-0 w-full flex-col gap-2 md:flex">{desktopListContent}</div>
 
-      <div
-        className={`fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-[26px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.65rem)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] md:hidden ${!isDragging ? 'transition-[height] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]' : ''}`}
-        style={{height: currentSheetHeightStyle, ...MOBILE_GLASS_STYLE}}
+      {mobileSnap !== 'full' && (
+        <div className="pointer-events-none fixed inset-x-4 z-40 flex items-center gap-2 md:hidden"
+          style={{bottom: mobileSnap === 'hidden' ? 'max(16px, env(safe-area-inset-bottom))' : `calc(${currentSheetHeight}px + 16px)`}}>
+          {mobileSnap === 'hidden' && <button ref={restoreRef} type="button" onClick={() => setMobileSnap('collapsed')}
+            aria-controls={sheetId} aria-expanded={false}
+            className="pointer-events-auto inline-flex min-h-12 min-w-0 items-center gap-2 rounded-full border border-line bg-white px-4 text-sm font-medium text-ink shadow-lg shadow-pine-900/10 focus-visible:ring-2 focus-visible:ring-pine-700">
+            <List size={18} aria-hidden="true" /><span className="truncate">{tHome('mobile.showList', {count: filteredShops.length})}</span>
+          </button>}
+          {onToggleAssistant && <button type="button" onClick={onToggleAssistant} aria-haspopup="dialog" aria-controls="home-ai-dialog"
+            className="pointer-events-auto inline-flex min-h-12 shrink-0 items-center gap-2 rounded-full bg-pine-800 px-4 text-sm font-medium text-white shadow-lg shadow-pine-900/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine-600 focus-visible:ring-offset-2">
+            <Sparkles size={19} aria-hidden="true" className="text-pine-100" />{tHome('mobile.assistant')}
+          </button>}
+        </div>
+      )}
+      <div ref={sheetRef} id={sheetId} data-shop-sheet aria-hidden={mobileSnap === 'hidden'} inert={mobileSnap === 'hidden'}
+        className={`fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-[28px] border-t border-line bg-canvas px-4 shadow-[0_-4px_24px_#193d320c] md:hidden ${!isDragging ? 'transition-[height,transform] duration-300 motion-reduce:transition-none' : ''}`}
+        style={{height: mobileSnap === 'hidden' ? `${heights.collapsed}px` : mobileSnap === 'full' && !isDragging ? `calc(100dvh - ${mobileTopOffsetPx + 4}px)` : currentSheetHeightStyle, maxHeight: `calc(100dvh - ${mobileTopOffsetPx + 4}px)`, transform: mobileSnap === 'hidden' ? 'translateY(calc(100% + 32px))' : undefined}}
       >
-        <div
-          role="button"
-          tabIndex={0}
-          aria-label={tHome('mobile.expandCollapseDrawerAria')}
-          onClick={() => setMobileSnap((prev) => (prev === 'collapsed' ? 'full' : 'collapsed'))}
-          onTouchStart={(e) => startDrag(e.touches[0].clientY)}
-          onTouchMove={(e) => moveDrag(e.touches[0].clientY)}
-          onTouchEnd={(e) => endDrag(e.changedTouches[0].clientY)}
-          onMouseDown={(e) => startDrag(e.clientY)}
-          onMouseMove={(e) => moveDrag(e.clientY)}
-          onMouseUp={(e) => endDrag(e.clientY)}
-          onMouseLeave={() => endDrag()}
-          className="mx-auto -mt-2 mb-2 flex h-8 w-full cursor-grab items-center justify-center touch-none outline-none active:cursor-grabbing"
-        >
-          <div className="h-1 w-[34px] rounded-[2px] bg-[#1A5C2E]/35" />
+        <div className="relative h-11 shrink-0">
+          <button type="button" aria-label={tHome('mobile.expandCollapseDrawerAria')} aria-expanded={mobileSnap === 'full'}
+            onClick={() => {
+              if (skipDragClickRef.current) {skipDragClickRef.current = false; return;}
+              setMobileSnap(previous => previous === 'collapsed' ? 'full' : 'collapsed');
+            }}
+            onPointerDown={event => {if (event.isPrimary) {event.currentTarget.setPointerCapture(event.pointerId); startDrag(event.clientY);}}}
+            onPointerMove={event => {if (event.isPrimary) moveDrag(event.clientY);}}
+            onPointerUp={event => {if (event.isPrimary) endDrag(event.clientY);}} onPointerCancel={() => {dragStartYRef.current = null; setIsDragging(false); setMobileHeight(null);}}
+            className="flex h-11 w-full shrink-0 touch-none cursor-grab items-center justify-center rounded-t-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pine-700 active:cursor-grabbing">
+            <span className="h-1 w-9 rounded-full bg-[#cbd3cb]" />
+          </button>
+          <button type="button" onClick={() => setMobileSnap('hidden')} aria-label={tHome('mobile.hideList')} title={tHome('mobile.hideList')}
+            className="absolute -right-1 top-0 flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-pine-50 focus-visible:ring-2 focus-visible:ring-pine-700"><ChevronDown size={20} aria-hidden="true" /></button>
         </div>
-
-        <div className="relative mb-2">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1A5C2E]/75" />
-          <input
-            type="text"
-            placeholder={tHome('mobile.searchPlaceholder')}
-            className="h-[37px] w-full rounded-[13px] appearance-none bg-[rgba(255,255,255,0.55)] py-2 pl-10 pr-16 text-sm text-[#0d2918] placeholder:text-[#1A5C2E]/60 shadow-[0_0_0_1px_rgba(255,255,255,0.6)] outline-none focus:outline-none focus:ring-0"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery.trim().length > 0 && (
-            <button
-              type="button"
-              onClick={onClearSearch}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl bg-white/55 px-2 py-1 text-[11px] font-medium text-[#1A5C2E]"
-            >
-              {tHome('common.clear')}
-            </button>
-          )}
-        </div>
-
-        {mobileSnap === 'collapsed' && <div className="mb-2 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <p className="truncate text-sm font-semibold text-[#0d2918]">{tHome('mobile.pullUpHint')}</p>
-            {mobileSnap === 'collapsed' && showFavorites !== undefined && setShowFavorites !== undefined && (
-              <button
-                onClick={() => setShowFavorites(!showFavorites)}
-                className={`shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold transition ${
-                  showFavorites
-                    ? 'bg-rose-500 text-white shadow-sm'
-                    : 'bg-rose-50/80 text-rose-600 border border-rose-100'
-                }`}
-              >
-                {showFavorites ? tHome('mobile.favoritesOn') : tHome('mobile.favoritesOff')}
-              </button>
-            )}
+        <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <h2 className="truncate text-lg font-semibold text-ink">{tHome('mobile.placesTitle')}</h2>
+            <span role="status" className="shrink-0 text-xs text-muted">{tFilters('currentTotal', {count: filteredShops.length})}</span>
           </div>
-          <span className="shrink-0 rounded-2xl bg-[rgba(26,92,46,0.10)] px-2.5 py-1 text-xs font-semibold text-[#1A5C2E]">{tFilters('currentTotal', {count: filteredShops.length})}</span>
+          {showFavorites !== undefined && setShowFavorites && <button type="button" aria-pressed={showFavorites} onClick={() => setShowFavorites(!showFavorites)}
+            className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium focus-visible:ring-2 focus-visible:ring-pine-700 ${showFavorites ? 'border-pine-200 bg-pine-50 text-pine-700' : 'border-line bg-white text-muted'}`}>
+            <Heart size={16} aria-hidden="true" className={showFavorites ? 'fill-current' : ''} />{tFilters('onlyFavorites')}
+          </button>}
+        </div>
+        {mobileSnap === 'full' && <div className="mb-2 max-h-[35dvh] shrink-0 overflow-y-auto">
+          {activeL1 !== 'all' && onL2Change && <div className="mb-2"><SecondaryFilters key={activeL1} category={activeL1} selected={activeL2} onSelect={value => onL2Change(activeL1, value)} /></div>}
+          <QuickFilters compact count={filteredShops.length} loading={loading} filters={drawerFilters} onChange={onChangeDrawerFilters}
+            hasActiveFilters={hasActiveFilters} extraLabels={activeFilterLabels} onClear={onClearAllFilters} />
         </div>}
-
-        <div className="hide-scrollbar mb-2 flex gap-1.5 overflow-x-auto pb-1">
-          {DISCOVERY_TABS.map(({key: l1Key, label}) => {
-            const isActive = activeL1 === l1Key;
-            return (
-              <button
-                key={l1Key}
-                type="button"
-                aria-pressed={isActive}
-                onClick={() => {onL1Change?.(l1Key); setMobileSnap('full');}}
-                className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  isActive
-                    ? 'border-[rgba(26,92,46,0.35)] bg-[rgba(22,80,38,0.12)] text-[#0d2918]'
-                    : 'border-[rgba(0,0,0,0.08)] bg-[rgba(255,255,255,0.55)] text-[#0d2918]'
-                }`}
-              >
-                <span>
-                  {label}
-                </span>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isActive ? 'rotate-180' : ''}`} />
-              </button>
-            );
-          })}
+        <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4">
+          {loading ? <div className="space-y-3">{Array.from({length: 4}).map((_, index) => <ShopCardSkeleton key={index} />)}</div>
+            : filteredShops.length === 0 ? <div className="rounded-2xl border border-dashed border-line bg-white px-4 py-8 text-center">
+              <p className="text-sm font-semibold text-ink">{emptyState.title}</p><p className="mt-2 text-sm leading-6 text-muted">{emptyState.description}</p>
+              {emptyState.action && <button type="button" onClick={emptyState.action} className="mt-4 min-h-11 rounded-xl bg-pine-700 px-4 text-sm text-white">{emptyState.actionLabel}</button>}
+            </div>
+            : <div className="space-y-3">{filteredShops.map(shop => <MobilePlaceCard key={shop.id} shop={shop} favorite={favorites?.includes(shop.id) ?? false} onFavorite={onToggleFavorite} onLocate={handleLocateWithHighlight} highlighted={recentlyLocatedShopId === shop.id} />)}</div>}
         </div>
-
-        {activeL1 !== 'all' && onL2Change && (
-          <div className="mb-2">
-            <SecondaryFilters key={activeL1} category={activeL1} selected={activeL2} onSelect={value => onL2Change(activeL1, value)} />
-          </div>
-        )}
-        {mobileSnap === 'full' && quickFilters}
-
-        <div className="mt-1 min-h-0 flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom,0px),72px)]">
-            {loading ? (
-              <div className="space-y-2">
-                {Array.from({length: 4}).map((_, index) => (
-                  <div key={`mobile-skeleton-${index}`} className="rounded-2xl bg-white/38 p-3">
-                    <ShopCardSkeleton />
-                  </div>
-                ))}
-              </div>
-            ) : filteredShops.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#1A5C2E]/35 bg-white/35 px-4 py-6 text-center">
-                <p className="text-sm font-semibold text-slate-700">{emptyState.title}</p>
-                <p className="mt-1 text-xs text-slate-500">{emptyState.description}</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {filteredShops.map((shop) => {
-                  const coverUrl = shop.imageUrls?.[0] ?? '';
-                  const hasImage = typeof coverUrl === 'string' && coverUrl.trim().length > 0;
-                  const safeRating = Number.isFinite(shop.rating) ? Math.max(0, Math.min(5, shop.rating)) : 0;
-                  const rFull = Math.floor(safeRating);
-                  const rHalf = safeRating - rFull >= 0.5;
-                  const rEmpty = 5 - rFull - (rHalf ? 1 : 0);
-
-                  return (
-                    <Link
-                      key={shop.id}
-                      href={`/${locale}/shop/${shop.id}`}
-                      className="block w-full rounded-2xl bg-white/40 px-3 py-2.5"
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-                          {hasImage ? (
-                            <Image src={coverUrl} alt={shop.name} width={56} height={56} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-[rgba(26,92,46,0.12)]">
-                              <svg viewBox="0 0 120 80" className="h-5 w-7 text-[#1A5C2E]/40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M14 33L20 18H100L106 33" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
-                                <path d="M18 33H102V64H18V33Z" stroke="currentColor" strokeWidth="6" />
-                              </svg>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="truncate text-sm font-semibold text-[#0d2918]">{shop.name}</p>
-                            <span className="shrink-0 rounded-xl bg-[rgba(26,92,46,0.10)] px-2 py-0.5 text-[11px] font-semibold text-[#1A5C2E]">
-                              {shop.ratingLabel}
-                            </span>
-                          </div>
-                          <p className="mt-0.5 truncate text-xs text-[#1A5C2E]/80">
-                            <PlaceTypeBadge place={shop} />
-                            <span className="mx-1 text-[#1A5C2E]/30">|</span>
-                            {formatPlacePrice(shop)}
-                          </p>
-
-                          <div className="mt-1 flex items-center gap-1">
-                            <div className="flex items-center gap-px">
-                              {Array.from({length: rFull}).map((_, i) => (
-                                <Star key={`sf-${i}`} className="h-3 w-3 fill-amber-400 text-amber-400" />
-                              ))}
-                              {rHalf && <StarHalf className="h-3 w-3 fill-amber-400 text-amber-400" />}
-                              {Array.from({length: rEmpty}).map((_, i) => (
-                                <Star key={`se-${i}`} className="h-3 w-3 text-slate-300" />
-                              ))}
-                            </div>
-                            <span className="text-xs font-semibold text-[#0d2918]">{safeRating.toFixed(1)}</span>
-                            <span className="text-[11px] text-[#1A5C2E]/60">({tShopDetail('reviewsCount', {count: shop.reviews})})</span>
-                          </div>
-
-                          <div className="mt-1.5 flex items-center gap-2" onClick={(e) => e.preventDefault()}>
-                            <button
-                              type="button"
-                              onClick={() => handleLocateWithHighlight(shop.id)}
-                              className="inline-flex items-center gap-1 text-[11px] font-medium text-[#1A5C2E]/70 transition active:text-[#1A5C2E]"
-                            >
-                              <Navigation className="h-3 w-3" />
-                              {tShopDetail('viewLocation')}
-                            </button>
-                            {onToggleFavorite && (
-                              <button
-                                type="button"
-                                onClick={(e) => onToggleFavorite(shop.id, e)}
-                                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
-                                  favorites?.includes(shop.id)
-                                    ? 'bg-rose-500 text-white'
-                                    : 'border border-rose-200 bg-white/70 text-rose-600'
-                                }`}
-                              >
-                                {favorites?.includes(shop.id) ? tHome('mobile.favorited') : tHome('mobile.favorite')}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+        {mobileSnap === 'full' && <div className="flex shrink-0 justify-center border-t border-line bg-canvas py-2 pb-[max(env(safe-area-inset-bottom),8px)]">
+          <button type="button" onClick={() => setMobileSnap('hidden')} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-pine-800 px-5 text-sm font-medium text-white focus-visible:ring-2 focus-visible:ring-pine-600 focus-visible:ring-offset-2"><Map size={17} aria-hidden="true" />{tHome('mobile.showMap')}</button>
+        </div>}
+        {mobileSnap === 'collapsed' && <div className="h-[env(safe-area-inset-bottom)] shrink-0" />}
       </div>
-
     </>
   );
 }

@@ -7,10 +7,11 @@ import {buildAmapNavigationUrl} from '@/lib/amap/navigation';
 import type {Shop} from '@/types/shop';
 
 type PlaceNavigationActionsProps = {
+  variant?: 'default' | 'mobile-footer';
   place: Pick<Shop, 'name' | 'address' | 'coordinates' | 'hasCoordinates'>;
 };
 
-export default function PlaceNavigationActions({place}: PlaceNavigationActionsProps) {
+export default function PlaceNavigationActions({place, variant = 'default'}: PlaceNavigationActionsProps) {
   const t = useTranslations('PlaceNavigation');
   const [copyResult, setCopyResult] = useState<{text: string; success: boolean} | null>(null);
   const navigationUrl = buildAmapNavigationUrl(place);
@@ -18,7 +19,7 @@ export default function PlaceNavigationActions({place}: PlaceNavigationActionsPr
   const address = place.address.trim();
   const copyText = address ? `${place.name.trim()}\n${address}` : '';
   const currentCopyResult = copyResult?.text === copyText ? copyResult : null;
-  const actionClassName = 'inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2';
+  const actionClassName = `${variant === 'mobile-footer' ? 'flex-1 min-w-0' : ''} inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine-600 focus-visible:ring-offset-2`;
 
   const copyAddress = async () => {
     if (!copyText) return;
@@ -32,15 +33,15 @@ export default function PlaceNavigationActions({place}: PlaceNavigationActionsPr
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className={variant === 'mobile-footer' ? "max-h-[45dvh] space-y-1 overflow-y-auto" : "space-y-2"}>
+      <div className={`flex items-center gap-3 ${variant === 'mobile-footer' ? 'flex-row-reverse' : 'flex-wrap'}`}>
         {navigationUrl ? (
           <a
             href={navigationUrl}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={t('navigateTo', {name: place.name})}
-            className={`${actionClassName} bg-[#006633] text-white hover:bg-emerald-800`}
+            className={`${actionClassName} bg-pine-700 text-white hover:bg-emerald-800`}
           >
             <Navigation aria-hidden="true" className="h-4 w-4" />
             {t('navigate')}
@@ -55,7 +56,7 @@ export default function PlaceNavigationActions({place}: PlaceNavigationActionsPr
           type="button"
           onClick={() => void copyAddress()}
           disabled={!copyText}
-          className={`${actionClassName} border border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400`}
+          className={`${actionClassName} border border-line bg-white text-pine-800 hover:bg-pine-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400`}
         >
           <Copy aria-hidden="true" className="h-4 w-4" />
           {t('copyAddress')}
@@ -65,7 +66,7 @@ export default function PlaceNavigationActions({place}: PlaceNavigationActionsPr
       {!navigationUrl && <p className="text-xs text-slate-500">{t('missingCoordinates')}</p>}
       {!copyText && <p className="text-xs text-slate-500">{t('missingAddress')}</p>}
 
-      <p role="status" className="text-xs text-emerald-800">
+      <p role="status" className="text-xs text-pine-800">
         {currentCopyResult ? t(currentCopyResult.success ? 'copied' : 'copyFailed') : ''}
       </p>
       {currentCopyResult?.success === false && (
@@ -75,17 +76,17 @@ export default function PlaceNavigationActions({place}: PlaceNavigationActionsPr
           value={copyText}
           aria-label={t('addressToCopy')}
           onFocus={(event) => event.currentTarget.select()}
-          className="w-full rounded-lg border border-slate-300 bg-slate-50 p-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+          className="w-full rounded-lg border border-slate-300 bg-slate-50 p-2 text-sm text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine-600"
         />
       )}
 
       {webUrl && (
         <details className="text-xs text-slate-600">
-          <summary className="w-fit cursor-pointer rounded py-1 underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+          <summary className="w-fit cursor-pointer rounded py-1 underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine-600">
             {t('help')}
           </summary>
           <div className="mt-1 space-y-1 rounded-lg bg-slate-50 p-2">
-            <a href={webUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1 font-medium text-emerald-800 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600">
+            <a href={webUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1 font-medium text-pine-800 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine-600">
               <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               {t('webRoute')}
             </a>

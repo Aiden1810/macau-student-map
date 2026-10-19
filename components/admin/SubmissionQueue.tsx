@@ -19,7 +19,7 @@ type QueueItem = {
   submittedAt: string | null;
 };
 
-type QueueStats = {
+export type QueueStats = {
   pending: number;
   approved: number;
   merged: number;
@@ -33,7 +33,7 @@ type QueueResponse = {
 
 type LoadingKind = 'initial' | 'refresh' | null;
 
-export default function SubmissionQueue({onPublished}: {onPublished?: () => void} = {}) {
+export default function SubmissionQueue({onPublished, onStatsChange}: {onPublished?: () => void; onStatsChange?: (stats: QueueStats | null) => void} = {}) {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [stats, setStats] = useState<QueueStats | null>(null);
   const [loadingKind, setLoadingKind] = useState<LoadingKind>('initial');
@@ -44,6 +44,10 @@ export default function SubmissionQueue({onPublished}: {onPublished?: () => void
   const [reviewId, setReviewId] = useState<string | null>(null);
   const requestGuardRef = useRef(createRequestGuard());
   const lifecycleGuardRef = useRef(createComponentLifecycleGuard());
+
+  useEffect(() => {
+    onStatsChange?.(error || loadingKind ? null : stats);
+  }, [stats, error, loadingKind, onStatsChange]);
 
   const accessToken = async () => {
     const {data} = await supabase.auth.getSession();
@@ -159,10 +163,10 @@ export default function SubmissionQueue({onPublished}: {onPublished?: () => void
         <span className="rounded-full bg-rose-50 px-3 py-1.5 text-rose-700">已驳回：{stats?.rejected ?? '—'}</span>
       </div>
 
-      {error && <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
+      {error && <p role="alert" className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
       {loadingKind === 'initial' ? (
         <p className="mt-4 text-sm text-slate-500">加载审核队列中……</p>
-      ) : items.length === 0 ? (
+      ) : !error && items.length === 0 ? (
         <p className="mt-4 text-sm text-slate-500">当前没有待审核投稿。</p>
       ) : (
         <div className="mt-4 space-y-3">

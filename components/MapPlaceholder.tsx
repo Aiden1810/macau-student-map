@@ -1,6 +1,7 @@
 'use client';
 
 import toast from 'react-hot-toast';
+import {Crosshair, LoaderCircle, Minus, Plus} from 'lucide-react';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Shop} from '@/types/shop';
 import {buildPlacePinHtml} from '@/lib/amap/place-marker';
@@ -196,10 +197,11 @@ function escapeHtml(raw: unknown): string {
 function buildSelectedShopMarkerHtml(shop: Shop): string {
   const pinHtml = buildPlacePinHtml(shop, 'selected', false);
   const name = escapeHtml(shop.name);
-  const ratingLabel = escapeHtml(shop.ratingLabel);
+  const ratingLabel = shop.reviews > 0 ? escapeHtml(shop.ratingLabel) : '';
   const roundedRating = Math.max(0, Math.min(5, Number.isFinite(shop.rating) ? shop.rating : 0));
-  const score = roundedRating.toFixed(1);
-  const reviewText = escapeHtml(`(${shop.reviews} 条评论)`);
+  const hasRating = shop.reviews > 0 && roundedRating > 0;
+  const score = hasRating ? roundedRating.toFixed(1) : '';
+  const reviewText = shop.reviews > 0 ? escapeHtml(`(${shop.reviews} 条评论)`) : '暂无评价';
   const fullStars = Math.floor(roundedRating);
   const hasHalfStar = roundedRating - fullStars >= 0.5;
   const emptyStars = Math.max(0, 5 - fullStars - (hasHalfStar ? 1 : 0));
@@ -217,13 +219,13 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
       ${pinHtml}
     </div>
     <div style="width:228px;background:#ffffff;border:1px solid rgba(22,101,52,0.18);border-radius:12px;box-shadow:0 10px 22px rgba(15,23,42,0.12);padding:10px 11px;margin-top:2px;">
-      <div style="font-size:14px;font-weight:700;line-height:1.3;color:#166534;word-break:break-word;">${name}</div>
+      <div style="font-size:14px;font-weight:700;line-height:1.3;color:#245b49;word-break:break-word;">${name}</div>
       <div style="margin-top:5px;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;">
         <span style="border-radius:9999px;background:rgba(245,158,11,0.14);color:#f59e0b;padding:3px 8px;">${ratingLabel}</span>
-        <span style="border-radius:9999px;background:rgba(22,101,52,0.08);color:#166534;padding:3px 8px;">${price}</span>
+        <span style="border-radius:9999px;background:rgba(22,101,52,0.08);color:#245b49;padding:3px 8px;">${price}</span>
       </div>
       <div style="margin-top:7px;display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.2;">
-        <span style="color:#f59e0b;letter-spacing:0.5px;">${starsHtml}</span>
+        <span style="color:#f59e0b;letter-spacing:0.5px;">${hasRating ? starsHtml : ''}</span>
         <span style="color:#111827;font-weight:600;">${score}</span>
         <span style="color:#6b7280;">${reviewText}</span>
       </div>
@@ -235,7 +237,7 @@ function buildSelectedShopMarkerHtml(shop: Shop): string {
 function buildTopRankMarkerHtml(shop: Shop): string {
   const pinHtml = buildPlacePinHtml(shop, 'selected', false);
   const name = escapeHtml(shop.name);
-  const score = Number.isFinite(shop.rating) ? shop.rating.toFixed(1) : '0';
+  const score = shop.reviews > 0 && Number.isFinite(shop.rating) && shop.rating > 0 ? `★ ${shop.rating.toFixed(1)}` : '暂无评价';
   const price = escapeHtml(formatPlacePrice(shop));
 
   return `<div style="display:flex;flex-direction:column;align-items:center;transform:translate(-50%, -52px);">
@@ -243,9 +245,9 @@ function buildTopRankMarkerHtml(shop: Shop): string {
       ${pinHtml}
     </div>
     <div style="margin-top:-4px;padding:4px 8px;background:rgba(255,255,255,0.95);backdrop-filter:blur(4px);border:1px solid rgba(22,101,52,0.2);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.1);display:flex;flex-direction:column;align-items:center;gap:0px;pointer-events:none;min-width:80px;">
-      <div style="font-size:12px;font-weight:800;color:#166534;white-space:nowrap;">${name}</div>
+      <div style="font-size:12px;font-weight:800;color:#245b49;white-space:nowrap;">${name}</div>
       <div style="font-size:10px;font-weight:600;color:#666;white-space:nowrap;display:flex;align-items:center;gap:4px;">
-        <span style="color:#f59e0b;">★ ${score}</span>
+        <span style="color:#f59e0b;">${score}</span>
         <span style="color:#eee;">|</span>
         <span>${price}</span>
       </div>
@@ -555,7 +557,11 @@ export default function MapPlaceholder({
       position: selectedShop.coordinates,
       offset: new AMap.Pixel(0, 0),
       zIndex: 320,
-      content: buildSelectedShopMarkerHtml(selectedShop)
+      // The mobile drawer already shows the details; a second popup would
+      // overlap its edge and the floating assistant entry.
+      content: window.matchMedia('(max-width: 767px)').matches
+        ? buildPlacePinHtml(selectedShop, 'selected')
+        : buildSelectedShopMarkerHtml(selectedShop)
     });
 
     marker.setMap(map);
@@ -688,63 +694,14 @@ export default function MapPlaceholder({
     <div className="relative h-full w-full overflow-hidden rounded-none border-0 bg-transparent shadow-none md:rounded-2xl md:border md:border-slate-200/90 md:bg-white md:shadow-[0_10px_28px_rgba(2,30,18,0.08)] md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)]">
       <div ref={containerRef} className="h-full w-full" />
 
-      <div className="pointer-events-none absolute right-3 top-28 z-20 flex flex-col gap-[2px] md:hidden">
-        <button
-          type="button"
-          onClick={handleZoomIn}
-          className="pointer-events-auto h-9 w-9 rounded-t-[11px] rounded-b-[5px] text-sm font-bold text-[#1a1a1a]/80"
-          style={{
-            background: 'rgba(255,255,255,0.55)',
-            backdropFilter: 'blur(24px) saturate(1.8)',
-            WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
-            border: '0.5px solid rgba(255,255,255,0.7)',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6)'
-          }}
-        >
-          +
-        </button>
-        <button
-          type="button"
-          onClick={handleZoomOut}
-          className="pointer-events-auto h-9 w-9 rounded-t-[5px] rounded-b-[11px] text-sm font-bold text-[#1a1a1a]/80"
-          style={{
-            background: 'rgba(255,255,255,0.55)',
-            backdropFilter: 'blur(24px) saturate(1.8)',
-            WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
-            border: '0.5px solid rgba(255,255,255,0.7)',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6)'
-          }}
-        >
-          −
-        </button>
-
-        <button
-          type="button"
-          onClick={handleLocateMe}
-          className="pointer-events-auto mt-1.5 flex h-9 w-9 items-center justify-center rounded-full"
-          style={{
-            background: geoLoading ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.55)',
-            backdropFilter: 'blur(24px) saturate(1.8)',
-            WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
-            border: '0.5px solid rgba(255,255,255,0.7)',
-            boxShadow: '0 2px 12px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6)'
-          }}
-        >
-          {geoLoading ? (
-            <svg className="h-4 w-4 animate-spin text-[#1a1a1a]/70" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-30" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-              <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
-          ) : (
-            <svg className="h-4 w-4 text-[#1a1a1a]/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <circle cx="12" cy="12" r="8" strokeOpacity="0.4"/>
-              <line x1="12" y1="2" x2="12" y2="6" />
-              <line x1="12" y1="18" x2="12" y2="22" />
-              <line x1="2" y1="12" x2="6" y2="12" />
-              <line x1="18" y1="12" x2="22" y2="12" />
-            </svg>
-          )}
+      <div className="pointer-events-none absolute right-4 top-[152px] z-20 flex flex-col items-center gap-2 md:hidden">
+        <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_3px_14px_#193d3210]">
+          <button type="button" aria-label="放大地图" onClick={handleZoomIn} className="pointer-events-auto flex h-11 w-11 items-center justify-center text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pine-700"><Plus size={19} aria-hidden="true" /></button>
+          <div className="mx-3 border-t border-line" />
+          <button type="button" aria-label="缩小地图" onClick={handleZoomOut} className="pointer-events-auto flex h-11 w-11 items-center justify-center text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pine-700"><Minus size={19} aria-hidden="true" /></button>
+        </div>
+        <button type="button" onClick={handleLocateMe} disabled={geoLoading} aria-label="使用当前位置" className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-line bg-white text-pine-700 shadow-[0_3px_14px_#193d3210] focus-visible:ring-2 focus-visible:ring-pine-700 disabled:opacity-60">
+          {geoLoading ? <LoaderCircle size={19} className="animate-spin" aria-hidden="true" /> : <Crosshair size={20} aria-hidden="true" />}
         </button>
       </div>
     </div>

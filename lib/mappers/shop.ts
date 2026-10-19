@@ -329,9 +329,7 @@ function normalizeReviewMetrics(
   if (safeReviewCount > 0) {
     const parsedSum = typeof totalSum === 'number' ? totalSum : typeof totalSum === 'string' ? Number(totalSum) : NaN;
     const parsedRating = typeof rating === 'number' ? rating : typeof rating === 'string' ? Number(rating) : NaN;
-    const average = Number(
-      (Number.isFinite(parsedSum) ? parsedSum / safeReviewCount : Number.isFinite(parsedRating) ? parsedRating : 0).toFixed(1)
-    );
+    const average = Number.isFinite(parsedSum) ? parsedSum / safeReviewCount : Number.isFinite(parsedRating) ? parsedRating : 0;
 
     return {rating: average, reviews: safeReviewCount};
   }
@@ -345,7 +343,7 @@ function normalizeReviewMetrics(
     const parsedSum = typeof totalSum === 'number' ? totalSum : typeof totalSum === 'string' ? Number(totalSum) : 0;
 
     const safeSum = Number.isFinite(parsedSum) ? parsedSum : 0;
-    const average = Number((safeSum / safeCount).toFixed(1));
+    const average = safeSum / safeCount;
 
     return {rating: average, reviews: safeCount};
   }
@@ -360,7 +358,7 @@ function normalizeReviewMetrics(
 
   const parsedRating = typeof rating === 'number' ? rating : typeof rating === 'string' ? Number(rating) : 0;
 
-  const safeRating = Number.isFinite(parsedRating) ? Number(parsedRating.toFixed(1)) : 0;
+  const safeRating = Number.isFinite(parsedRating) ? parsedRating : 0;
   return {rating: safeRating, reviews: safeReviews};
 }
 
@@ -536,6 +534,7 @@ export function mapSingleShop(row: Record<string, unknown>, locale: LocaleKey = 
     hasCoordinates,
     studentDiscount: typeof rawDiscount === 'string' ? rawDiscount : null,
     tags: finalTags,
+    filterTags: mergedTags,
     features: normalizeFeatures(rawFeatures),
     shopType: normalizeShopDrawerType(rawShopType, mergedTags, normalizedSubTags),
     ratingLabel: normalizeRatingLabel(row?.rating_label, reviewMetrics.rating, reviewMetrics.reviews),
@@ -547,6 +546,7 @@ export function mapSingleShop(row: Record<string, unknown>, locale: LocaleKey = 
     reviewText: finalReviewText,
     status: normalizeShopStatus(rawShopStatus),
     pricePerPerson: parseMaybeNumber(rawPricePerPerson),
+    publishedAt: typeof row?.published_at === 'string' ? row.published_at : null,
     region:
       typeof rawRegion === 'string' && rawRegion.trim().length > 0
         ? (rawRegion.trim() as Shop['region'])

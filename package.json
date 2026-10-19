@@ -12,8 +12,10 @@
     "i18n:check": "node scripts/check-i18n.mjs"
   },
   "dependencies": {
+    "@ai-sdk/deepseek": "3.0.67",
     "@supabase/supabase-js": "^2.112.4",
     "@swc/helpers": "^0.5.23",
+    "ai": "7.0.143",
     "browser-image-compression": "^2.0.2",
     "gcoord": "^1.0.7",
     "lucide-react": "^0.539.0",

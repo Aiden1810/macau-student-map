@@ -1,6 +1,6 @@
 'use client';
 
-import {FormEvent, useCallback, useEffect, useMemo, useState} from 'react';
+import {FormEvent, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import toast from 'react-hot-toast';
 import {getCanonicalTagsForAdminAndSubmit, migrateLegacyTagsForSubmission} from '@/lib/tags/schema';
 import LaunchCategorySelector from '@/components/LaunchCategorySelector';
@@ -12,8 +12,13 @@ import {buildNormalizedShopPayload, type ShopCategory} from '@/lib/shops/payload
 import {supabase} from '@/lib/supabase';
 import {toLegacyShopPoiFields, type AmapPoiOption} from '@/lib/amap/place-search';
 import AmapPoiSelector from '@/components/AmapPoiSelector';
-import SubmissionQueue from '@/components/admin/SubmissionQueue';
-import PlacesManager from '@/components/admin/PlacesManager';
+import SubmissionQueue, {type QueueStats} from '@/components/admin/SubmissionQueue';
+import PlacesManager, {type PlaceSummary} from '@/components/admin/PlacesManager';
+import AdminNavigation, {type AdminSection} from '@/components/admin/AdminNavigation';
+import TrafficOverview from '@/components/admin/TrafficOverview';
+import AdminQuickLinks from '@/components/admin/AdminQuickLinks';
+import FeedbackInbox, {type FeedbackStats} from '@/components/admin/FeedbackInbox';
+import {summarizeTraffic, type TrafficRange} from '@/lib/admin/traffic';
 import {LEGACY_STATUS_LABELS} from '@/lib/admin/place-editor';
 
 type ShopStatus = 'pending' | 'verified' | 'rejected';
@@ -99,7 +104,7 @@ type OpsAlert = {
   action: string;
 };
 
-type TrafficRangeKey = '24h' | '7d' | '30d' | '365d' | 'all';
+type TrafficRangeKey = TrafficRange;
 type ShopSortKey = 'created_desc' | 'created_asc' | 'status' | 'name';
 type AnalyticsRangeKey = '7d' | '30d' | 'custom';
 type AnalyticsSortKey = 'favorites' | 'clicks' | 'favorite_rate' | 'shares' | 'complaints' | 'conversion_rate';
@@ -617,6 +622,14 @@ function AdminShopForm({
 }
 
 export default function AdminModerationPage() {
+  const metricsRequestRef = useRef(0);
+  const [section, setSection] = useState<AdminSection>('overview');
+  const [placeSummary, setPlaceSummary] = useState<PlaceSummary | null>(null);
+  const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
+  const [feedbackStats, setFeedbackStats] = useState<FeedbackStats | null>(null);
+  const [trafficError, setTrafficError] = useState<string | null>(null);
+  const [trafficTotalCount, setTrafficTotalCount] = useState<number | null>(null);
+  const [metricsUpdatedAt, setMetricsUpdatedAt] = useState(0);
   const [shops, setShops] = useState<ShopRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingById, setActionLoadingById] = useState<ActionLoadingById>({});
@@ -654,6 +667,7 @@ export default function AdminModerationPage() {
   const [missedQueryError, setMissedQueryError] = useState<string | null>(null);
 
   const fetchAllShops = useCallback(async (opts?: {silent?: boolean}) => {
+    const requestId = ++metricsRequestRef.current;
     const silent = opts?.silent ?? false;
     if (silent) {
       setRefreshing(true);
@@ -662,113 +676,112 @@ export default function AdminModerationPage() {
     }
     setError(null);
 
-    const since24hIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    try {
+      const since24hIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const readCommentCount = async () => {
+        const primary = await supabase.from('shop_comments').select('id', {count: 'exact', head: true}).gte('created_at', since24hIso);
+        return primary.error ? await supabase.from('comments').select('id', {count: 'exact', head: true}).gte('created_at', since24hIso) : primary;
+      };
+      const [shopsRes, commentsRes, trafficRes, favoritesRes, actionsRes, commentsMetricRes] = await Promise.all([
+        supabase
+          .from('shops')
+          .select('id,name,name_i18n,address,amap_poi_id,longitude,latitude,category,tags,tags_i18n,features,shop_type,rating_label,image_urls,review_text,review_text_i18n,student_discount,status,created_at,main_category,sub_tags,price_per_person,region,signature_dish,sharp_review')
+          .or('status.in.(pending,verified,rejected),status.is.null')
+          .order('created_at', {ascending: false}),
+        readCommentCount(),
+        supabase
+          .from('site_traffic_events')
+          .select('created_at,session_id,path', {count: 'exact'})
+          .eq('event_type', 'page_view')
+          .order('created_at', {ascending: false})
+          .limit(20000),
+        supabase
+          .from('favorites')
+          .select('shop_id,created_at')
+          .order('created_at', {ascending: false})
+          .limit(20000),
+        supabase
+          .from('shop_action_events')
+          .select('shop_id,action_type,source,created_at')
+          .order('created_at', {ascending: false})
+          .limit(40000),
+        supabase
+          .from('comments')
+          .select('shop_id,rating,created_at')
+          .order('created_at', {ascending: false})
+          .limit(40000)
+      ]);
+      if (requestId !== metricsRequestRef.current) return;
 
-    const shopsRes = await supabase
-      .from('shops')
-      .select('id,name,name_i18n,address,amap_poi_id,longitude,latitude,category,tags,tags_i18n,features,shop_type,rating_label,image_urls,review_text,review_text_i18n,student_discount,status,created_at,main_category,sub_tags,price_per_person,region,signature_dish,sharp_review')
-      .or('status.in.(pending,verified,rejected),status.is.null')
-      .order('created_at', {ascending: false});
+      if (shopsRes.error) setError(shopsRes.error.message);
 
-    const primaryCommentsRes = await supabase.from('shop_comments').select('id', {count: 'exact', head: true}).gte('created_at', since24hIso);
-    const commentsRes =
-      primaryCommentsRes.error
-        ? await supabase.from('comments').select('id', {count: 'exact', head: true}).gte('created_at', since24hIso)
-        : primaryCommentsRes;
-
-    const trafficRes = await supabase
-      .from('site_traffic_events')
-      .select('created_at,session_id,path')
-      .eq('event_type', 'page_view')
-      .order('created_at', {ascending: false})
-      .limit(20000);
-
-    const favoritesRes = await supabase
-      .from('favorites')
-      .select('shop_id,created_at')
-      .order('created_at', {ascending: false})
-      .limit(20000);
-
-    const actionsRes = await supabase
-      .from('shop_action_events')
-      .select('shop_id,action_type,source,created_at')
-      .order('created_at', {ascending: false})
-      .limit(40000);
-
-    const commentsMetricRes = await supabase
-      .from('comments')
-      .select('shop_id,rating,created_at')
-      .order('created_at', {ascending: false})
-      .limit(40000);
-
-    if (shopsRes.error) {
-      setError(shopsRes.error.message);
-      setShops([]);
-      if (silent) {
-        setRefreshing(false);
+      if (commentsRes.error) {
+        console.warn('Failed to fetch comment health metrics:', commentsRes.error.message);
+        setNewComments24h(0);
       } else {
+        setNewComments24h(commentsRes.count ?? 0);
+      }
+
+      if (trafficRes.error) {
+        console.warn('Failed to fetch traffic metrics:', trafficRes.error.message);
+        setTrafficError(trafficRes.error.message);
+        setTrafficEvents([]);
+        setTrafficTotalCount(null);
+      } else {
+        setTrafficError(null);
+        setTrafficEvents((trafficRes.data ?? []) as TrafficEventRow[]);
+        setTrafficTotalCount(trafficRes.count);
+      }
+      setMetricsUpdatedAt(Date.now());
+
+      if (favoritesRes.error) {
+        console.warn('Failed to fetch favorite metrics:', favoritesRes.error.message);
+        setFavoriteEvents([]);
+      } else {
+        setFavoriteEvents(
+          ((favoritesRes.data ?? []) as Array<{shop_id: string | null; created_at: string}> )
+            .filter((row) => Boolean(row.shop_id))
+            .map((row) => ({shop_id: String(row.shop_id), created_at: row.created_at}))
+        );
+      }
+
+      if (actionsRes.error) {
+        console.warn('Failed to fetch shop action metrics:', actionsRes.error.message);
+        setShopActionEvents([]);
+      } else {
+        setShopActionEvents(
+          ((actionsRes.data ?? []) as Array<{shop_id: string | null; action_type: 'locate_click' | 'share_click' | 'complaint_submit'; source: string | null; created_at: string}>)
+            .filter((row) => Boolean(row.shop_id))
+            .map((row) => ({
+              shop_id: String(row.shop_id),
+              action_type: row.action_type,
+              source: row.source,
+              created_at: row.created_at
+            }))
+        );
+      }
+
+      if (commentsMetricRes.error) {
+        console.warn('Failed to fetch comment metrics:', commentsMetricRes.error.message);
+        setCommentMetrics([]);
+      } else {
+        setCommentMetrics(
+          ((commentsMetricRes.data ?? []) as Array<{shop_id: string | null; rating: number | null; created_at: string}>)
+            .filter((row) => Boolean(row.shop_id))
+            .map((row) => ({shop_id: String(row.shop_id), rating: Number(row.rating ?? 0), created_at: row.created_at}))
+        );
+      }
+
+      setShops((shopsRes.data ?? []).map((row) => ({...row, id: String(row.id)})) as ShopRow[]);
+    } catch {
+      if (requestId !== metricsRequestRef.current) return;
+      setError('数据读取失败，请检查网络后重试。');
+      setTrafficError('数据读取失败');
+    } finally {
+      if (requestId === metricsRequestRef.current) {
+        setRefreshing(false);
         setLoading(false);
       }
-      return;
-    }
-
-    if (commentsRes.error) {
-      console.warn('Failed to fetch comment health metrics:', commentsRes.error.message);
-      setNewComments24h(0);
-    } else {
-      setNewComments24h(commentsRes.count ?? 0);
-    }
-
-    if (trafficRes.error) {
-      console.warn('Failed to fetch traffic metrics:', trafficRes.error.message);
-      setTrafficEvents([]);
-    } else {
-      setTrafficEvents((trafficRes.data ?? []) as TrafficEventRow[]);
-    }
-
-    if (favoritesRes.error) {
-      console.warn('Failed to fetch favorite metrics:', favoritesRes.error.message);
-      setFavoriteEvents([]);
-    } else {
-      setFavoriteEvents(
-        ((favoritesRes.data ?? []) as Array<{shop_id: string | null; created_at: string}> )
-          .filter((row) => Boolean(row.shop_id))
-          .map((row) => ({shop_id: String(row.shop_id), created_at: row.created_at}))
-      );
-    }
-
-    if (actionsRes.error) {
-      console.warn('Failed to fetch shop action metrics:', actionsRes.error.message);
-      setShopActionEvents([]);
-    } else {
-      setShopActionEvents(
-        ((actionsRes.data ?? []) as Array<{shop_id: string | null; action_type: 'locate_click' | 'share_click' | 'complaint_submit'; source: string | null; created_at: string}>)
-          .filter((row) => Boolean(row.shop_id))
-          .map((row) => ({
-            shop_id: String(row.shop_id),
-            action_type: row.action_type,
-            source: row.source,
-            created_at: row.created_at
-          }))
-      );
-    }
-
-    if (commentsMetricRes.error) {
-      console.warn('Failed to fetch comment metrics:', commentsMetricRes.error.message);
-      setCommentMetrics([]);
-    } else {
-      setCommentMetrics(
-        ((commentsMetricRes.data ?? []) as Array<{shop_id: string | null; rating: number | null; created_at: string}>)
-          .filter((row) => Boolean(row.shop_id))
-          .map((row) => ({shop_id: String(row.shop_id), rating: Number(row.rating ?? 0), created_at: row.created_at}))
-      );
-    }
-
-    setShops((shopsRes.data ?? []).map((row) => ({...row, id: String(row.id)})) as ShopRow[]);
-    if (silent) {
-      setRefreshing(false);
-    } else {
-      setLoading(false);
     }
   }, []);
 
@@ -997,63 +1010,7 @@ export default function AdminModerationPage() {
     return sorted;
   }, [shops, statusTab, searchQuery, sortKey]);
 
-  const trafficWindowStart = useMemo(() => {
-    const now = Date.now();
-    if (trafficRange === '24h') return now - 24 * 60 * 60 * 1000;
-    if (trafficRange === '7d') return now - 7 * 24 * 60 * 60 * 1000;
-    if (trafficRange === '30d') return now - 30 * 24 * 60 * 60 * 1000;
-    if (trafficRange === '365d') return now - 365 * 24 * 60 * 60 * 1000;
-    return 0;
-  }, [trafficRange]);
-
-  const filteredTrafficEvents = useMemo(() => {
-    return trafficEvents.filter((event) => {
-      const ts = new Date(event.created_at).getTime();
-      return Number.isFinite(ts) && ts >= trafficWindowStart;
-    });
-  }, [trafficEvents, trafficWindowStart]);
-
-  const trafficSummary = useMemo(() => {
-    const pv = filteredTrafficEvents.length;
-    const uv = new Set(filteredTrafficEvents.map((event) => event.session_id).filter(Boolean)).size;
-
-    const bucketMap = new Map<string, number>();
-    const pathMap = new Map<string, number>();
-
-    for (const event of filteredTrafficEvents) {
-      const ts = new Date(event.created_at);
-      if (!Number.isFinite(ts.getTime())) continue;
-
-      const bucketLabel =
-        trafficRange === '24h'
-          ? `${String(ts.getHours()).padStart(2, '0')}:00`
-          : trafficRange === '7d' || trafficRange === '30d'
-            ? `${ts.getMonth() + 1}/${ts.getDate()}`
-            : `${ts.getFullYear()}-${String(ts.getMonth() + 1).padStart(2, '0')}`;
-
-      bucketMap.set(bucketLabel, (bucketMap.get(bucketLabel) ?? 0) + 1);
-
-      const path = (event.path || '/').trim() || '/';
-      pathMap.set(path, (pathMap.get(path) ?? 0) + 1);
-    }
-
-    const timeline = Array.from(bucketMap.entries())
-      .map(([label, count]) => ({label, count}))
-      .sort((a, b) => a.label.localeCompare(b.label))
-      .slice(-24);
-
-    const topPages = Array.from(pathMap.entries())
-      .map(([path, count]) => ({path, count}))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    const peakPoint = timeline.reduce<{label: string; count: number} | null>((max, item) => {
-      if (!max || item.count > max.count) return item;
-      return max;
-    }, null);
-
-    return {pv, uv, timeline, topPages, peakPoint};
-  }, [filteredTrafficEvents, trafficRange]);
+  const trafficSummary = useMemo(() => summarizeTraffic(trafficEvents, trafficRange, metricsUpdatedAt || Date.now()), [trafficEvents, trafficRange, metricsUpdatedAt]);
 
   const opsAlerts = useMemo<OpsAlert[]>(() => {
     const alerts: OpsAlert[] = [];
@@ -1089,14 +1046,14 @@ export default function AdminModerationPage() {
       });
     }
 
-    if (trafficRange === '24h' && trafficSummary.pv > 0 && trafficSummary.uv > 0) {
-      const pvPerUv = trafficSummary.pv / trafficSummary.uv;
+    if (!trafficError && trafficRange === '24h' && trafficSummary.pv > 0 && trafficSummary.uv > 0) {
+      const pvPerUv = trafficSummary.identifiedViews / trafficSummary.uv;
       if (pvPerUv < 1.2) {
         alerts.push({
           id: 'retention-risk',
           level: 'P3',
-          title: '会话深度偏低',
-          reason: `近24小时人均浏览 ${pvPerUv.toFixed(2)} 页，可能存在内容吸引力或路径问题。`,
+          title: '每个浏览器的浏览页数偏低',
+          reason: `近24小时每个浏览器平均浏览 ${pvPerUv.toFixed(2)} 页，可能存在内容吸引力或路径问题。`,
           action: '优先检查首页首屏内容与热门店铺卡片点击路径。'
         });
       }
@@ -1113,7 +1070,7 @@ export default function AdminModerationPage() {
     }
 
     return alerts;
-  }, [healthStats, trafficRange, trafficSummary.pv, trafficSummary.uv]);
+  }, [healthStats, trafficRange, trafficError, trafficSummary.pv, trafficSummary.uv, trafficSummary.identifiedViews]);
 
   const analyticsRangeWindow = useMemo(() => {
     const now = Date.now();
@@ -1423,16 +1380,20 @@ export default function AdminModerationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-canvas px-4 py-7 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-[#006633]">Admin CMS</p>
-              <h1 className="mt-1 text-2xl font-bold text-slate-900">店铺管理后台</h1>
-              <p className="mt-1 text-sm text-slate-600">新增地点与投稿审核使用同一套资料，可在地点管理中继续维护。</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
+        <AdminNavigation section={section} onChange={setSection} onCreate={() => {setSection('places'); setShowCreateModal(true);}} />
+        <div hidden={section !== 'overview'}>
+          <AdminQuickLinks places={placeSummary} queue={queueStats} feedback={feedbackStats} onChange={setSection} />
+          <TrafficOverview summary={trafficSummary} range={trafficRange} onRangeChange={setTrafficRange}
+            onRefresh={() => void fetchAllShops({silent: true})} refreshing={refreshing} error={trafficError}
+            loadedCount={trafficEvents.length} totalCount={trafficTotalCount} updatedAt={metricsUpdatedAt} />
+        </div>
+        <div hidden={section !== 'places'}><PlacesManager createOpen={showCreateModal} onCreateClose={() => setShowCreateModal(false)} refreshSignal={placeRefreshSignal} onSummaryChange={setPlaceSummary} /></div>
+        <div hidden={section !== 'submissions'}><SubmissionQueue onPublished={() => setPlaceRefreshSignal(value => value + 1)} onStatsChange={setQueueStats} /></div>
+        <div hidden={section !== 'feedback'}><FeedbackInbox onStatsChange={setFeedbackStats} /></div>
+        <div hidden={section !== 'tools'}>
+          <div className="mb-5 rounded-2xl border border-line bg-white p-5"><h2 className="text-lg font-semibold text-ink">更多工具</h2><p className="mt-1 text-sm text-muted">历史店铺、搜索分析和操作记录集中在这里，按需展开查看。</p>
               <details className="w-full text-sm text-slate-600">
                 <summary className="cursor-pointer py-1">旧版筛选与维护工具</summary>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1462,19 +1423,7 @@ export default function AdminModerationPage() {
               <button type="button" onClick={handleBackfillMissingFields} disabled={backfilling} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 disabled:opacity-60">{backfilling ? '补全中...' : '补全缺失字段'}</button>
                 </div>
               </details>
-              <button type="button" onClick={() => setShowCreateModal(true)} className="rounded-lg bg-[#006633] px-4 py-2 text-sm font-semibold text-white">新增店铺</button>
-              <Link href="/" className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700">返回首页</Link>
-            </div>
           </div>
-        </div>
-
-        <PlacesManager createOpen={showCreateModal} onCreateClose={() => setShowCreateModal(false)} refreshSignal={placeRefreshSignal} />
-        <SubmissionQueue onPublished={() => setPlaceRefreshSignal(value => value + 1)} />
-
-        <p className="-mt-3 mb-6 text-xs text-slate-500">
-          下方保留旧版数据统计与管理工具；新地点请使用上面的地点资料管理。
-        </p>
-
         <details className="rounded-2xl border border-slate-200 bg-white p-4">
           <summary className="cursor-pointer py-1 font-medium text-slate-700">旧版统计与兼容管理（{shops.length} 条店铺）</summary>
           <div className="mt-4">
@@ -1677,96 +1626,7 @@ export default function AdminModerationPage() {
           )}
         </section>
 
-        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">网站流量分析面板</h2>
-              <p className="mt-1 text-xs text-slate-500">支持 24 小时 / 7 天 / 30 天 / 365 天 / 成立以来 的流量分析</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {([
-                {key: '24h', label: '24h'},
-                {key: '7d', label: '一周'},
-                {key: '30d', label: '一个月'},
-                {key: '365d', label: '一年'},
-                {key: 'all', label: '成立以来'}
-              ] as Array<{key: TrafficRangeKey; label: string}>).map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setTrafficRange(item.key)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    trafficRange === item.key
-                      ? 'bg-[#006633] text-white'
-                      : 'bg-slate-100 text-slate-600'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-semibold text-slate-500">PV（页面浏览）</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">{trafficSummary.pv}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-semibold text-slate-500">UV（独立会话）</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">{trafficSummary.uv}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-semibold text-slate-500">平均每会话浏览</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">{trafficSummary.uv > 0 ? (trafficSummary.pv / trafficSummary.uv).toFixed(2) : '0.00'}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-semibold text-slate-500">流量峰值</p>
-              <p className="mt-1 text-base font-bold text-slate-900">{trafficSummary.peakPoint ? `${trafficSummary.peakPoint.label} (${trafficSummary.peakPoint.count})` : '-'}</p>
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 p-3">
-              <p className="mb-2 text-sm font-semibold text-slate-700">时间点趋势（最近 24 个桶）</p>
-              <div className="space-y-2">
-                {trafficSummary.timeline.length === 0 ? (
-                  <p className="text-xs text-slate-500">暂无流量数据</p>
-                ) : (
-                  trafficSummary.timeline.map((item) => {
-                    const max = Math.max(...trafficSummary.timeline.map((x) => x.count), 1);
-                    const widthPct = Math.max(6, Math.round((item.count / max) * 100));
-                    return (
-                      <div key={item.label} className="flex items-center gap-2 text-xs">
-                        <span className="w-20 shrink-0 text-slate-500">{item.label}</span>
-                        <div className="h-2 flex-1 rounded bg-slate-100">
-                          <div className="h-2 rounded bg-[#006633]" style={{width: `${widthPct}%`}} />
-                        </div>
-                        <span className="w-8 shrink-0 text-right font-semibold text-slate-700">{item.count}</span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 p-3">
-              <p className="mb-2 text-sm font-semibold text-slate-700">Top 页面（PV）</p>
-              <div className="space-y-2">
-                {trafficSummary.topPages.length === 0 ? (
-                  <p className="text-xs text-slate-500">暂无页面数据</p>
-                ) : (
-                  trafficSummary.topPages.map((item, index) => (
-                    <div key={`${item.path}-${index}`} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs">
-                      <span className="truncate text-slate-700">{item.path}</span>
-                      <span className="ml-2 font-semibold text-slate-900">{item.count}</span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
 
         <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -2023,6 +1883,7 @@ export default function AdminModerationPage() {
         </div>
           </div>
         </details>
+        </div>
       </div>
 
       {editingShop && <AdminShopForm mode="edit" initial={editingShop} submitting={saving} onSubmit={handleEdit} onCancel={() => setEditingShop(null)} />}

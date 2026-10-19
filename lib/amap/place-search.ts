@@ -161,7 +161,7 @@ export function toLegacyShopPoiFields<Region extends string>(
   };
 }
 
-function loadAmapPlaceSdk(key: string): Promise<AmapNamespace> {
+export function loadAmapPlaceSdk(key: string): Promise<AmapNamespace> {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('AMap only works in browser'));
   }

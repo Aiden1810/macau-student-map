@@ -1,0 +1,182 @@
+{
+  "source": "AMap JS API 2.0",
+  "queriedAt": "2026-10-16T14:32:24.528Z",
+  "originName": "澳门城市大学氹仔校区",
+  "origin": [
+    113.562524,
+    22.161023
+  ],
+  "rows": [
+    {
+      "destination": {
+        "id": "B0G0PLG781",
+        "name": "海底捞火锅(澳门伦敦人购物中心)",
+        "address": "澳门伦敦人1层1048A",
+        "coordinates": [
+          113.57092,
+          22.142759
+        ]
+      },
+      "modes": [
+        {
+          "mode": "walking",
+          "status": "complete",
+          "info": "ok",
+          "options": [
+            {
+              "durationSeconds": 2478,
+              "distanceMeters": 3098
+            }
+          ],
+          "ms": 1241
+        },
+        {
+          "mode": "driving",
+          "status": "complete",
+          "info": "OK",
+          "options": [
+            {
+              "durationSeconds": 759,
+              "distanceMeters": 4544
+            }
+          ],
+          "ms": 130
+        },
+        {
+          "mode": "transit",
+          "status": "complete",
+          "info": "OK",
+          "options": [
+            {
+              "durationSeconds": 1999,
+              "distanceMeters": 5189
+            },
+            {
+              "durationSeconds": 2163,
+              "distanceMeters": 3261
+            },
+            {
+              "durationSeconds": 2703,
+              "distanceMeters": 4963
+            }
+          ],
+          "ms": 329
+        }
+      ]
+    },
+    {
+      "destination": {
+        "id": "B0FFHKP6H5",
+        "name": "帝濠轩",
+        "address": "上海街51号和北京街106-1号帝濠酒店一楼",
+        "coordinates": [
+          113.553095,
+          22.188099
+        ]
+      },
+      "modes": [
+        {
+          "mode": "walking",
+          "status": "complete",
+          "info": "ok",
+          "options": [
+            {
+              "durationSeconds": 3530,
+              "distanceMeters": 4412
+            }
+          ],
+          "ms": 1207
+        },
+        {
+          "mode": "driving",
+          "status": "complete",
+          "info": "OK",
+          "options": [
+            {
+              "durationSeconds": 882,
+              "distanceMeters": 7325
+            }
+          ],
+          "ms": 106
+        },
+        {
+          "mode": "transit",
+          "status": "complete",
+          "info": "OK",
+          "options": [
+            {
+              "durationSeconds": 1680,
+              "distanceMeters": 4693
+            },
+            {
+              "durationSeconds": 1695,
+              "distanceMeters": 4720
+            },
+            {
+              "durationSeconds": 1653,
+              "distanceMeters": 4651
+            }
+          ],
+          "ms": 305
+        }
+      ]
+    },
+    {
+      "destination": {
+        "id": "B0FFH00PMH",
+        "name": "顺轩海鲜火锅酒家",
+        "address": "大堂区柏嘉街339号一楼雅诗阁酒店一楼",
+        "coordinates": [
+          113.554163,
+          22.183982
+        ]
+      },
+      "modes": [
+        {
+          "mode": "walking",
+          "status": "complete",
+          "info": "ok",
+          "options": [
+            {
+              "durationSeconds": 3478,
+              "distanceMeters": 4347
+            }
+          ],
+          "ms": 537
+        },
+        {
+          "mode": "driving",
+          "status": "complete",
+          "info": "OK",
+          "options": [
+            {
+              "durationSeconds": 821,
+              "distanceMeters": 7029
+            }
+          ],
+          "ms": 131
+        },
+        {
+          "mode": "transit",
+          "status": "complete",
+          "info": "OK",
+          "options": [
+            {
+              "durationSeconds": 1836,
+              "distanceMeters": 5270
+            },
+            {
+              "durationSeconds": 1907,
+              "distanceMeters": 5188
+            },
+            {
+              "durationSeconds": 2026,
+              "distanceMeters": 4998
+            }
+          ],
+          "ms": 296
+        }
+      ]
+    }
+  ]
+}

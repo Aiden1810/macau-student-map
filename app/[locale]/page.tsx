@@ -9,7 +9,9 @@ import ContributionForm from '@/components/ContributionForm';
 import {getL2ValuesByCategory} from '@/lib/search/filter-options';
 import {selectSecondaryFilter} from '@/lib/search/filter-selection';
 import Header from '@/components/Header';
+import FloatingPlaceAssistant from '@/components/assistant/FloatingPlaceAssistant';
 import MapPlaceholder from '@/components/MapPlaceholder';
+import MobileCategoryNav from '@/components/MobileCategoryNav';
 import ShopList from '@/components/ShopList';
 import {mapShopList, mapSingleShop} from '@/lib/mappers/shop';
 import {
@@ -20,8 +22,10 @@ import {normalizePlaceSearchRequest} from '@/lib/domain/search';
 import {resolveTagAlias} from '@/lib/domain/taxonomy';
 import {isLaunchCategory, matchesLaunchCategory} from '@/lib/domain/place-types';
 import {createRequestGuard} from '@/lib/data/async-request';
-import {loadCanonicalPlaces} from '@/lib/data/canonical-places';
+import {loadCanonicalPlaces, mergeLegacyAndCanonicalPlaces} from '@/lib/data/canonical-places';
 import {filterBySelectedFacet} from '@/lib/search/legacy-filters';
+import {filterFoodPlaces} from '@/lib/search/food-filters';
+import {filterRecommendedPlaces} from '@/lib/search/recommendation-filters';
 import {parseDiscoveryUrlState, updateDiscoverySearchParams} from '@/lib/search/url-state';
 import {rankCompatibilityPlaces} from '@/lib/services/search-places';
 import type {AmapPoiSearchOrigin} from '@/lib/amap/place-search';
@@ -34,7 +38,7 @@ function mergeShopUpdate(prev: Shop[], incoming: Shop): Shop[] {
   if (index === -1) return [incoming, ...prev];
 
   const next = [...prev];
-  next[index] = incoming;
+  next[index] = {...incoming, publishedAt: incoming.publishedAt ?? prev[index].publishedAt};
   return next;
 }
 
@@ -66,13 +70,9 @@ function hasDrawerFilters(filters: DrawerFiltersState): boolean {
 
 
 function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
-  if (tabKey === 'all' || tabKey === 'region') return shops;
+  if (tabKey === 'all' || tabKey === 'region' || tabKey === 'review') return shops;
   if (isLaunchCategory(tabKey)) return shops.filter(shop => matchesLaunchCategory(shop, tabKey));
   
-  if (tabKey === 'review') {
-    return shops.filter((s) => ['封神之作', '强烈推荐'].includes(s.ratingLabel));
-  }
-
   if (tabKey === 'deal') {
     const dealTags = getL2ValuesByCategory('deal');
     const tagMatches = new Set(filterBySelectedFacet(dealTags, shops, 'deal').map((shop) => shop.id));
@@ -96,8 +96,9 @@ function filterByL1(tabKey: ShopCategoryKey, shops: Shop[]): Shop[] {
 
 function filterByL2(tags: string[], shops: Shop[], l1Key: ShopCategoryKey): Shop[] {
   if (l1Key === 'review') {
-    return tags.length === 0 ? shops : shops.filter((shop) => tags.includes(shop.ratingLabel));
+    return filterRecommendedPlaces(tags, shops);
   }
+  if (l1Key === 'food') return filterFoodPlaces(tags, shops);
   return filterBySelectedFacet(tags, shops, l1Key);
 }
 
@@ -138,6 +139,17 @@ export default function Page() {
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
   const [collapseMobileSheetSignal, setCollapseMobileSheetSignal] = useState(0);
   const [locateSignal, setLocateSignal] = useState(0);
+  const [assistantPanel, setAssistantPanel] = useState({open: false, hasOpened: false});
+  const toggleAssistant = useCallback(() => setAssistantPanel(previous => ({open: !previous.open, hasOpened: true})), []);
+  const closeAssistant = useCallback(() => setAssistantPanel(previous => ({...previous, open: false})), []);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('assistant') !== 'open') return;
+    setAssistantPanel({open: true, hasOpened: true});
+    params.delete('assistant');
+    const query = params.toString();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+  }, []);
   const [poiUserCoordinates, setPoiUserCoordinates] = useState<[number, number] | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
@@ -226,9 +238,7 @@ export default function Page() {
       }
 
       const legacyShops = mapShopList((legacyResult.data ?? []) as unknown[], locale);
-      const legacyIds = new Set(legacyShops.map((shop) => shop.id));
-      const canonicalOnly = canonicalResult.filter((shop) => !legacyIds.has(shop.id));
-      setShops([...legacyShops, ...canonicalOnly]);
+      setShops(mergeLegacyAndCanonicalPlaces(legacyShops, canonicalResult));
 
       if (hasFetchedRef.current) {
         toast.success(tHome('toast.updated'));
@@ -334,9 +344,12 @@ export default function Page() {
     };
 
     updateMobileSheetTopOffset();
+    const observer = new ResizeObserver(updateMobileSheetTopOffset);
+    if (mobileHeaderRef.current) observer.observe(mobileHeaderRef.current);
     window.addEventListener('resize', updateMobileSheetTopOffset);
 
     return () => {
+      observer.disconnect();
       window.removeEventListener('resize', updateMobileSheetTopOffset);
     };
   }, []);
@@ -638,8 +651,10 @@ export default function Page() {
         </div>
 
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] flex flex-col">
-          <div ref={mobileHeaderRef} className="pointer-events-auto rounded-b-[18px] bg-white px-[14px] pt-[max(env(safe-area-inset-top),4px)] pb-2 shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+          <div ref={mobileHeaderRef} className="pointer-events-auto px-4 pt-[max(env(safe-area-inset-top),16px)]">
             <Header
+              assistantOpen={assistantPanel.open}
+              onToggleAssistant={toggleAssistant}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
               searchPlaceholder={t('searchPlaceholder')}
@@ -658,6 +673,7 @@ export default function Page() {
               contributeLabel={tContribute('button')}
               mySubmissionsLabel={tContribute('mySubmissions')}
             />
+            <MobileCategoryNav active={activeL1} onChange={handleL1Change} />
           </div>
 
         </div>
@@ -711,6 +727,7 @@ export default function Page() {
           onDeleteShop={handleDeleteShop}
           collapseMobileSheetSignal={collapseMobileSheetSignal}
           mobileTopOffsetPx={mobileSheetTopOffset}
+          onToggleAssistant={toggleAssistant}
           drawerFilters={drawerFilters}
           onChangeDrawerFilters={setDrawerFilters}
           activeL1={activeL1}
@@ -726,6 +743,8 @@ export default function Page() {
 
       <div className="hidden md:block md:bg-slate-50">
         <Header
+          assistantOpen={assistantPanel.open}
+          onToggleAssistant={toggleAssistant}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           searchPlaceholder={t('searchPlaceholder')}
@@ -874,6 +893,7 @@ export default function Page() {
           />
         </div>
       )}
+      <FloatingPlaceAssistant open={assistantPanel.open} hasOpened={assistantPanel.hasOpened} onClose={closeAssistant} />
     </div>
   );
 }

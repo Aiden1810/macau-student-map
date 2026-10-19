@@ -2,6 +2,14 @@ import {describe, expect, it} from 'vitest';
 import {parseDiscoveryUrlState, updateDiscoverySearchParams} from '../../../lib/search/url-state';
 
 describe('discovery URL state', () => {
+  it('migrates old recommendation links to the objective budget and recent filters', () => {
+    const state = parseDiscoveryUrlState(`?category=review&tags=${encodeURIComponent('高性价比,本周新上,本周上新,强烈推荐')}`);
+    expect(state.tags).toEqual(['budget-30', 'recent-7-days', '强烈推荐']);
+  });
+  it('keeps unrecognized recommendation values as strings', () => {
+    expect(parseDiscoveryUrlState('?category=review&tags=constructor,__proto__').tags)
+      .toEqual(['constructor', '__proto__']);
+  });
   it('restores only the latest region from an old multi-region link', () => {
     const state = parseDiscoveryUrlState(`?category=region&tags=${encodeURIComponent('澳门半岛,香洲区')}`);
     expect(state.tags).toEqual(['香洲区']);

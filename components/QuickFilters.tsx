@@ -5,6 +5,7 @@ import {useTranslations} from 'next-intl';
 import type {DrawerFiltersState, ShopFeature} from '@/types/shop';
 
 interface QuickFiltersProps {
+  compact?: boolean;
   count: number;
   loading: boolean;
   filters: DrawerFiltersState;
@@ -16,10 +17,10 @@ interface QuickFiltersProps {
   onClear: () => void;
 }
 
-export default function QuickFilters({count, loading, filters, onChange, showFavorites, onFavoritesChange, hasActiveFilters, extraLabels, onClear}: QuickFiltersProps) {
+export default function QuickFilters({compact = false, count, loading, filters, onChange, showFavorites, onFavoritesChange, hasActiveFilters, extraLabels, onClear}: QuickFiltersProps) {
   const t = useTranslations('Filters');
   const chipClass = (active: boolean) =>
-    `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${active ? 'bg-emerald-100 font-semibold text-emerald-900' : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/70'}`;
+    `inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-[13px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${active ? 'border-pine-200 bg-pine-50 font-semibold text-pine-800' : 'border-line bg-white text-muted hover:bg-canvas'}`;
   const toggleFeature = (feature: ShopFeature) => onChange({
     ...filters,
     features: filters.features.includes(feature) ? filters.features.filter(value => value !== feature) : [...filters.features, feature]
@@ -43,10 +44,10 @@ export default function QuickFilters({count, loading, filters, onChange, showFav
         </button>
       </div>
       {extraLabels.length > 0 && <p className="break-words text-xs text-slate-500">{extraLabels.join(' · ')}</p>}
-      <div className="flex min-h-8 items-center justify-between gap-2 border-b border-slate-100 pb-2 text-xs text-slate-500">
-        <span role="status">{loading ? t('loadingPlaces') : t('foundPlaces', {count})}</span>
+      {(!compact || hasActiveFilters) && <div className="flex min-h-8 items-center justify-between gap-2 border-b border-slate-100 pb-2 text-xs text-slate-500">
+        {!compact && <span role="status">{loading ? t('loadingPlaces') : t('foundPlaces', {count})}</span>}
         {hasActiveFilters && <button type="button" onClick={onClear} className="min-h-8 shrink-0 rounded px-1 text-emerald-700 hover:underline focus-visible:ring-2 focus-visible:ring-emerald-700">{t('clearFilters')}</button>}
-      </div>
+      </div>}
     </section>
   );
 }

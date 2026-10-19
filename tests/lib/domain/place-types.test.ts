@@ -6,7 +6,7 @@ import {parseDiscoveryUrlState, updateDiscoverySearchParams} from '../../../lib/
 
 describe('shared launch categories', () => {
   it('uses a service-friendly price caption and does not lose zero prices', () => {
-    expect(formatPlacePrice({category: 'food', tags: [], pricePerPerson: 60})).toBe('人均人民币 60 元');
+    expect(formatPlacePrice({category: 'food', tags: [], pricePerPerson: 60})).toBe('人均 ¥60');
     expect(formatPlacePrice({category: 'service', tags: ['理发'], pricePerPerson: 80})).toBe('消费参考人民币 80 元/人次');
     expect(formatPlacePrice({category: 'entertainment', tags: ['桌游'], pricePerPerson: 0})).toBe('免费');
     expect(formatPlacePrice({category: 'service', tags: [], pricePerPerson: null})).toBe('消费待补充');

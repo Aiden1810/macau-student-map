@@ -1,7 +1,9 @@
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useTranslations} from 'next-intl';
+import toast from 'react-hot-toast';
 import {supabase} from '@/lib/supabase';
 
-const FAVORITES_KEY = 'mz_food_favorites';
+import {FAVORITES_KEY, persistFavoriteChange} from '@/lib/favorites/persistence';
 
 function safeLoadLocal(): string[] {
   try {
@@ -24,22 +26,37 @@ function safeSaveLocal(next: string[]) {
 }
 
 export function useFavorites() {
+  const t = useTranslations('Home.toast');
   const [favorites, setFavorites] = useState<string[]>([]);
+  const favoritesRef = useRef<string[]>([]);
+  const userIdRef = useRef<string | null>(null);
+  const mountedRef = useRef(false);
+  const pendingRef = useRef(new Set<string>());
+  const commitFavorites = useCallback((next: string[]) => {
+    favoritesRef.current = next;
+    setFavorites(next);
+  }, []);
   const [isLoaded, setIsLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    setFavorites(safeLoadLocal());
+    mountedRef.current = true;
+    commitFavorites(safeLoadLocal());
     setIsLoaded(true);
-  }, []);
+    return () => {mountedRef.current = false;};
+  }, [commitFavorites]);
 
   useEffect(() => {
     const syncUser = async () => {
       const {data, error} = await supabase.auth.getUser();
       if (error || !data?.user) {
+        if (!mountedRef.current) return;
+        userIdRef.current = null;
         setUserId(null);
         return;
       }
+      if (!mountedRef.current) return;
+      userIdRef.current = data.user.id;
       setUserId(data.user.id);
     };
 
@@ -73,7 +90,8 @@ export function useFavorites() {
       const remote = (data ?? []).map((row) => String(row.shop_id));
       const merged = Array.from(new Set([...local, ...remote]));
 
-      setFavorites(merged);
+      if (!mountedRef.current || userIdRef.current !== userId) return;
+      commitFavorites(merged);
       safeSaveLocal(merged);
 
       const missingRemote = merged.filter((id) => !remote.includes(id));
@@ -91,34 +109,43 @@ export function useFavorites() {
     };
 
     syncRemote();
-  }, [userId]);
+  }, [userId, commitFavorites]);
 
-  const toggleFavorite = useCallback((shopId: string, event?: {stopPropagation?: () => void}) => {
+  const toggleFavorite = useCallback(async (shopId: string, event?: {stopPropagation?: () => void}) => {
     event?.stopPropagation?.();
-
-    setFavorites((prev) => {
-      const exists = prev.includes(shopId);
-      const next = exists ? prev.filter((id) => id !== shopId) : [...prev, shopId];
-      safeSaveLocal(next);
-
-      if (userId) {
-        if (exists) {
-          supabase.from('favorites').delete().eq('user_id', userId).eq('shop_id', shopId).then(({error}) => {
-            if (error) console.warn('Could not remove favorite from Supabase', error.message);
-          });
-        } else {
-          supabase
-            .from('favorites')
-            .upsert({user_id: userId, shop_id: shopId}, {onConflict: 'user_id,shop_id'})
-            .then(({error}) => {
-              if (error) console.warn('Could not save favorite to Supabase', error.message);
-            });
-        }
-      }
-
-      return next;
-    });
-  }, [userId]);
+    if (!isLoaded || pendingRef.current.has(shopId)) return;
+    pendingRef.current.add(shopId);
+    const saved = !favoritesRef.current.includes(shopId);
+    const toastId = `favorite-${shopId}`;
+    const options = {id: toastId, position: 'top-center' as const, duration: 2000};
+    const current = () => mountedRef.current && userIdRef.current === userId;
+    if (userId) toast.loading(t('favoriteSaving'), {...options, duration: Infinity});
+    try {
+      const result = await persistFavoriteChange(shopId, saved, {
+        read: () => favoritesRef.current,
+        commit: commitFavorites,
+        writeLocal: next => window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(next)),
+        isCurrent: current,
+        syncRemote: userId ? async () => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 10000);
+          try {
+            const request = saved
+              ? supabase.from('favorites').upsert({user_id: userId, shop_id: shopId}, {onConflict: 'user_id,shop_id'})
+              : supabase.from('favorites').delete().eq('user_id', userId).eq('shop_id', shopId);
+            const {error} = await request.abortSignal(controller.signal);
+            if (error) throw error;
+          } finally {clearTimeout(timer);}
+        } : undefined,
+      });
+      if (!current() || result === 'cancelled') {toast.dismiss(toastId); return;}
+      if (result === 'success') toast.success(t(saved ? 'favoriteSaved' : 'favoriteRemoved'), options);
+      else toast.error(t(result === 'local_error' ? 'favoriteStorageFailed' : 'favoriteSaveFailed'), {...options, duration: 3500});
+    } catch {
+      if (current()) toast.error(t('favoriteSaveFailed'), {...options, duration: 3500});
+      else toast.dismiss(toastId);
+    } finally {pendingRef.current.delete(shopId);}
+  }, [isLoaded, userId, commitFavorites, t]);
 
   const isAuthed = useMemo(() => Boolean(userId), [userId]);
 

@@ -1,6 +1,7 @@
 import type {ShopCategoryKey} from '../../types/shop';
 import {getTaxonomyTagLabelZhCN} from '../domain/taxonomy';
 import {LAUNCH_CATEGORIES, getLaunchTagOptions} from '../domain/place-types';
+import {FOOD_KEYWORD_FILTERS} from './food-filters';
 
 export const DISCOVERY_TABS: readonly {key: ShopCategoryKey; label: string}[] = [
   {key: 'all', label: '全部'},
@@ -13,6 +14,7 @@ export type L2Option = {
   value: string;
   labelKey: string;
   labelZhCN: string;
+  matchKeywords?: readonly string[];
 };
 
 export type L2Group = {
@@ -29,6 +31,17 @@ function canonicalTagOption(value: string, labelKey: string): L2Option {
   return {value, labelKey, labelZhCN};
 }
 
+const DRINK_DESSERT_GROUPS: readonly L2Group[] = [
+  {
+    groupKey: 'beverages', groupLabelZhCN: '饮品',
+    options: [canonicalTagOption('coffee', 'coffee'), canonicalTagOption('milk-tea', 'lemonTeaJuice'), canonicalTagOption('fruit-tea', 'lemonTeaJuice')]
+  },
+  {
+    groupKey: 'desserts', groupLabelZhCN: '甜点',
+    options: [canonicalTagOption('bread', 'eggTartBakery'), canonicalTagOption('dessert', 'westernDessert'), canonicalTagOption('cake', 'westernDessert')]
+  }
+];
+
 export const L2_TAGS: Record<Exclude<ShopCategoryKey, 'all'>, readonly L2Group[]> = {
   'hair-salon': [],
   bar: [],
@@ -41,7 +54,8 @@ export const L2_TAGS: Record<Exclude<ShopCategoryKey, 'all'>, readonly L2Group[]
         canonicalTagOption('cha-chaan-teng', 'chaChaanTeng'),
         canonicalTagOption('hot-pot', 'hotPot'),
         canonicalTagOption('barbecue', 'bbqGrill'),
-        canonicalTagOption('fast-food', 'siuMeiFastFood')
+        canonicalTagOption('fast-food', 'siuMeiFastFood'),
+        ...FOOD_KEYWORD_FILTERS
       ]
     },
     {
@@ -64,28 +78,10 @@ export const L2_TAGS: Record<Exclude<ShopCategoryKey, 'all'>, readonly L2Group[]
         canonicalTagOption('fried-chicken', 'burgerFriedChicken'),
         canonicalTagOption('snack', 'friedSnacks')
       ]
-    }
-  ],
-  drink: [
-    {
-      groupKey: 'beverages',
-      groupLabelZhCN: '饮品',
-      options: [
-        canonicalTagOption('coffee', 'coffee'),
-        canonicalTagOption('milk-tea', 'lemonTeaJuice'),
-        canonicalTagOption('fruit-tea', 'lemonTeaJuice')
-      ]
     },
-    {
-      groupKey: 'desserts',
-      groupLabelZhCN: '甜点',
-      options: [
-        canonicalTagOption('bread', 'eggTartBakery'),
-        canonicalTagOption('dessert', 'westernDessert'),
-        canonicalTagOption('cake', 'westernDessert')
-      ]
-    }
+    ...DRINK_DESSERT_GROUPS
   ],
+  drink: DRINK_DESSERT_GROUPS,
   shopping: [
     {
       groupKey: 'shoppingTypes',
@@ -149,8 +145,8 @@ export const L2_TAGS: Record<Exclude<ShopCategoryKey, 'all'>, readonly L2Group[]
       options: [
         {value: '封神之作', labelKey: 'legendary', labelZhCN: '封神之作'},
         {value: '强烈推荐', labelKey: 'highlyRecommended', labelZhCN: '强烈推荐'},
-        {value: '高性价比', labelKey: 'greatValue', labelZhCN: '高性价比'},
-        {value: '本周新上', labelKey: 'newThisWeek', labelZhCN: '本周新上'}
+        {value: 'budget-30', labelKey: 'greatValue', labelZhCN: '人均30元内'},
+        {value: 'recent-7-days', labelKey: 'newThisWeek', labelZhCN: '近7天收录'}
       ]
     }
   ],

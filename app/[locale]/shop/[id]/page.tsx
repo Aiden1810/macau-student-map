@@ -2,9 +2,9 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import {ImagePlus, MessageCirclePlus, Phone} from 'lucide-react';
+import {ArrowLeft, Heart, ImagePlus, MapPin, MessageCircle, MessageCirclePlus, Phone} from 'lucide-react';
 import {useParams} from 'next/navigation';
-import {useLocale} from 'next-intl';
+import {useLocale, useTranslations} from 'next-intl';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import AdminImageManager from '@/components/AdminImageManager';
 import ImageLightbox from '@/components/ImageLightbox';
@@ -21,22 +21,12 @@ import {canManageLegacyImages, loadShopDetail} from '@/lib/data/shop-detail';
 import type {ShopSource} from '@/lib/data/shop-detail';
 import {mapSingleShop} from '@/lib/mappers/shop';
 import {resolvePriceDisplay} from '@/lib/utils/price';
-import {getRatingTag} from '@/lib/utils/ratingTag';
+import {useFavorites} from '@/lib/hooks/useFavorites';
 import {supabase} from '@/lib/supabase';
 import {Comment, Shop} from '@/types/shop';
 
 type CommentWithImages = Comment & {
   comment_images: Array<{image_url: string}>;
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  food: '美食',
-  drink: '饮品甜点',
-  shopping: '购物',
-  entertainment: '娱乐',
-  service: '生活服务',
-  vibe: '场景',
-  deal: '优惠'
 };
 
 function ShopImageGallery({
@@ -128,106 +118,33 @@ function ShopHero({
   onOpenAdminManager: () => void;
   canManageImages: boolean;
 }) {
-  const normalizedPhone = shop.phone?.trim() ?? '';
-  const hasPhone = normalizedPhone.length > 0;
-  const phoneHref = hasPhone ? `tel:${normalizedPhone.replace(/\s+/g, '')}` : null;
-  const averageScore = shop.rating;
-  const ratingTag = getRatingTag(averageScore);
-
-  const categoryLabel = shop.category ? CATEGORY_LABELS[shop.category] ?? null : null;
-  const priceDisplay = resolvePriceDisplay(shop.pricePerPerson);
-  const priceText =
-    priceDisplay.kind === 'free'
-      ? '免费'
-      : priceDisplay.kind === 'paid'
-        ? formatPlacePrice(shop)
-        : null;
-  const hasCoordinates =
-    shop.hasCoordinates &&
-    Array.isArray(shop.coordinates) &&
-    shop.coordinates.length === 2 &&
-    shop.coordinates.every((value) => typeof value === 'number' && Number.isFinite(value));
-  const coordinatesText = hasCoordinates
-    ? `坐标 (${Number(shop.coordinates[0]).toFixed(4)}, ${Number(shop.coordinates[1]).toFixed(4)})`
-    : null;
-  const rawTags = (shop.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
-  const displayTags = Array.from(new Set(rawTags));
-  const hasBasicInfo = Boolean(categoryLabel || priceText || coordinatesText || displayTags.length > 0);
-
+  const t = useTranslations('ShopDetail');
+  const price = resolvePriceDisplay(shop.pricePerPerson);
+  const branch = /^(.*?)\s*[（(]([^（）()]+)[）)]$/.exec(shop.name);
+  const phone = shop.phone?.trim();
+  const hasRating = shop.reviews > 0 && shop.rating > 0;
+  const tags = [...new Set(shop.tags.map(tag => tag.trim()).filter(Boolean))];
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="block md:hidden">
-        <MobileImageSlider images={shop.imageUrls ?? []} onOpenLightbox={onOpenLightbox} />
-      </div>
-      <div className="hidden md:block p-4">
-        <ShopImageGallery imageUrls={shop.imageUrls ?? []} onOpenLightbox={onOpenLightbox} />
-      </div>
-
-      <div className="px-4 pb-4 pt-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-slate-900">{shop.name}</h1>
-          <PlaceTypeBadge place={shop} />
-          {canManageImages && (
-            <button
-              type="button"
-              onClick={onOpenAdminManager}
-              className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
-            >
-              <ImagePlus className="h-3.5 w-3.5" />
-              管理图片
-            </button>
-          )}
+    <section>
+      <div className="md:hidden"><MobileImageSlider images={shop.imageUrls ?? []} onOpenLightbox={onOpenLightbox} /></div>
+      <div className="hidden md:block"><ShopImageGallery imageUrls={shop.imageUrls ?? []} onOpenLightbox={onOpenLightbox} /></div>
+      <div className="pt-5">
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="break-words text-[25px] font-semibold leading-[1.35] tracking-tight text-ink md:text-3xl">{branch ? <>{branch[1]}<span className="mt-1 block text-lg font-normal tracking-normal text-muted">({branch[2]})</span></> : shop.name}</h1>
+          {canManageImages && <button type="button" onClick={onOpenAdminManager} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl border border-line bg-white px-3 text-xs font-medium text-pine-700"><ImagePlus size={16} aria-hidden="true" />管理图片</button>}
         </div>
-
-        <div className="rounded-xl bg-slate-50 px-3 py-2">
-          <p className="text-xs text-slate-500">{shop.address}</p>
-          {hasBasicInfo && (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {categoryLabel && (
-                <span className="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                  {categoryLabel}
-                </span>
-              )}
-              {displayTags.map((tag, index) => (
-                <span key={`${tag}-${index}`} className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                  {tag}
-                </span>
-              ))}
-              {priceText && (
-                <span className="rounded-md border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                  {priceText}
-                </span>
-              )}
-              {coordinatesText && (
-                <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-500">
-                  {coordinatesText}
-                </span>
-              )}
-            </div>
-          )}
-          <div className="mt-2 flex items-center gap-2">
-            <StarRating score={averageScore} reviewCount={shop.reviews} />
-            <span
-              className={`rounded-md border px-2 py-1 text-xs font-semibold ${ratingTag.bgClass} ${ratingTag.textClass} ${ratingTag.borderClass}`}
-            >
-              {ratingTag.label}
-            </span>
-          </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted"><PlaceTypeBadge place={shop} />{shop.region && <span>· {shop.region}</span>}</div>
+        <div className="mt-4 text-ink">
+          {price.kind === 'paid' ? <p className="flex flex-wrap items-baseline gap-2"><span className="text-3xl font-semibold tracking-tight">¥{price.value}</span><span className="text-sm text-muted">{t(shop.category === 'food' || shop.category === 'drink' ? 'priceUnit' : 'servicePriceUnit')}</span></p> : <p className="text-base font-medium text-muted">{formatPlacePrice(shop)}</p>}
         </div>
-
-        <div className="mt-3">
-          <PlaceNavigationActions key={shop.id} place={shop} />
+        <div className="mt-3">{hasRating ? <StarRating score={shop.rating} reviewCount={shop.reviews} /> : <p className="text-sm text-muted">暂无评价</p>}</div>
+        {tags.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{tags.map(tag => <span key={tag} className="rounded-lg bg-[#eeefeb] px-2.5 py-1.5 text-xs text-muted">{tag}</span>)}</div>}
+        {shop.studentDiscount?.trim() && <p className="mt-4 rounded-xl bg-pine-50 p-3 text-sm leading-6 text-pine-800">{shop.studentDiscount}</p>}
+        <div className="mt-6 rounded-2xl border border-line bg-white p-4">
+          <div className="flex items-start gap-3"><MapPin size={19} aria-hidden="true" className="mt-0.5 shrink-0 text-pine-700" /><div className="min-w-0"><h2 className="text-xs text-muted">{t('address')}</h2><p className="mt-1 break-words text-sm leading-6 text-ink">{shop.address || '地址待补充'}</p></div></div>
+          {phone && <a href={`tel:${phone.replace(/\s+/g, '')}`} className="mt-3 inline-flex min-h-11 items-center gap-2 border-t border-line pt-3 text-sm font-medium text-pine-700"><Phone size={16} aria-hidden="true" />{phone}</a>}
+          <div className="mt-4 hidden border-t border-line pt-4 md:block"><PlaceNavigationActions key={shop.id} place={shop} /></div>
         </div>
-
-        {hasPhone && phoneHref && (
-          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-xs font-medium text-slate-500">联系电话</p>
-            <a href={phoneHref} className="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 hover:underline">
-              <Phone className="h-4 w-4" />
-              {normalizedPhone}
-            </a>
-          </div>
-        )}
       </div>
     </section>
   );
@@ -235,6 +152,7 @@ function ShopHero({
 
 
 function CommentList({comments, loading, error}: {comments: CommentWithImages[]; loading: boolean; error: string | null}) {
+  const t = useTranslations('ShopDetail');
   if (loading) {
     return <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">评论加载中...</div>;
   }
@@ -246,7 +164,7 @@ function CommentList({comments, loading, error}: {comments: CommentWithImages[];
   return (
     <section id="reviews" className="scroll-mt-20 space-y-4">
       {comments.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">还没有评论，来抢沙发吧。</div>
+        <div className="flex flex-col items-center gap-2 rounded-2xl bg-[#eeefeb]/60 px-4 py-7 text-center text-muted"><MessageCircle size={28} strokeWidth={1.4} aria-hidden="true" /><p className="text-sm">{t('emptyReviews')}</p></div>
       ) : (
         comments.map((comment) => {
           const dateLabel = new Date(comment.createdAt).toLocaleString();
@@ -286,6 +204,8 @@ function CommentList({comments, loading, error}: {comments: CommentWithImages[];
 export default function ShopDetailPage() {
   const params = useParams<{id: string}>();
   const locale = useLocale();
+  const t = useTranslations('ShopDetail');
+  const {favorites, toggleFavorite, isLoaded: favoritesLoaded} = useFavorites();
   const shopId = useMemo(() => String(params?.id ?? ''), [params]);
 
   const [shop, setShop] = useState<Shop | null>(null);
@@ -502,7 +422,14 @@ export default function ShopDetailPage() {
 
   return (
     <>
-      <main className="mx-auto max-w-5xl space-y-6 px-4 pb-24 pt-6">
+      <header className="sticky top-0 z-30 border-b border-line bg-canvas/95 pt-[env(safe-area-inset-top)] backdrop-blur-sm md:hidden">
+        <div className="flex h-14 items-center justify-between px-3">
+          <Link href={`/${locale}`} aria-label={t('back')} className="flex h-11 w-11 items-center justify-center rounded-full text-ink focus-visible:ring-2 focus-visible:ring-pine-700"><ArrowLeft size={22} aria-hidden="true" /></Link>
+          <p className="text-sm font-semibold text-ink">{t('title')}</p>
+          <button type="button" aria-label="收藏" aria-pressed={favorites.includes(shop.id)} disabled={!favoritesLoaded} onClick={() => toggleFavorite(shop.id)} className="flex h-11 w-11 items-center justify-center rounded-full text-pine-700 focus-visible:ring-2 focus-visible:ring-pine-700"><Heart size={21} aria-hidden="true" className={favorites.includes(shop.id) ? 'fill-current' : ''} /></button>
+        </div>
+      </header>
+      <main className="mx-auto max-w-5xl space-y-7 px-4 pb-40 pt-4 md:pb-12 md:pt-6">
         <ShopHero
           shop={shop}
           onOpenLightbox={(index) => {
@@ -514,7 +441,7 @@ export default function ShopDetailPage() {
         />
 
         <section className="space-y-2">
-          <h2 className="text-base font-semibold text-slate-900">用户评价</h2>
+          <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-ink">{t('reviews')}</h2><Link href={`/${locale}/shop/${shop.id}/review/new`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-pine-700"><MessageCirclePlus size={17} aria-hidden="true" />{t('writeReview')}</Link></div>
           <CommentList comments={comments} loading={commentsLoading} error={commentsError} />
         </section>
       </main>
@@ -527,14 +454,8 @@ export default function ShopDetailPage() {
         onChangeIndex={setLightboxIndex}
       />
 
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+16px)] right-4 z-40 md:hidden">
-        <Link
-          href={`/${locale}/shop/${shop.id}/review/new`}
-          className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-emerald-700"
-        >
-          <MessageCirclePlus className="h-4 w-4" />
-          发表评论
-        </Link>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 md:hidden">
+        <PlaceNavigationActions place={shop} variant="mobile-footer" />
       </div>
 
       {canManageImages && (

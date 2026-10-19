@@ -1,0 +1,119 @@
+[
+  {
+    "id": "10bcfd27-6705-486d-8309-3fd2d645b3d7",
+    "name": "东北盒饭帝国（十字门店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 14,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "1fc962ba-031f-4ff0-98c2-214886526692",
+    "name": "王春春鸡汤饭（珠海励骏庞都广场店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 26,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "537fb38d-6e1a-42d3-adce-0bcdd76f5bf2",
+    "name": "老碗会·陕西手工面（珠海店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 34.8,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "5d983848-345d-4989-bbb1-be19f74dd6fc",
+    "name": "麦当劳麦乐送（珠海香江路店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 38.4,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "6fee7513-7474-4ce1-98bb-742502a252dd",
+    "name": "左四吹麻辣香锅（励骏庞都店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 36,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "752a1db8-9a76-49c6-8fc4-cacb7492d169",
+    "name": "潮汕牛肉粿条汤",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 29,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "a3955b90-68aa-4e4c-ba86-8dafe5091184",
+    "name": "穆味王·私房牛肉面（华发悦天地店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 28,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "a44b46b8-2d96-434f-a70f-83cf6e1cba9b",
+    "name": "二师兄猪脚饭（保利国际广场店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 25,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "a7c14799-84de-442a-86cb-7bc80cd5462b",
+    "name": "京之鲜御膳炖汤（湾仔店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 31,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "cf0965d6-f4fe-4f37-94ad-ade7d64fbe27",
+    "name": "拌四方·南昌拌粉瓦罐汤（横琴保利店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 26,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "e2181a16-0be3-41dd-a4c2-a1a96acd4523",
+    "name": "虾皇天下（横琴店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 71,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "e5343163-2799-4501-b5d4-ce0c9d10161b",
+    "name": "巴黎贝甜（珠海横琴华发商都店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 30,
+    "longitude": null,
+    "latitude": null
+  },
+  {
+    "id": "e819efbe-0d6c-4f9a-81de-433696b9c427",
+    "name": "肯德基（横琴华发商都店）",
+    "status": "draft",
+    "published_at": null,
+    "price_per_person": 26,
+    "longitude": null,
+    "latitude": null
+  }
+]

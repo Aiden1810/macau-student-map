@@ -93,7 +93,7 @@ export const TAG_CATALOG: readonly TaxonomyTag[] = [
     id: '00000000-0000-0000-0000-000000000108',
     slug: 'barbecue',
     kind: 'category',
-    labelZhMO: '烤肉',
+    labelZhMO: '燒烤／烤肉',
     labelEn: 'Barbecue',
     aliases: ['烤肉', '燒烤', '烧烤', 'bbq', 'barbecue'],
     legacyLabels: ['烧烤 / 烤肉']
@@ -335,7 +335,7 @@ const TAG_LABELS_ZH_CN: Readonly<Record<string, string>> = {
   'western-cuisine': '西餐',
   'japanese-cuisine': '日料',
   'korean-cuisine': '韩餐',
-  barbecue: '烧烤',
+  barbecue: '烧烤／烤肉',
   snack: '小食',
   'fast-food': '快餐',
   'southeast-asian-cuisine': '东南亚菜',

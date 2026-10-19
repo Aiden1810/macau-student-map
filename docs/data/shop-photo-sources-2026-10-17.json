@@ -1,0 +1,435 @@
+{
+  "date": "2026-10-17",
+  "projectRef": "mczhcwtlldhbmrgiggjl",
+  "summary": {
+    "searchedNewShops": 48,
+    "newPhotos": 10,
+    "newPhotoShops": 7,
+    "branchPhotos": 7,
+    "brandProductPhotos": 3,
+    "shopsWithoutImages": 41
+  },
+  "verification": {
+    "newPhotos": 10,
+    "shopCount": 7,
+    "auditCount": 10,
+    "changedPlaceIds": [],
+    "oldMediaIntact": true,
+    "managedImageShops": 8
+  },
+  "assets": [
+    {
+      "placeId": "c8f633ac-919f-4973-bc8e-dbb0dbc75962",
+      "title": "YDM医帝庙凉茶（北山店）门面",
+      "sourcePageUrl": "https://macaonews.org/news/greater-bay-area/zhuhai-beishan-village-guide/",
+      "imageUrl": "https://c.macaonews.org/uploads/2026/02/2.jpg",
+      "credit": "Weng-U Pun / The Bay / Macao News",
+      "branchEvidence": "来源文章明确为北山村YDM医帝庙；门面可见YDM及医帝庙凉茶文字",
+      "sortOrder": 0,
+      "sha256": "f1a25f5a4d6979431f7d477801e6585a11e8fe135db537f0480dbfd5d20c3e15",
+      "storagePath": "c8f633ac-919f-4973-bc8e-dbb0dbc75962/web-f1a25f5a4d6979431f7d.jpg",
+      "mimeType": "image/jpeg",
+      "byteSize": 248867,
+      "width": 869,
+      "height": 543,
+      "publicUrl": "https://mczhcwtlldhbmrgiggjl.supabase.co/storage/v1/object/public/place-media/c8f633ac-919f-4973-bc8e-dbb0dbc75962/web-f1a25f5a4d6979431f7d.jpg",
+      "altText": "YDM医帝庙凉茶（北山店）门面；来源：Weng-U Pun / The Bay / Macao News；https://macaonews.org/news/greater-bay-area/zhuhai-beishan-village-guide/",
+      "photoType": "branch-photo",
+      "reusePermission": "not independently confirmed; public source and credit retained",
+      "mediaId": "adedb5f2-0473-4a5d-b518-0afa68c43cfa"
+    },
+    {
+      "placeId": "c8f633ac-919f-4973-bc8e-dbb0dbc75962",
+      "title": "YDM医帝庙凉茶（北山店）室内",
+      "sourcePageUrl": "https://hk.trip.com/moments/detail/zhuhai-27-132517303/",
+      "imageUrl": "https://ak-d.tripcdn.com/images/1mi28224x91sjl7i56622.jpg?proc=source%2Ftrip",
+      "credit": "Trip.com 分店探店文章",
+      "branchEvidence": "探店文章明确YDM北山正街78-5号，老建筑内梁柱与酒吧场景",
+      "sortOrder": 1,
+      "sha256": "8817a2a4b1645ee334a1d6ee4eca9bdf81b2a04774d579fac00c02c89f45b6bc",
+      "storagePath": "c8f633ac-919f-4973-bc8e-dbb0dbc75962/web-8817a2a4b1645ee334a1.jpg",
+      "mimeType": "image/jpeg",
+      "byteSize": 1095587,
+      "width": 1280,
+      "height": 1706,
+      "publicUrl": "https://mczhcwtlldhbmrgiggjl.supabase.co/storage/v1/object/public/place-media/c8f633ac-919f-4973-bc8e-dbb0dbc75962/web-8817a2a4b1645ee334a1.jpg",
+      "altText": "YDM医帝庙凉茶（北山店）室内；来源：Trip.com 分店探店文章；https://hk.trip.com/moments/detail/zhuhai-27-132517303/",
+      "photoType": "branch-photo",
+      "reusePermission": "not independently confirmed; public source and credit retained",
+      "mediaId": "6ea0a9fb-c965-41f8-bc43-94d564ff0e45"
+    },
+    {
+      "placeId": "d22f9110-f892-4ae3-864e-1e6304dc946e",
+      "title": "绿茶餐厅（珠海南屏华发商都店）门面",
+      "sourcePageUrl": "https://www.openrice.com.cn/zh-cn/zhuhai/r-%E7%BB%BF%E8%8C%B6%E9%A4%90%E5%8E%85-%E5%8D%97%E5%B1%8F-%E6%B5%99%E8%8F%9C-%E6%B5%99%E6%B1%9F-r8184380",
+      "imageUrl": "https://cdn3.orstatic.com.cn/userphoto2/photo/A/8AM/01MZI2B9D344F27EEF04C1lv.jpg",
+      "credit": "OpenRice 分店相册",
+      "branchEvidence": "来源专页为绿茶餐厅南屏华发商都分店 r8184380，画面绿茶门头",
+      "sortOrder": 0,
+      "sha256": "1511933d11ae71c6d5018a130fc40cde69ce1d304b24ee0d21eec9718415d445",
+      "storagePath": "d22f9110-f892-4ae3-864e-1e6304dc946e/web-1511933d11ae71c6d501.webp",
+      "mimeType": "image/webp",
+      "byteSize": 65734,
+      "width": 640,
+      "height": 480,
+      "publicUrl": "https://mczhcwtlldhbmrgiggjl.supabase.co/storage/v1/object/public/place-media/d22f9110-f892-4ae3-864e-1e6304dc946e/web-1511933d11ae71c6d501.webp",
+      "altText": "绿茶餐厅（珠海南屏华发商都店）门面；来源：OpenRice 分店相册；https://www.openrice.com.cn/zh-cn/zhuhai/r-%E7%BB%BF%E8%8C%B6%E9%A4%90%E5%8E%85-%E5%8D%97%E5%B1%8F-%E6%B5%99%E8%8F%9C-%E6%B5%99%E6%B1%9F-r8184380",
+      "photoType": "branch-photo",
+      "reusePermission": "not independently confirmed; public source and credit retained",
+      "mediaId": "39dad3fa-dafa-4af2-b672-76d48b4594c9"
+    },
+    {
+      "placeId": "a3955b90-68aa-4e4c-ba86-8dafe5091184",
+      "title": "穆味王·私房牛肉面（华发悦天地店）门面",
+      "sourcePageUrl": "https://www.openrice.com/zh/zhuhai/r-%E7%A9%86%E5%91%B3%E7%8E%8B%E7%A7%81%E6%88%BF%E7%89%9B%E8%82%89%E9%BA%B5-%E6%A9%AB%E7%90%B4-%E6%B8%85%E7%9C%9F-%E6%96%B0%E7%96%86%E8%8F%9C-%E7%B2%89%E9%BA%B5-%E7%B1%B3%E7%B7%9A-r8222720",
+      "imageUrl": "https://cdn4.orstatic.com.cn/userphoto2/photo/A/8GI/01O5EVB16EA4089E6D84E6lv.jpg",
+      "credit": "OpenRice 分店相册",
+      "branchEvidence": "POI r8222720 地址濠江路968号华发悦天地1层，doorPhoto=2806375",
+      "sortOrder": 0,
+      "sha256": "43bfb63749aab72fd4496d7aecce8f16acf87b5f74ce14db9220e5b840f17bc6",
+      "storagePath": "a3955b90-68aa-4e4c-ba86-8dafe5091184/web-43bfb63749aab72fd449.webp",
+      "mimeType": "image/webp",
+      "byteSize": 59056,
+      "width": 640,
+      "height": 480,
+      "publicUrl": "https://mczhcwtlldhbmrgiggjl.supabase.co/storage/v1/object/public/place-media/a3955b90-68aa-4e4c-ba86-8dafe5091184/web-43bfb63749aab72fd449.webp",
+      "altText": "穆味王·私房牛肉面（华发悦天地店）门面；来源：OpenRice 分店相册；https://www.openrice.com/zh/zhuhai/r-%E7%A9%86%E5%91%B3%E7%8E%8B%E7%A7%81%E6%88%BF%E7%89%9B%E8%82%89%E9%BA%B5-%E6%A9%AB%E7%90%B4-%E6%B8%85%E7%9C%9F-%E6%96%B0%E7%96%86%E8%8F%9C-%E7%B2%89%E9%BA%B5-%E7%B1%B3%E7%B7%9A-r8222720",
+      "photoType": "branch-photo",
+      "reusePermission": "not independently confirmed; public source and credit retained",
+      "mediaId": "f2ee32d7-e344-4b3e-89fa-065314bbfa1b"
+    },
+    {
+      "placeId": "a3955b90-68aa-4e4c-ba86-8dafe5091184",
+      "title": "穆味王·私房牛肉面（华发悦天地店）室内",
+      "sourcePageUrl": "https://s.openrice.com/KtbS2G007XyW0",
+      "imageUrl": "https://cdn1.orstatic.com.cn/userphoto2/photo/A/8GI/01O5GOF166DF0EF9AA7B70lv.jpg",
+      "credit": "OpenRice 分店相册",
+      "branchEvidence": "同一POI r8222720 店内，墙面可见穆味王字样，人物局部已有来源打码",
+      "sortOrder": 1,
+      "sha256": "6556993663e076b69a47eaf998db4a24d5322ce13fde0e1a24feeb525c7543ff",
+      "storagePath": "a3955b90-68aa-4e4c-ba86-8dafe5091184/web-6556993663e076b69a47.webp",
+      "mimeType": "image/webp",
+      "byteSize": 18554,
+      "width": 640,
+      "height": 480,
+      "publicUrl": "https://mczhcwtlldhbmrgiggjl.supabase.co/storage/v1/object/public/place-media/a3955b90-68aa-4e4c-ba86-8dafe5091184/web-6556993663e076b69a47.webp",
+      "altText": "穆味王·私房牛肉面（华发悦天地店）室内；来源：OpenRice 分店相册；https://s.openrice.com/KtbS2G007XyW0",
+      "photoType": "branch-photo",
+      "reusePermission": "not independently confirmed; public source and credit retained",
+      "mediaId": "55509d7c-03e0-4652-b922-e231c3b48cb5"
+    },
+    {
+      "placeId": "70569d90-a72e-4a4b-8578-eee3625d82da",
+      "title": "濠轩阁（拱北总店）生蚝菜品",
+      "sourcePageUrl": "https://tw.trip.com/restaurant/china/zhuhai/detail/hao-xuan-ge-hot-pot-30631832/",
+      "imageUrl": "https://ak-d.tripcdn.com/images/100b0y000000m6k700253_D_1200_675_R5_Q70.jpg?proc=autoorient",
+      "credit": "Trip.com 分店相册",
+      "branchEvidence": "POI 30631832 标题濠轩阁特色生蚝火锅总店，粤华路152号，页面封面图",
+      "sortOrder": 0,
+      "sha256": "ab4f9120d74cda18b31d5d63e8007420ef16481b8179aa9f8595b4d192356a8d",
+      "storagePath": "70569d90-a72e-4a4b-8578-eee3625d82da/web-ab4f9120d74cda18b31d.jpg",
+      "mimeType": "image/jpeg",
+      "byteSize": 104782,
+      "width": 1200,
+      "height": 675,
+      "publicUrl": "https://mczhcwtlldhbmrgiggjl.supabase.co/storage/v1/object/public/place-media/70569d90-a72e-4a4b-8578-eee3625d82da/web-ab4f9120d74cda18b31d.jpg",
+      "altText": "濠轩阁（拱北总店）生蚝菜品；来源：Trip.com 分店相册；https://tw.trip.com/restaurant/china/zhuhai/detail/hao-xuan-ge-hot-pot-30631832/",
+      "photoType": "branch-photo",
+      "reusePermission": "not independently confirmed; public source and credit retained",
+      "mediaId": "16cc3d00-04c9-45de-85c7-88a53defc321"
+    },
+    {
+      "placeId": "70569d90-a72e-4a4b-8578-eee3625d82da",
+      "title": "濠轩阁（拱北总店）室内",
+      "sourcePageUrl": "https://tw.trip.com/restaurant/china/zhuhai/detail/hao-xuan-ge-hot-pot-30631832/",
+      "imageUrl": "https://ak-d.tripcdn.com/images/0HJ0p12000tpp6w8xC869_D_454_358_R5_Q70.jpg?proc=autoorient",
+      "credit": "Trip.com 分店相册",
+      "branchEvidence": "同一POI 30631832 餐厅环境栏目，地址粤华路152号",
+      "sortOrder": 1,
+      "sha256": "cbc5ab4c7f2dcc85cd69bf3ce5faddb9a5574ba05ebe96e4f0f4b3198da91f85",
+      "storagePath": "70569d90-a72e-4a4b-8578-eee3625d82da/web-cbc5ab4c7f2dcc85cd69.jpg",
+      "mimeType": "image/jpeg",
+      "byteSize": 32237,
+      "width": 454,
+      "height": 358,
+      "publicUrl": "https://mczhcwtlldhbmrgiggjl.supabase.co/storage/v1/object/public/place-media/70569d90-a72e-4a4b-8578-eee3625d82da/web-cbc5ab4c7f2dcc85cd69.jpg",
+      "altText": "濠轩阁（拱北总店）室内；来源：Trip.com 分店相册；https://tw.trip.com/restaurant/china/zhuhai/detail/hao-xuan-ge-hot-pot-30631832/",
+      "photoType": "branch-photo",
+      "reusePermission": "not independently confirmed; public source and credit retained",
+      "mediaId": "092bdd16-245e-439d-a52b-a3680b464205"
+    },
+    {
+      "placeId": "e5343163-2799-4501-b5d4-ce0c9d10161b",
+      "title": "巴黎贝甜品牌菜品图：草莓奶油羊角面包（具体门店供应以实际为准）",
+      "sourcePageUrl": "https://pbchina.cn/index.php/detail/jqjx/706",
+      "imageUrl": "https://www.pbchina.cn/data/attachment/image/20260120/5e5147aaafdcccd2ad773aad62bd9629.png",
+      "credit": "巴黎贝甜中国官网",
+      "branchEvidence": "品牌官方产品页明确草莓奶油羊角面包；非横琴分店实拍，未核实该分店当前是否销售",
+      "photoType": "brand-product",
+      "sortOrder": 0,
+      "sha256": "c7f1e1447b3aa83a2904341fe223cf74012e196f871eb5e8e850c8550416b6d0",
+      "storagePath": "e5343163-2799-4501-b5d4-ce0c9d10161b/brand-c7f1e1447b3aa83a2904.png",
+      "mimeType": "image/png",
+      "byteSize": 1898700,
+      "width": 1741,
+      "height": 1654,
+      "publicUrl": "https://mczhcwtlldhbmrgiggjl.supabase.co/storage/v1/object/public/place-media/e5343163-2799-4501-b5d4-ce0c9d10161b/brand-c7f1e1447b3aa83a2904.png",
+      "altText": "巴黎贝甜品牌菜品图：草莓奶油羊角面包（具体门店供应以实际为准）；来源：巴黎贝甜中国官网；https://pbchina.cn/index.php/detail/jqjx/706",
+      "reusePermission": "not independently confirmed; public source and credit retained",
+      "mediaId": "4d1e1f18-d138-46a5-897e-8b03779a8809"
+    },
+    {
+      "placeId": "af253498-5278-4e25-b4ec-f32617ace455",
+      "title": "夸父炸串品牌菜品图：巴掌大鸡排（品牌宣传图）",
+      "sourcePageUrl": "https://www.kuafood.com/",
+      "imageUrl": "https://oss-cdn.kuafood.com/74/68/03055f688f35b5b485e6304ec90240b977f2db0abe490f6859ae7494adbd.jpg",
+      "credit": "夸父炸串品牌官网",
+      "branchEvidence": "官网主打产品区域明确巴掌大鸡排；非励骏庞都分店实拍",
+      "photoType": "brand-product",
+      "sortOrder": 0,
+      "sha256": "746803055f688f35b5b485e6304ec90240b977f2db0abe490f6859ae7494adbd",
+      "storagePath": "af253498-5278-4e25-b4ec-f32617ace455/brand-746803055f688f35b5b4.jpg",
+      "mimeType": "image/jpeg",
+      "byteSize": 127928,
+      "width": 500,
+      "height": 330,
+      "publicUrl": "https://mczhcwtlldhbmrgiggjl.supabase.co/storage/v1/object/public/place-media/af253498-5278-4e25-b4ec-f32617ace455/brand-746803055f688f35b5b4.jpg",
+      "altText": "夸父炸串品牌菜品图：巴掌大鸡排（品牌宣传图）；来源：夸父炸串品牌官网；https://www.kuafood.com/",
+      "reusePermission": "not independently confirmed; public source and credit retained",
+      "mediaId": "f3c6440a-18a5-41b8-8f93-39bcb4b0e112"
+    },
+    {
+      "placeId": "079ade24-56d4-4728-8f43-e99807811b7a",
+      "title": "喜姐炸串品牌菜品图：酱汁臭豆腐（品牌宣传图）",
+      "sourcePageUrl": "https://www.xijiezhachuan.com/",
+      "imageUrl": "https://prd-coreserver-cdn.xijie888.com/website/imags/choudoufu.jpeg",
+      "credit": "喜姐炸串品牌官网",
+      "branchEvidence": "官网主打产品图片alt明确酱汁臭豆腐；非横琴分店实拍",
+      "photoType": "brand-product",
+      "sortOrder": 0,
+      "sha256": "f469e29d2e0c2a89fb411cff7d62f0fcd3981474ad75b44dc71ffc394db843ee",
+      "storagePath": "079ade24-56d4-4728-8f43-e99807811b7a/brand-f469e29d2e0c2a89fb41.jpg",
+      "mimeType": "image/jpeg",
+      "byteSize": 677570,
+      "width": 1200,
+      "height": 900,
+      "publicUrl": "https://mczhcwtlldhbmrgiggjl.supabase.co/storage/v1/object/public/place-media/079ade24-56d4-4728-8f43-e99807811b7a/brand-f469e29d2e0c2a89fb41.jpg",
+      "altText": "喜姐炸串品牌菜品图：酱汁臭豆腐（品牌宣传图）；来源：喜姐炸串品牌官网；https://www.xijiezhachuan.com/",
+      "reusePermission": "not independently confirmed; public source and credit retained",
+      "mediaId": "cad05221-28c2-4856-8105-0a28f7148834"
+    }
+  ],
+  "remaining": [
+    {
+      "placeId": "00284a81-8f9c-4e2b-97ba-dca56805ee2e",
+      "name": "吃鸡传奇（手撕鸡·烧腊）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "008d77f5-437c-48b4-9545-c9ad24487fb0",
+      "name": "小谷姐姐麻辣拌·麻辣烫",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "0e4c4e93-9261-401c-8424-8cb1d93721ff",
+      "name": "光屿简餐（横琴店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "10bcfd27-6705-486d-8309-3fd2d645b3d7",
+      "name": "东北盒饭帝国（十字门店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "10c7beb3-3f51-402c-a650-ac1450fd599c",
+      "name": "秋盈手撕鸡（湾仔店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "18ce650d-0bce-4be1-af79-0133edf03520",
+      "name": "禧饺·海味饺子",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "1bb65639-9781-4156-a3ae-85a027bf9fc6",
+      "name": "汉江里·韩国炸鸡（横琴中央汇店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "1c0d387f-6e99-4443-81f6-c6c81d290d53",
+      "name": "小面之交·川渝粉面（重庆小面）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "1fc962ba-031f-4ff0-98c2-214886526692",
+      "name": "王春春鸡汤饭（珠海励骏庞都广场店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "24d5ffc1-af4d-4ff5-ae0d-45c8dd686c1b",
+      "name": "蛙江湖烧烤吧（牛蛙烤鱼烧烤）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "3b33402b-6eda-4760-a02d-271a5584cc88",
+      "name": "小时咖喱（横琴店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "3d9fb91a-433b-4779-a81d-7f798a0e972b",
+      "name": "鲜果派对·甘草水果（横琴店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "40e68eea-b2d6-42d1-8820-e75cdd5b5aac",
+      "name": "沙县小吃（三一大厦店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "4200ae52-5bc4-46fa-a2ab-bdd3b5f4f262",
+      "name": "左家砂锅米线（横琴店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "47cf1ed0-0848-40c5-8ea2-29d0785bc759",
+      "name": "良卷·卷饼（粥粉小吃，励骏店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "4c633f15-eda5-4c9e-a9af-061867159ce7",
+      "name": "中国沙县（横琴下村店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "537fb38d-6e1a-42d3-adce-0bcdd76f5bf2",
+      "name": "老碗会·陕西手工面（珠海店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "5d983848-345d-4989-bbb1-be19f74dd6fc",
+      "name": "麦当劳麦乐送（珠海香江路店）",
+      "reason": "官网产品图源返回拒绝访问，未上传。"
+    },
+    {
+      "placeId": "6fee7513-7474-4ce1-98bb-742502a252dd",
+      "name": "左四吹麻辣香锅（励骏庞都店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "752a1db8-9a76-49c6-8fc4-cacb7492d169",
+      "name": "潮汕牛肉粿条汤",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "78cb607a-a5d6-495d-862b-335a1b379df2",
+      "name": "大肉小面",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "82ac8539-3446-4dd1-893b-b7c20c5e6225",
+      "name": "友仔老友粉",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "87036356-9697-4fc3-a7dc-a378884420a0",
+      "name": "炸物研究所·炸串小吃",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "8d223999-7a87-4e45-9b09-dcc613790e7f",
+      "name": "闽粤荟福鼎肉片·拌粉",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "8dc9c5ea-e20f-4682-8000-0dd20b46b88f",
+      "name": "潮汕普宁肠粉·肠粉擂茶",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "991bd1c9-47cb-4350-b178-8e7755f10165",
+      "name": "Alex大鑫 染发工作室（富华里店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "9f041ef1-5ae0-4d38-a96c-66fd6d09ef78",
+      "name": "融柳大铁牛螺狮粉",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "9fe64616-7df1-49fa-ad86-b07c749dcb3d",
+      "name": "巴旦木新疆美食",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "a44b46b8-2d96-434f-a70f-83cf6e1cba9b",
+      "name": "二师兄猪脚饭（保利国际广场店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "a6beca74-1b84-4ff6-b5d2-d0a882db18dd",
+      "name": "李妈妈鲜切牛肉汤粉",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "a6f0a04f-af13-44ce-9060-fa1b86f557a2",
+      "name": "阳哥灌饼（横琴口岸店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "a7c14799-84de-442a-86cb-7bc80cd5462b",
+      "name": "京之鲜御膳炖汤（湾仔店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "b46d2c01-849b-4526-8296-90a72c6b23bb",
+      "name": "赵记传承",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "c30adb29-b0d9-49d2-8441-316a87378c1f",
+      "name": "笨姐居民楼火锅(玖洲道店)",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "c6340b5e-89f4-4a0d-85f1-77bf3b0c5c55",
+      "name": "穆味王·私房牛肉面（横琴ICC店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "c7592a3d-427a-4429-b355-fb6f3eab0d12",
+      "name": "大力烤肉饭（澳门绿杨花园店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "cf0965d6-f4fe-4f37-94ad-ade7d64fbe27",
+      "name": "拌四方·南昌拌粉瓦罐汤（横琴保利店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "e2181a16-0be3-41dd-a4c2-a1a96acd4523",
+      "name": "虾皇天下（横琴店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "e819efbe-0d6c-4f9a-81de-433696b9c427",
+      "name": "肯德基（横琴华发商都店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "f0b7b7b8-92ba-4e29-b5a8-a2767a32ce76",
+      "name": "京无双北京烤鸭（横琴店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    },
+    {
+      "placeId": "fcb15e02-cbaf-4a5b-865e-1c2429aeae50",
+      "name": "二师兄猪脚饭（烧腊·炖汤，励骏店）",
+      "reason": "本轮未找到可可靠匹配该分店的照片，或仅有分店/菜品不明确的候选；保持待补图。"
+    }
+  ],
+  "notes": [
+    "品牌菜品图在alt_text、文件路径及本清单中明确区分；当前公共页面未显示图注，品牌图不代表具体分店实拍或当前库存。",
+    "来源链接、署名、分店匹配证据和文件SHA-256均保留；公开展示不等同于已确认转载许可。",
+    "图片原文件未作画面修改，源站以WebP响应的图片按实际格式上传。",
+    "本次没有修改places表；没有自动发布草稿。"
+  ]
+}

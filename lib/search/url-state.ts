@@ -17,6 +17,11 @@ const CATEGORY_VALUES = new Set<ShopCategoryKey>([
   'review'
 ]);
 
+const LEGACY_RECOMMENDATION_VALUES = new Map([
+  ['高性价比', 'budget-30'], ['人均30元内', 'budget-30'],
+  ['本周新上', 'recent-7-days'], ['本周上新', 'recent-7-days'], ['近7天收录', 'recent-7-days']
+]);
+
 export type DiscoveryUrlState = {
   query: string;
   category: ShopCategoryKey;
@@ -44,6 +49,7 @@ export function parseDiscoveryUrlState(search: string | URLSearchParams): Discov
     (params.get('tags') ?? '')
       .split(',')
       .map((tag) => tag.trim())
+      .map(tag => category === 'review' ? LEGACY_RECOMMENDATION_VALUES.get(tag) ?? tag : tag)
       .filter(Boolean)
   );
 

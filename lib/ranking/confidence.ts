@@ -1,5 +1,7 @@
 export type TrustLabel = 'unrated' | 'limited' | 'excellent' | 'recommended' | 'standard';
 
+export const TRUST_THRESHOLDS = {minimumReviews: 5, excellent: 4.8, recommended: 4.3} as const;
+
 export function calculateConfidenceScore(
   average: number | null,
   count: number,
@@ -16,8 +18,8 @@ export function calculateConfidenceScore(
 }
 export function deriveTrustLabel(average: number | null, count: number): TrustLabel {
   if (average === null || count <= 0) return 'unrated';
-  if (count < 5) return 'limited';
-  if (average >= 4.8) return 'excellent';
-  if (average >= 4.3) return 'recommended';
+  if (count < TRUST_THRESHOLDS.minimumReviews) return 'limited';
+  if (average >= TRUST_THRESHOLDS.excellent) return 'excellent';
+  if (average >= TRUST_THRESHOLDS.recommended) return 'recommended';
   return 'standard';
 }

@@ -26,6 +26,7 @@ export default async function LocaleLayout({
       {children}
       <Toaster
         position="bottom-center"
+        containerStyle={{top: 'max(16px, env(safe-area-inset-top))'}}
         toastOptions={{
           duration: 2600,
           style: {

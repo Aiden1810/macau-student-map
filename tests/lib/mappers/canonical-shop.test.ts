@@ -84,6 +84,11 @@ describe('mapCanonicalPlaceToShop', () => {
 });
 
 describe('mapPlaceToShop', () => {
+  it('preserves first publication and never substitutes creation or edit time', () => {
+    expect(mapPlaceToShop(makePlace({updatedAt: '2026-10-19T08:00:00Z'})).publishedAt)
+      .toBe('2026-08-29T08:00:00.000Z');
+    expect(mapPlaceToShop(makePlace({publishedAt: null})).publishedAt).toBeNull();
+  });
   it('maps a canonical Place domain object into the Shop shape the detail page consumes', () => {
     const shop = mapPlaceToShop(makePlace());
 

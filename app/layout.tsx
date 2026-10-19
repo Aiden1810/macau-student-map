@@ -5,14 +5,13 @@ import './globals.css';
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: 'cover',
   themeColor: '#ffffff'
 };
 
 export const metadata: Metadata = {
-  applicationName: 'Macau Pulse',
-  title: 'Macau Pulse',
+  applicationName: '城觅 / CityU Food',
+  title: '城觅 / CityU Food',
   description: '澳门学生美食地图与探店推荐',
   manifest: '/manifest.webmanifest?v=20260413m4',
   icons: {
@@ -22,7 +21,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Macau Pulse'
+    title: '城觅 / CityU Food'
   }
 };
 

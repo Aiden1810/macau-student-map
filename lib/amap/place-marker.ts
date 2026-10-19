@@ -14,13 +14,13 @@ const ICON_PATHS: Record<PlaceIconKey, string> = {
 };
 
 export function buildPlacePinHtml(place: PlaceTypeInput, size: 'default' | 'selected' = 'default', anchored = true): string {
-  const {icon, label, color} = getPlacePresentation(place);
+  const {icon, label} = getPlacePresentation(place);
   const width = size === 'selected' ? 44 : 36;
   const height = size === 'selected' ? 54 : 46;
   return `<div data-place-icon="${icon}" title="${label}" style="width:${width}px;height:${height}px;${anchored ? 'transform:translate(-50%,-100%);' : ''}filter:drop-shadow(0 2px 3px #0003);">
     <svg width="${width}" height="${height}" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${label}">
       <path d="M22 52S5 37 5 24a17 17 0 1 1 34 0c0 13-17 28-17 28Z" fill="white"/>
-      <circle cx="22" cy="24" r="14" fill="${color}"/>
+      <circle cx="22" cy="24" r="14" fill="#245b49"/>
       <g transform="translate(12 14) scale(.8333)" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[icon]}</g>
     </svg>
   </div>`;

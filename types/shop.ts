@@ -52,6 +52,8 @@ export interface Shop {
   hasCoordinates: boolean;
   studentDiscount: string | null;
   tags: string[];
+  /** Original manual tags, kept separately from localized display labels. */
+  filterTags?: string[];
   features: ShopFeature[];
   shopType: ShopDrawerType;
   ratingLabel: ShopRatingLabel;
@@ -63,6 +65,7 @@ export interface Shop {
   reviewText?: string | null;
   status: ShopStatus;
   pricePerPerson?: number | null;
+  publishedAt?: string | null;
   region?: ShopRegion | null;
   signatureDish?: string | null;
   sharpReview?: string | null;

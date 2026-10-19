@@ -31,6 +31,7 @@ type CanonicalPlaceRow = {
   rating_average: number | string | null;
   review_count: number | null;
   status: string;
+  published_at?: string | null;
   legacy_image_urls: string[] | null;
   search_keywords_manual?: string[];
   place_tags?: Array<{tags: {id: string; slug: string; label_zh_mo: string} | null}>;
@@ -90,6 +91,7 @@ export function mapCanonicalPlaceToShop(row: CanonicalPlaceRow): Shop {
     reviewText: null,
     status: row.status === 'published' ? 'verified' : 'pending',
     pricePerPerson: finiteNumber(row.price_per_person),
+    publishedAt: row.published_at ?? null,
     region: row.region ? REGION_LABELS[row.region] ?? (row.region as ShopRegion) : null,
     signatureDish: null,
     sharpReview: null,
@@ -118,6 +120,7 @@ export function mapPlaceToShop(place: Place): Shop {
     rating_average: place.ratingAverage,
     review_count: place.reviewCount,
     status: place.status,
+    published_at: place.publishedAt,
     legacy_image_urls: legacyMedia.map((media) => media.url),
     search_keywords_manual: place.searchKeywords ?? [],
     place_tags: place.tags.map((tag) => ({

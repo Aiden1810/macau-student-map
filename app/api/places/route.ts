@@ -18,7 +18,7 @@ export async function GET() {
   const {data, error} = await client
     .from('places')
     .select(
-      'id,name,address,category_slug,region,longitude,latitude,price_per_person,rating_average,review_count,status,legacy_image_urls,search_keywords_manual,place_tags(tags(id,slug,label_zh_mo)),place_media(id,bucket_id,storage_path,sort_order,lifecycle_status)'
+      'id,name,address,category_slug,region,longitude,latitude,price_per_person,rating_average,review_count,status,published_at,legacy_image_urls,search_keywords_manual,place_tags(tags(id,slug,label_zh_mo)),place_media(id,bucket_id,storage_path,sort_order,lifecycle_status)'
     )
     .eq('status', 'published')
     .order('confidence_score', {ascending: false, nullsFirst: false})

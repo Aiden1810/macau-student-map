@@ -6,5 +6,5 @@ const icons = {restaurant: Utensils, scissors: Scissors, wine: Wine, dice: Dices
 export default function PlaceTypeBadge({place}: {place: PlaceTypeInput}) {
   const presentation = getPlacePresentation(place);
   const Icon = icons[presentation.icon];
-  return <span className="inline-flex items-center gap-1 rounded-md border border-current/15 bg-white/80 px-2 py-0.5 text-xs font-medium" style={{color: presentation.color}}><Icon aria-hidden="true" className="h-3.5 w-3.5" />{presentation.label}</span>;
+  return <span className="inline-flex items-center gap-1 rounded-md border border-current/15 bg-white/80 px-2 py-0.5 text-xs font-medium" style={{color: '#245b49'}}><Icon aria-hidden="true" className="h-3.5 w-3.5" />{presentation.label}</span>;
 }

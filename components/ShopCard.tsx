@@ -124,7 +124,7 @@ export default function ShopCard({
       </div>
 
       <div className="flex justify-between items-start mb-2 gap-2">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className="truncate text-lg font-bold text-slate-800 transition-colors duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] group-hover:text-[#006633]">
             {shop.name}
           </h3>
@@ -140,7 +140,7 @@ export default function ShopCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
           {shop.status === 'pending' && (
             <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
               待核实
