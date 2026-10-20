@@ -1,10 +1,10 @@
-import {createAdminRoute} from '@/lib/admin/api';
+import {createAdminPlaceRoute} from '@/lib/admin/api';
 import {postgresUuid} from '@/lib/admin/place-editor';
 import {errorResponse, successResponse} from '@/lib/api/result';
 import {IMAGE_MIME_EXTENSIONS, validateImageUpload} from '@/lib/storage/object-path';
 import {markTransferredSourceForCleanup} from '@/lib/services/media';
 
-export const POST = createAdminRoute(async (request, client, auth, id) => {
+export const POST = createAdminPlaceRoute(async (request, client, auth, id) => {
   if (!postgresUuid.safeParse(id).success) return errorResponse({code: 'NOT_FOUND', status: 404, message: '地点不存在'});
   const {data: place, error: placeError} = await client.from('places').select('id,legacy_shop_id,legacy_image_urls').eq('id', id).maybeSingle();
   if (placeError) throw placeError;
@@ -38,7 +38,7 @@ export const POST = createAdminRoute(async (request, client, auth, id) => {
   return successResponse({id: data.id, url: client.storage.from('place-media').getPublicUrl(path).data.publicUrl, sortOrder: data.sort_order}, {status: 201});
 });
 
-export const DELETE = createAdminRoute(async (request, client, _auth, id) => {
+export const DELETE = createAdminPlaceRoute(async (request, client, _auth, id) => {
   const mediaId = new URL(request.url).searchParams.get('mediaId');
   if (postgresUuid.safeParse(id).success && mediaId?.startsWith('legacy:')) {
     const url = mediaId.slice(7);

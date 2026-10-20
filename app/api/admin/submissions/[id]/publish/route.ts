@@ -1,10 +1,10 @@
-import {createAdminRoute} from '@/lib/admin/api';
+import {createAdminPlaceRoute} from '@/lib/admin/api';
 import {postgresUuid, prepareAdminPlaceInput, publishEditedSubmissionSchema} from '@/lib/admin/place-editor';
 import {parseJsonBody} from '@/lib/api/request';
 import {errorResponse, successResponse} from '@/lib/api/result';
 import {transferApprovedSubmissionMedia} from '@/lib/services/media';
 
-export const POST = createAdminRoute(async (request, client, _auth, id) => {
+export const POST = createAdminPlaceRoute(async (request, client, _auth, id) => {
   if (!postgresUuid.safeParse(id).success) return errorResponse({code: 'NOT_FOUND', status: 404, message: '投稿不存在'});
   const body = await parseJsonBody(request, publishEditedSubmissionSchema);
   if (!body.ok) return errorResponse(body.error);

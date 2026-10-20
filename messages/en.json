@@ -294,6 +294,7 @@
     "priceUnit": "CNY per person",
     "servicePriceUnit": "CNY per person / visit",
     "noImage": "No shop photo yet",
+    "viewImage": "View image {index}",
     "title": "Place details",
     "back": "Back to map",
     "address": "Address",

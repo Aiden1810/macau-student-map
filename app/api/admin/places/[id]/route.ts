@@ -1,16 +1,16 @@
-import {createAdminRoute} from '@/lib/admin/api';
+import {createAdminPlaceRoute} from '@/lib/admin/api';
 import {loadAdminPlace} from '@/lib/admin/place-data';
 import {adminPlaceSchema, postgresUuid, prepareAdminPlaceInput} from '@/lib/admin/place-editor';
 import {parseJsonBody} from '@/lib/api/request';
 import {errorResponse, successResponse} from '@/lib/api/result';
 
-export const GET = createAdminRoute(async (_request, client, _auth, id) => {
+export const GET = createAdminPlaceRoute(async (_request, client, _auth, id) => {
   if (!postgresUuid.safeParse(id).success) return errorResponse({code: 'NOT_FOUND', status: 404, message: '地点不存在'});
   const place = await loadAdminPlace(client, id!);
   return place ? successResponse(place) : errorResponse({code: 'NOT_FOUND', status: 404, message: '地点不存在'});
 });
 
-export const PATCH = createAdminRoute(async (request, client, _auth, id) => {
+export const PATCH = createAdminPlaceRoute(async (request, client, _auth, id) => {
   if (!postgresUuid.safeParse(id).success) return errorResponse({code: 'NOT_FOUND', status: 404, message: '地点不存在'});
   const {data: source, error: sourceError} = await client.from('places').select('legacy_shop_id').eq('id', id).maybeSingle();
   if (sourceError) throw sourceError;

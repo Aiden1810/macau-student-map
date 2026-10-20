@@ -11,6 +11,7 @@ import {
   REVIEW_PAGE_SIZE
 } from '../domain/review';
 import {mapReviewRow} from '../data/review-repository';
+import {runPlaceMutation} from '../data/public-places-cache';
 
 export const REVIEW_COLUMNS =
   'id,place_id,user_id,rating,content,status,moderation_status,moderation_reason,deleted_at,created_at,updated_at';
@@ -89,12 +90,12 @@ export function createReviewHandlers(
     if (!auth.ok) return errorResponse(auth.error);
     const body = await parseJsonBody(request, reviewWriteSchema);
     if (!body.ok) return errorResponse(body.error);
-    const {data, error} = await dependencies.client(auth.accessToken).rpc('save_place_review', {
+    const {data, error} = await runPlaceMutation(() => dependencies.client(auth.accessToken).rpc('save_place_review', {
       p_place_id: id,
       p_rating: body.data.rating,
       p_content: body.data.content,
       p_expected_updated_at: body.data.expectedUpdatedAt
-    });
+    }));
     if (error) throw error;
     return successResponse(mapReviewRow(data));
   });
@@ -117,9 +118,8 @@ export function createReviewHandlers(
     if (!auth.ok) return errorResponse(auth.error);
     const body = await parseJsonBody(request, reviewDeleteSchema);
     if (!body.ok) return errorResponse(body.error);
-    const {data, error} = await dependencies
-      .client(auth.accessToken)
-      .rpc('delete_place_review', {p_review_id: id, p_expected_updated_at: body.data.expectedUpdatedAt});
+    const {data, error} = await runPlaceMutation(() => dependencies.client(auth.accessToken)
+      .rpc('delete_place_review', {p_review_id: id, p_expected_updated_at: body.data.expectedUpdatedAt}));
     if (error) throw error;
     return successResponse(mapReviewRow(data));
   });
@@ -140,12 +140,12 @@ export function createReviewHandlers(
       .maybeSingle();
     if (lookupError) throw lookupError;
     if (!owned) throw {code: 'P0002'};
-    const {data, error} = await client.rpc('save_place_review', {
+    const {data, error} = await runPlaceMutation(() => client.rpc('save_place_review', {
       p_place_id: owned.place_id,
       p_rating: body.data.rating,
       p_content: body.data.content,
       p_expected_updated_at: body.data.expectedUpdatedAt
-    });
+    }));
     if (error) throw error;
     return successResponse(mapReviewRow(data));
   });
@@ -154,12 +154,12 @@ export function createReviewHandlers(
     if (!auth.ok) return errorResponse(auth.error);
     const body = await parseJsonBody(request, reviewModerationSchema);
     if (!body.ok) return errorResponse(body.error);
-    const {data, error} = await dependencies.client(auth.accessToken).rpc('moderate_place_review', {
+    const {data, error} = await runPlaceMutation(() => dependencies.client(auth.accessToken).rpc('moderate_place_review', {
       p_review_id: id,
       p_decision: body.data.decision,
       p_reason: body.data.reason,
       p_expected_updated_at: body.data.expectedUpdatedAt
-    });
+    }));
     if (error) throw error;
     return successResponse(mapReviewRow(data));
   });

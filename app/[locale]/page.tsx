@@ -2,6 +2,7 @@
 
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useDebounce} from '@/lib/hooks/useDebounce';
+import {useDiscoveryRefresh} from '@/lib/hooks/useDiscoveryRefresh';
 import {useLocale, useTranslations} from 'next-intl';
 import toast from 'react-hot-toast';
 import {Link} from '@/i18n/navigation';
@@ -13,7 +14,7 @@ import FloatingPlaceAssistant from '@/components/assistant/FloatingPlaceAssistan
 import MapPlaceholder from '@/components/MapPlaceholder';
 import MobileCategoryNav from '@/components/MobileCategoryNav';
 import ShopList from '@/components/ShopList';
-import {mapShopList, mapSingleShop} from '@/lib/mappers/shop';
+import {mapShopList} from '@/lib/mappers/shop';
 import {
   buildSearchResponse,
   normalizeQuery
@@ -30,17 +31,10 @@ import {parseDiscoveryUrlState, updateDiscoverySearchParams} from '@/lib/search/
 import {rankCompatibilityPlaces} from '@/lib/services/search-places';
 import type {AmapPoiSearchOrigin} from '@/lib/amap/place-search';
 import {supabase} from '@/lib/supabase';
+import {loadLegacyShopList, notifyShopListChanged} from '@/lib/data/legacy-shops';
 import {useFavorites} from '@/lib/hooks/useFavorites';
+import {shouldTrackVisit} from '@/lib/analytics/traffic-policy';
 import {DrawerFiltersState, Shop, ShopCategoryKey, ViewMode} from '@/types/shop';
-
-function mergeShopUpdate(prev: Shop[], incoming: Shop): Shop[] {
-  const index = prev.findIndex((item) => item.id === incoming.id);
-  if (index === -1) return [incoming, ...prev];
-
-  const next = [...prev];
-  next[index] = {...incoming, publishedAt: incoming.publishedAt ?? prev[index].publishedAt};
-  return next;
-}
 
 const DEFAULT_DRAWER_FILTERS: DrawerFiltersState = {
   shopType: '全部',
@@ -171,6 +165,7 @@ export default function Page() {
   const [mobileSheetTopOffset, setMobileSheetTopOffset] = useState(116);
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const shopsRequestGuardRef = useRef(createRequestGuard());
+  const shopRequestsPendingRef = useRef(0);
   const poiSearchOrigin = useMemo<AmapPoiSearchOrigin | null>(() => {
     if (poiUserCoordinates) return {coordinates: poiUserCoordinates, source: 'user'};
     if (mapCenter) return {coordinates: mapCenter, source: 'map'};
@@ -205,30 +200,38 @@ export default function Page() {
     window.history.replaceState(window.history.state, '', next);
   }, [activeL1, activeL2, searchQuery, urlStateReady]);
 
-  const fetchShops = useCallback(async () => {
+  const fetchShops = useCallback(async (options?: {silent?: boolean}) => {
+    const silent = options?.silent ?? false;
+    // Automatic work must not supersede a pending initial/manual/role-change refresh.
+    if (silent && shopRequestsPendingRef.current > 0) return;
+    shopRequestsPendingRef.current += 1;
     const requestToken = shopsRequestGuardRef.current.begin();
-    setLoading(true);
+    if (!silent) setLoading(true);
+    let canonicalFailed = false;
 
     try {
-      const statusFilter = userRole === 'admin' ? 'status.in.(pending,verified,rejected),status.is.null' : 'status.eq.verified';
-
       const [legacyResult, canonicalResult] = await Promise.all([
-        supabase
-          .from('shops')
-          .select(
-            'id,name,name_i18n,category,student_discount,tags,tags_i18n,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text,review_text_i18n,image_urls,address,main_category,sub_tags,price_per_person,region,signature_dish,sharp_review'
-          )
-          .or(statusFilter),
+        loadLegacyShopList(supabase, userRole === 'admin'),
         loadCanonicalPlaces(async () => {
-          const response = await fetch('/api/places');
-          const body = (await response.json().catch(() => null)) as {ok?: boolean; data?: {items?: Shop[]}} | null;
-          return response.ok && body?.ok ? {ok: true, items: body.data?.items ?? []} : {ok: false, items: []};
+          try {
+            const response = await fetch('/api/places');
+            const body = (await response.json().catch(() => null)) as {ok?: boolean; data?: {items?: Shop[]; canonicalAvailable?: boolean}} | null;
+            const ok = response.ok && body?.ok === true && body.data?.canonicalAvailable !== false;
+            canonicalFailed = !ok;
+            return ok ? {ok: true, items: body?.data?.items ?? []} : {ok: false, items: []};
+          } catch (error) {
+            canonicalFailed = true;
+            throw error;
+          }
         })
       ]);
 
       if (!shopsRequestGuardRef.current.isCurrent(requestToken)) {
         return;
       }
+
+      // Keep the complete current list when either source fails during a quiet refresh.
+      if (silent && (legacyResult.error || canonicalFailed)) return;
 
       if (legacyResult.error && canonicalResult.length === 0) {
         console.error('Failed to fetch shops:', legacyResult.error.message);
@@ -240,7 +243,7 @@ export default function Page() {
       const legacyShops = mapShopList((legacyResult.data ?? []) as unknown[], locale);
       setShops(mergeLegacyAndCanonicalPlaces(legacyShops, canonicalResult));
 
-      if (hasFetchedRef.current) {
+      if (hasFetchedRef.current && !silent) {
         toast.success(tHome('toast.updated'));
       }
 
@@ -250,9 +253,12 @@ export default function Page() {
         return;
       }
       console.error('Failed to fetch shops:', error);
-      setShops([]);
-      toast.error(tHome('toast.loadFailed'));
+      if (!silent) {
+        setShops([]);
+        toast.error(tHome('toast.loadFailed'));
+      }
     } finally {
+      shopRequestsPendingRef.current -= 1;
       if (shopsRequestGuardRef.current.isCurrent(requestToken)) {
         setLoading(false);
       }
@@ -354,41 +360,8 @@ export default function Page() {
     };
   }, []);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel(`shops-realtime-page-${userRole ?? 'guest'}`)
-      .on(
-        'postgres_changes',
-        {event: '*', schema: 'public', table: 'shops'},
-        (payload) => {
-          if (payload.eventType === 'DELETE') {
-            const oldRow = payload.old as Record<string, unknown> | null;
-            const deletedId = oldRow?.id ? String(oldRow.id) : null;
-            if (!deletedId) return;
-
-            setShops((prev) => prev.filter((shop) => shop.id !== deletedId));
-            return;
-          }
-
-          const row = payload.new as Record<string, unknown> | null;
-          if (!row) return;
-
-          const mapped = mapSingleShop(row, locale);
-
-          if (userRole !== 'admin' && mapped.status !== 'verified') {
-            setShops((prev) => prev.filter((shop) => shop.id !== mapped.id));
-            return;
-          }
-
-          setShops((prev) => mergeShopUpdate(prev, mapped));
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [locale, userRole]);
+  const quietlyRefreshShops = useCallback(() => fetchShops({silent: true}), [fetchShops]);
+  useDiscoveryRefresh(quietlyRefreshShops);
 
   const isAdmin = userRole === 'admin';
   const visibleShops = isAdmin ? shops : shops.filter((shop) => shop.status === 'verified');
@@ -446,6 +419,7 @@ export default function Page() {
     });
 
     const normalized = normalizeQuery(response.query);
+    if (!shouldTrackVisit(window.location.hostname, window.location.pathname, process.env.NODE_ENV)) return;
     if (normalized.length < 2) {
       return;
     }
@@ -587,6 +561,7 @@ export default function Page() {
       return;
     }
 
+    await notifyShopListChanged(supabase);
     setPageNotice(tShopCard('approveSuccess'));
     await fetchShops();
   };
@@ -620,6 +595,7 @@ export default function Page() {
       return;
     }
 
+    await notifyShopListChanged(supabase);
     setShops((prev) => prev.filter((shop) => shop.id !== shopId));
     setPageNotice(tHome('toast.deleted'));
   };

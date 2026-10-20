@@ -1,3 +1,4 @@
+import {runPlaceMutation} from '@/lib/data/public-places-cache';
 import {parseJsonBody} from '@/lib/api/request';
 import {createRequestId, errorResponse, successResponse} from '@/lib/api/result';
 import {requireAdmin} from '@/lib/auth/require-admin';
@@ -27,15 +28,24 @@ export async function POST(request: Request, {params}: RouteContext) {
     return errorResponse({code: 'SCHEMA_UNAVAILABLE',
       message: '投稿标签暂不可用，请确认标签迁移后再合并；本次未修改地点。', status: 503}, requestId);
   }
-  const {data: placeId, error} = await client.rpc('merge_place_submission', {
-    p_submission_id: id,
-    p_target_place_id: body.data.targetPlaceId,
-    p_review_note: body.data.reviewNote
-  });
-  if (error || !placeId) {
-    console.error(`[${requestId}] merge submission failed:`, error?.message);
-    return errorResponse({code: 'CONFLICT', message: error?.message ?? 'Merge failed.', status: 409}, requestId);
+  try {
+    return await runPlaceMutation(async () => {
+      const {data: placeId, error} = await client.rpc('merge_place_submission', {
+        p_submission_id: id,
+        p_target_place_id: body.data.targetPlaceId,
+        p_review_note: body.data.reviewNote
+      });
+      if (error || !placeId) {
+        console.error(`[${requestId}] merge submission failed:`, error?.message);
+        return errorResponse({code: 'CONFLICT', message: error?.message ?? 'Merge failed.', status: 409}, requestId);
+      }
+      const mediaWarnings = await transferApprovedSubmissionMedia(client, id, String(placeId));
+      return successResponse({submissionId: id, placeId: String(placeId), mediaWarnings}, {requestId});
+    });
+  } catch {
+    // Return normally so Next.js can flush the tag invalidation queued in finally.
+    console.error('Submission operation ended before all media steps completed.');
+    return errorResponse({code: 'INTERNAL_ERROR', status: 500,
+      message: '无法确认完整操作结果，请刷新核对地点与图片后再重试。'}, requestId);
   }
-  const mediaWarnings = await transferApprovedSubmissionMedia(client, id, String(placeId));
-  return successResponse({submissionId: id, placeId: String(placeId), mediaWarnings}, {requestId});
 }

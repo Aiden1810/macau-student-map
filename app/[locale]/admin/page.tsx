@@ -10,13 +10,15 @@ import {Link} from '@/i18n/navigation';
 import {dedupeTrimmedList, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
 import {buildNormalizedShopPayload, type ShopCategory} from '@/lib/shops/payload';
 import {supabase} from '@/lib/supabase';
+import {notifyShopListChanged} from '@/lib/data/legacy-shops';
 import {toLegacyShopPoiFields, type AmapPoiOption} from '@/lib/amap/place-search';
 import AmapPoiSelector from '@/components/AmapPoiSelector';
 import SubmissionQueue, {type QueueStats} from '@/components/admin/SubmissionQueue';
 import PlacesManager, {type PlaceSummary} from '@/components/admin/PlacesManager';
 import AdminNavigation, {type AdminSection} from '@/components/admin/AdminNavigation';
-import TrafficOverview from '@/components/admin/TrafficOverview';
-import AdminQuickLinks from '@/components/admin/AdminQuickLinks';
+import PlatformDashboard from '@/components/admin/PlatformDashboard';
+import PlaceEditor from '@/components/admin/PlaceEditor';
+import type {QualityFilter} from '@/lib/admin/operations';
 import FeedbackInbox, {type FeedbackStats} from '@/components/admin/FeedbackInbox';
 import ReviewInbox from '@/components/admin/ReviewInbox';
 import {summarizeTraffic, type TrafficRange} from '@/lib/admin/traffic';
@@ -628,8 +630,10 @@ export default function AdminModerationPage() {
   const [placeSummary, setPlaceSummary] = useState<PlaceSummary | null>(null);
   const [queueStats, setQueueStats] = useState<QueueStats | null>(null);
   const [feedbackStats, setFeedbackStats] = useState<FeedbackStats | null>(null);
+  const [qualityFilter, setQualityFilter] = useState<QualityFilter>('all');
+  const [qualityFocusKey, setQualityFocusKey] = useState(0);
+  const [dashboardPlaceId, setDashboardPlaceId] = useState<string | null>(null);
   const [trafficError, setTrafficError] = useState<string | null>(null);
-  const [trafficTotalCount, setTrafficTotalCount] = useState<number | null>(null);
   const [metricsUpdatedAt, setMetricsUpdatedAt] = useState(0);
   const [shops, setShops] = useState<ShopRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -649,7 +653,7 @@ export default function AdminModerationPage() {
   const [favoriteEvents, setFavoriteEvents] = useState<FavoriteEventRow[]>([]);
   const [shopActionEvents, setShopActionEvents] = useState<ShopActionEventRow[]>([]);
   const [commentMetrics, setCommentMetrics] = useState<CommentMetricRow[]>([]);
-  const [trafficRange, setTrafficRange] = useState<TrafficRangeKey>('24h');
+  const [trafficRange] = useState<TrafficRangeKey>('24h');
   const [analyticsRange, setAnalyticsRange] = useState<AnalyticsRangeKey>('7d');
   const [analyticsCustomStart, setAnalyticsCustomStart] = useState<string>('');
   const [analyticsCustomEnd, setAnalyticsCustomEnd] = useState<string>('');
@@ -727,11 +731,9 @@ export default function AdminModerationPage() {
         console.warn('Failed to fetch traffic metrics:', trafficRes.error.message);
         setTrafficError(trafficRes.error.message);
         setTrafficEvents([]);
-        setTrafficTotalCount(null);
       } else {
         setTrafficError(null);
         setTrafficEvents((trafficRes.data ?? []) as TrafficEventRow[]);
-        setTrafficTotalCount(trafficRes.count);
       }
       setMetricsUpdatedAt(Date.now());
 
@@ -1250,6 +1252,8 @@ export default function AdminModerationPage() {
       return;
     }
 
+    await notifyShopListChanged(supabase);
+
     const targetShop = shops.find((shop) => shop.id === shopId);
 
     await logAdminAudit({
@@ -1280,6 +1284,8 @@ export default function AdminModerationPage() {
       return;
     }
 
+    await notifyShopListChanged(supabase);
+
     const targetShop = shops.find((shop) => shop.id === shopId);
 
     await logAdminAudit({
@@ -1307,6 +1313,8 @@ export default function AdminModerationPage() {
       setSaving(false);
       return;
     }
+
+    await notifyShopListChanged(supabase);
 
     await logAdminAudit({
       action: 'edit',
@@ -1356,6 +1364,8 @@ export default function AdminModerationPage() {
       return;
     }
 
+    await notifyShopListChanged(supabase);
+
     toast.success(`已补全 ${updates.length} 家店铺的缺失字段`);
     setBackfilling(false);
     await fetchAllShops({silent: true});
@@ -1384,13 +1394,10 @@ export default function AdminModerationPage() {
     <div className="min-h-screen bg-canvas px-4 py-7 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <AdminNavigation section={section} onChange={setSection} onCreate={() => {setSection('places'); setShowCreateModal(true);}} />
-        <div hidden={section !== 'overview'}>
-          <AdminQuickLinks places={placeSummary} queue={queueStats} feedback={feedbackStats} onChange={setSection} />
-          <TrafficOverview summary={trafficSummary} range={trafficRange} onRangeChange={setTrafficRange}
-            onRefresh={() => void fetchAllShops({silent: true})} refreshing={refreshing} error={trafficError}
-            loadedCount={trafficEvents.length} totalCount={trafficTotalCount} updatedAt={metricsUpdatedAt} />
-        </div>
-        <div hidden={section !== 'places'}><PlacesManager createOpen={showCreateModal} onCreateClose={() => setShowCreateModal(false)} refreshSignal={placeRefreshSignal} onSummaryChange={setPlaceSummary} /></div>
+        <PlatformDashboard section={section} places={placeSummary} queue={queueStats} feedback={feedbackStats} onChange={setSection}
+          onQuality={filter => {setQualityFilter(filter); setQualityFocusKey(value => value + 1); setSection('places');}} onEditPlace={setDashboardPlaceId} refreshSignal={placeRefreshSignal} />
+        <div hidden={section !== 'places'}><PlacesManager createOpen={showCreateModal} onCreateClose={() => setShowCreateModal(false)} refreshSignal={placeRefreshSignal} onSummaryChange={setPlaceSummary}
+          qualityFilter={qualityFilter} onQualityFilterChange={setQualityFilter} qualityFocusKey={qualityFocusKey} /></div>
         <div hidden={section !== 'submissions'}><SubmissionQueue onPublished={() => setPlaceRefreshSignal(value => value + 1)} onStatsChange={setQueueStats} /></div>
         <div hidden={section !== 'feedback'}><FeedbackInbox onStatsChange={setFeedbackStats} /></div>
         {section==='reviews'&&<ReviewInbox/>}
@@ -1889,6 +1896,7 @@ export default function AdminModerationPage() {
       </div>
 
       {editingShop && <AdminShopForm mode="edit" initial={editingShop} submitting={saving} onSubmit={handleEdit} onCancel={() => setEditingShop(null)} />}
+      {dashboardPlaceId && <PlaceEditor target={{kind: 'place', id: dashboardPlaceId}} onClose={() => setDashboardPlaceId(null)} onSaved={() => setPlaceRefreshSignal(value => value + 1)} />}
     </div>
   );
 }

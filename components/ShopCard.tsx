@@ -108,7 +108,7 @@ export default function ShopCard({
     >
       <div className="relative mb-3 overflow-hidden rounded-xl border border-slate-100">
         {hasValidImageUrl ? (
-          <Image src={coverImageUrl} alt={shop.name} width={640} height={360} className="h-40 w-full object-cover" />
+          <Image src={coverImageUrl} alt={shop.name} width={640} height={360} sizes="(min-width: 768px) 400px, 100vw" className="h-40 w-full object-cover" />
         ) : (
           <ShopPlaceholder />
         )}

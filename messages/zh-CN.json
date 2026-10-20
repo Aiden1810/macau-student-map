@@ -294,6 +294,7 @@
     "priceUnit": "人均 · 人民币",
     "servicePriceUnit": "参考价 · 人民币/人次",
     "noImage": "暂无店铺图片",
+    "viewImage": "查看第 {index} 张图片",
     "title": "店铺详情",
     "back": "返回地图",
     "address": "店铺地址",

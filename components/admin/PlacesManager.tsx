@@ -7,12 +7,16 @@ import BulkPlaceStatusResult, {type NamedBulkPlaceResult} from './BulkPlaceStatu
 import {PLACE_STATUS_LABELS, type AdminPlaceRecord} from '@/lib/admin/place-editor';
 import {formatPlacePrice, getPlacePresentation} from '@/lib/domain/place-types';
 import {getSelectedBulkPlaces, MAX_BULK_PLACES, type BulkPlaceResponse, type BulkPlaceStatus} from '@/lib/admin/bulk-place-selection';
+import {matchesPlaceQuality} from '@/lib/admin/place-quality';
+import type {QualityFilter} from '@/lib/admin/operations';
 
 export type PlaceSummary = {total: number; published: number; draft: number; archived: number};
 
-export default function PlacesManager({createOpen, onCreateClose, refreshSignal, onSummaryChange}: {
+export default function PlacesManager({createOpen, onCreateClose, refreshSignal, onSummaryChange, qualityFilter = 'all', onQualityFilterChange, qualityFocusKey = 0}: {
   createOpen: boolean; onCreateClose: () => void; refreshSignal: number;
   onSummaryChange?: (summary: PlaceSummary | null) => void;
+  qualityFilter?: QualityFilter; onQualityFilterChange?: (filter: QualityFilter) => void;
+  qualityFocusKey?: number;
 }) {
   const [items, setItems] = useState<AdminPlaceRecord[]>([]);
   const [query, setQuery] = useState('');
@@ -49,7 +53,11 @@ export default function PlacesManager({createOpen, onCreateClose, refreshSignal,
       archived: items.filter(item => item.status === 'archived').length
     });
   }, [items, loading, error, onSummaryChange]);
-  const visible = items.filter(item => (status === 'all' || item.status === status) &&
+  useEffect(() => {
+    setSelectedIds([]);
+    if (qualityFilter !== 'all') {setStatus('all'); setQuery('');}
+  }, [qualityFilter, qualityFocusKey]);
+  const visible = items.filter(item => matchesPlaceQuality(item, qualityFilter) && (status === 'all' || item.status === status) &&
     [item.name, item.nameEn, item.address, ...item.searchKeywords].some(value => value?.toLowerCase().includes(query.trim().toLowerCase())));
   const activeTarget = createOpen ? {kind: 'create' as const} : editor;
   const selected = getSelectedBulkPlaces(selectedIds, visible);
@@ -87,6 +95,9 @@ export default function PlacesManager({createOpen, onCreateClose, refreshSignal,
       <button type="button" disabled={loading || busy} onClick={() => {setSelectedIds([]); refresh();}} className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm disabled:opacity-50">{loading ? '刷新中…' : '刷新地点'}</button></div>
     <div className="mt-4 flex flex-wrap gap-3"><input aria-label="搜索管理地点" value={query} disabled={busy} onChange={event => {setSelectedIds([]); setQuery(event.target.value);}} placeholder="搜索名称、地址、补充关键词" className="min-h-11 min-w-0 flex-1 rounded-xl border border-line bg-canvas px-3 text-sm outline-none focus:border-pine-700 focus:ring-2 focus:ring-pine-700/15" />
       <select aria-label="按发布状态筛选" value={status} disabled={busy} onChange={event => {setSelectedIds([]); setStatus(event.target.value);}} className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm"><option value="all">全部状态</option>{Object.entries(PLACE_STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
+      {onQualityFilterChange && <select aria-label="按资料完整度筛选" value={qualityFilter} disabled={busy} onChange={event => {setSelectedIds([]); onQualityFilterChange(event.target.value as QualityFilter);}} className="min-h-11 rounded-lg border border-slate-300 px-3 text-sm">
+        <option value="all">全部资料</option><option value="cover">已发布 · 缺图片</option><option value="address">已发布 · 缺地址</option><option value="coordinates">已发布 · 缺坐标</option>
+      </select>}
       <p role="status" className="self-center text-sm text-slate-500">{loading ? '正在读取…' : error ? '读取失败' : `已加载 ${items.length} 个 · 筛选后 ${visible.length} 个`}</p>
     </div>
     <p className="mt-2 text-xs text-muted">这里显示新地点资料，最多加载最近更新的 500 条；历史店铺在“更多工具”中维护。</p>

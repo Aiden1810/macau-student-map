@@ -10,7 +10,12 @@ interface MobileImageSliderProps {
   onOpenLightbox?: (index: number) => void;
 }
 
-export default function MobileImageSlider({images, onOpenLightbox}: MobileImageSliderProps) {
+export default function MobileImageSlider(props: MobileImageSliderProps) {
+  // A different shop/gallery starts at the first photo and clears old failures.
+  return <MobileImageSliderContent key={JSON.stringify(props.images)} {...props} />;
+}
+
+function MobileImageSliderContent({images, onOpenLightbox}: MobileImageSliderProps) {
   const t = useTranslations('ShopDetail');
   const [failedImages, setFailedImages] = useState<string[]>([]);
   const validImages = useMemo(
@@ -48,19 +53,25 @@ export default function MobileImageSlider({images, onOpenLightbox}: MobileImageS
         <div
           className="flex h-60 snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           onScroll={(e) => {
+            if (!e.currentTarget.clientWidth) return;
             const index = Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth);
-            setCurrentIndex(index);
+            setCurrentIndex(Math.max(0, Math.min(validImages.length - 1, index)));
           }}
         >
           {validImages.map((url, index) => (
             <button
               key={`${url}-${index}`}
               type="button"
+              aria-label={t('viewImage', {index: index + 1})}
               onClick={() => onOpenLightbox?.(index)}
               disabled={failedImages.includes(url)}
               className="relative min-w-full snap-center"
             >
-              {failedImages.includes(url) ? <span className="flex h-full flex-col items-center justify-center gap-2 bg-[#eeefeb] text-muted"><Store size={36} strokeWidth={1.3} aria-hidden="true" /><span className="text-xs">{t('noImage')}</span></span> : <Image src={url} alt={`shop-mobile-image-${index + 1}`} fill onError={() => setFailedImages(previous => [...previous, url])} className="object-cover" sizes="100vw" />}
+              {failedImages.includes(url)
+                ? <span className="flex h-full flex-col items-center justify-center gap-2 bg-[#eeefeb] text-muted"><Store size={36} strokeWidth={1.3} aria-hidden="true" /><span className="text-xs">{t('noImage')}</span></span>
+                : Math.abs(index - currentIndex) <= 1
+                  ? <Image src={url} alt={`shop-mobile-image-${index + 1}`} fill onError={() => setFailedImages(previous => [...previous, url])} className="object-cover" sizes="100vw" />
+                  : <span aria-hidden="true" className="block h-full bg-[#eeefeb]" />}
             </button>
           ))}
         </div>

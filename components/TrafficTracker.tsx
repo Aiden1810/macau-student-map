@@ -3,6 +3,7 @@
 import {useEffect} from 'react';
 import {usePathname} from 'next/navigation';
 import {supabase} from '@/lib/supabase';
+import {shouldTrackVisit} from '@/lib/analytics/traffic-policy';
 
 const SESSION_KEY = 'cityu_food_session_id';
 
@@ -24,7 +25,7 @@ export default function TrafficTracker() {
     let cancelled = false;
 
     const track = async () => {
-      if (!pathname || typeof window === 'undefined') return;
+      if (!pathname || typeof window === 'undefined' || !shouldTrackVisit(window.location.hostname, pathname, process.env.NODE_ENV)) return;
 
       const sessionId = ensureSessionId();
       if (!sessionId) return;
@@ -49,7 +50,8 @@ export default function TrafficTracker() {
       });
     };
 
-    track();
+    // Storage denial or network failures must not break the public page.
+    void track().catch(() => {});
 
     return () => {
       cancelled = true;

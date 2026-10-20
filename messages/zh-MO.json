@@ -294,6 +294,7 @@
     "priceUnit": "人均 · 人民幣",
     "servicePriceUnit": "參考價 · 人民幣/人次",
     "noImage": "暫無店舖圖片",
+    "viewImage": "查看第 {index} 張圖片",
     "title": "店舖詳情",
     "back": "返回地圖",
     "address": "店舖地址",

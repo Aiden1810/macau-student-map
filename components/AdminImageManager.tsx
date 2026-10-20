@@ -5,6 +5,7 @@ import {Trash2, X} from 'lucide-react';
 import {useMemo, useState} from 'react';
 import ImageUpload from '@/components/ImageUpload';
 import {supabase} from '@/lib/supabase';
+import {notifyShopListChanged} from '@/lib/data/legacy-shops';
 
 interface AdminImageManagerProps {
   open: boolean;
@@ -47,6 +48,7 @@ export default function AdminImageManager({
         throw updateError;
       }
 
+      await notifyShopListChanged(supabase);
       setMessage('图片更新成功');
       await onUpdated();
     } catch (updateErr) {
@@ -95,6 +97,7 @@ export default function AdminImageManager({
         throw updateError;
       }
 
+      await notifyShopListChanged(supabase);
       setMessage('图片上传成功');
       await onUpdated();
     } catch (uploadErr) {

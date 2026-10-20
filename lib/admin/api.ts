@@ -2,9 +2,21 @@ import type {SupabaseClient} from '@supabase/supabase-js';
 import {requireAdmin, type AdminAuthResult} from '../auth/require-admin';
 import {createAuthenticatedSupabaseClient} from '../auth/require-user';
 import {errorResponse} from '../api/result';
+import {runPlaceMutation} from '../data/public-places-cache';
 
 type Identity = Extract<AdminAuthResult, {ok: true}>;
 type Operation = (request: Request, client: SupabaseClient, auth: Identity, id: string | null) => Promise<Response>;
+
+/** Place writes may commit before a later media step fails, so invalidate in finally. */
+export function createAdminPlaceRoute<Params extends Record<string, string> = {id: string}>(
+  operation: Operation,
+  dependencies?: Parameters<typeof createAdminRoute>[1]
+) {
+  return createAdminRoute<Params>((request, client, auth, id) =>
+    request.method === 'GET' || request.method === 'HEAD'
+      ? operation(request, client, auth, id)
+      : runPlaceMutation(() => operation(request, client, auth, id)), dependencies);
+}
 
 export function createAdminRoute<Params extends Record<string, string> = {id: string}>(operation: Operation, dependencies = {
   authorize: requireAdmin, client: createAuthenticatedSupabaseClient

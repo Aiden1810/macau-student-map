@@ -2,8 +2,10 @@
 
 import {
   ArrowLeft,
+  BarChart3,
   ClipboardCheck,
   Inbox,
+  History,
   LayoutDashboard,
   MessageSquare,
   Plus,
@@ -12,13 +14,15 @@ import {
 } from 'lucide-react';
 import {Link} from '@/i18n/navigation';
 
-export type AdminSection = 'overview' | 'places' | 'submissions' | 'reviews' | 'feedback' | 'tools';
+export type AdminSection = 'overview' | 'analytics' | 'places' | 'submissions' | 'reviews' | 'feedback' | 'activity' | 'tools';
 const sections = [
   {key: 'overview', label: '总览', Icon: LayoutDashboard},
+  {key: 'analytics', label: '数据分析', Icon: BarChart3},
   {key: 'places', label: '店铺资料', Icon: Store},
   {key: 'submissions', label: '投稿审核', Icon: ClipboardCheck},
   {key: 'reviews', label: '用户评价', Icon: MessageSquare},
   {key: 'feedback', label: '用户反馈', Icon: Inbox},
+  {key: 'activity', label: '操作记录', Icon: History},
   {key: 'tools', label: '更多工具', Icon: Settings2}
 ] as const;
 
@@ -66,7 +70,7 @@ export default function AdminNavigation({
       </header>
       <nav
         aria-label="后台功能"
-      className="mb-7 grid grid-cols-3 gap-1 rounded-2xl border border-line bg-white p-1.5 sm:flex sm:flex-wrap sm:gap-2"
+      className="mb-7 grid grid-cols-4 gap-1 rounded-2xl border border-line bg-white p-1.5 lg:flex lg:flex-wrap lg:gap-1"
       >
         {sections.map(({key, label, Icon}) => (
           <button

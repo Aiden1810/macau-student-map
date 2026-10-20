@@ -6,6 +6,11 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 const MACAU_OFFSET = 8 * HOUR;
 
+export function trafficStart(range: TrafficRange, now: number): number {
+  return range === '24h' ? now - DAY
+    : Math.floor((now + MACAU_OFFSET) / DAY) * DAY - MACAU_OFFSET - (range === '7d' ? 6 : 29) * DAY;
+}
+
 export function isPublicTrafficPath(path: string | null): boolean {
   if (!path?.startsWith('/')) return false;
   const segments = path.split(/[?#]/)[0].split('/').filter(Boolean);
@@ -17,7 +22,7 @@ export function isPublicTrafficPath(path: string | null): boolean {
 export function summarizeTraffic(events: TrafficEvent[], range: TrafficRange, now: number) {
   const step = range === '24h' ? HOUR : DAY;
   const floorBucket = (time: number) => Math.floor((time + MACAU_OFFSET) / step) * step - MACAU_OFFSET;
-  const start = range === '24h' ? now - DAY : floorBucket(now) - (range === '7d' ? 6 : 29) * DAY;
+  const start = trafficStart(range, now);
   const buckets = new Map<number, TrafficPoint>();
   for (let time = floorBucket(start); time <= now; time += step) {
     const local = new Date(time + MACAU_OFFSET);
