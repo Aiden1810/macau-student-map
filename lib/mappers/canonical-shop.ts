@@ -1,5 +1,6 @@
 import {deriveTrustLabel} from '../ranking/confidence';
 import {getTaxonomyTagLabelZhCN} from '../domain/taxonomy';
+import {withCuisineGroupLabel} from '../tags/display';
 import type {Place} from '../domain/place';
 import type {Shop, ShopFeature, ShopRegion} from '../../types/shop';
 
@@ -47,7 +48,7 @@ export function mapCanonicalPlaceToShop(row: CanonicalPlaceRow): Shop {
   const tagRows = (row.place_tags ?? [])
     .map((relation) => relation.tags)
     .filter((tag): tag is NonNullable<typeof tag> => tag !== null);
-  const tags = [...new Set([...tagRows.map((tag) => getTaxonomyTagLabelZhCN(tag.slug) ?? tag.label_zh_mo), ...(row.search_keywords_manual ?? [])])];
+  const tags = withCuisineGroupLabel([...tagRows.map((tag) => getTaxonomyTagLabelZhCN(tag.slug) ?? tag.label_zh_mo), ...(row.search_keywords_manual ?? [])]);
   const features = tagRows
     .map((tag) => FEATURE_BY_TAG[tag.slug])
     .filter((feature): feature is ShopFeature => Boolean(feature));

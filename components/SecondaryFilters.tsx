@@ -34,6 +34,7 @@ export default function SecondaryFilters({category, selected, onSelect}: Seconda
     const activeOption = groups.flatMap(group => group.options).find(option => selected.includes(option.value));
     const groupLabels: Record<string, string> = {
       storeTypes: t('foodTypes'), cuisines: t('foodCuisines'), signatureProducts: t('foodSnacks'),
+      otherCuisines: t('foodOtherCuisines'),
       beverages: t('foodDrinks'), desserts: t('foodDesserts')
     };
     return (

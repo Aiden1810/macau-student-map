@@ -2,6 +2,7 @@ import {fileURLToPath} from 'node:url';
 import {defineConfig} from 'vitest/config';
 
 export default defineConfig({
+  test: {include: ['tests/**/*.test.{ts,tsx}'], maxWorkers: 4},
   resolve: {alias: {'@': fileURLToPath(new URL('.', import.meta.url))}},
   // Match Next.js's JSX runtime when rendering React components in tests.
   oxc: {jsx: {runtime: 'automatic'}}

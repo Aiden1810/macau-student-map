@@ -5,6 +5,8 @@ import {
   groupSelectedTags,
   normalizeSearchText,
   resolveTagAlias,
+  resolveSearchTagAlias,
+  expandCuisineFilterSlugs,
   type PlaceCategorySlug,
   type TagKind
 } from '../domain/taxonomy';
@@ -83,7 +85,7 @@ function itemTagSlugs(item: CompatibilityPlace): Set<string> {
 
 function selectedGroups(tagIds: readonly string[]): Partial<Record<TagKind, string[]>> {
   const canonicalIdentifiers = tagIds
-    .map((idOrSlug) => findTaxonomyTag(idOrSlug)?.slug ?? idOrSlug);
+    .flatMap((idOrSlug) => expandCuisineFilterSlugs(findTaxonomyTag(idOrSlug)?.slug ?? idOrSlug));
   return groupSelectedTags(canonicalIdentifiers);
 }
 
@@ -114,7 +116,7 @@ function queryMatch<T extends CompatibilityPlace>(
   const rawTagText = [item.mainCategory ?? '', ...(item.tags ?? []), ...(item.subTags ?? [])]
     .map(normalizeSearchText)
     .join(' ');
-  const queryTagSlugs = new Set(resolveTagAlias(query).map((tag) => tag.slug));
+  const queryTagSlugs = new Set(resolveSearchTagAlias(query).map((tag) => tag.slug));
   const hasTagAliasMatch = Array.from(queryTagSlugs).some((slug) => slugs.has(slug));
   const matchedBy: PlaceSearchMatch[] = [];
   let score = 0;

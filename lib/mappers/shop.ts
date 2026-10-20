@@ -11,6 +11,7 @@ import {
   ShopType
 } from '../../types/shop';
 import {deriveRegionFromCoordinates} from '../shops/normalization';
+import {withCuisineGroupLabel} from '../tags/display';
 
 type LocaleKey = 'zh-CN' | 'zh-MO' | 'en';
 
@@ -519,7 +520,7 @@ export function mapSingleShop(row: Record<string, unknown>, locale: LocaleKey = 
   const mergedTags = Array.from(
     new Set([...(normalizedMainCategory ? [normalizedMainCategory] : []), ...normalizedSubTags, ...legacyTags])
   );
-  const finalTags = localizedTags.length > 0 ? localizedTags : mergedTags;
+  const finalTags = withCuisineGroupLabel(localizedTags.length > 0 ? localizedTags : mergedTags, locale);
 
   const normalizedCategory = normalizeCategoryKey(rawCategory);
 

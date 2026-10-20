@@ -1,5 +1,5 @@
 import type {ShopCategoryKey} from '../../types/shop';
-import {getTaxonomyTagLabelZhCN} from '../domain/taxonomy';
+import {getTaxonomyTagLabelZhCN, OTHER_CUISINE_SLUGS} from '../domain/taxonomy';
 import {LAUNCH_CATEGORIES, getLaunchTagOptions} from '../domain/place-types';
 import {FOOD_KEYWORD_FILTERS} from './food-filters';
 
@@ -66,9 +66,13 @@ export const L2_TAGS: Record<Exclude<ShopCategoryKey, 'all'>, readonly L2Group[]
         canonicalTagOption('portuguese-cuisine', 'portugueseCuisine'),
         canonicalTagOption('japanese-cuisine', 'japaneseKorean'),
         canonicalTagOption('korean-cuisine', 'japaneseKorean'),
-        canonicalTagOption('southeast-asian-cuisine', 'southeastAsian'),
         canonicalTagOption('western-cuisine', 'westernBistro')
       ]
+    },
+    {
+      groupKey: 'otherCuisines',
+      groupLabelZhCN: '其他菜系',
+      options: ['other-cuisine', ...OTHER_CUISINE_SLUGS.filter(slug => slug !== 'other-cuisine')].map(slug => canonicalTagOption(slug, slug))
     },
     {
       groupKey: 'signatureProducts',

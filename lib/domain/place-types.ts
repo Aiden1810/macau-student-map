@@ -2,7 +2,7 @@ import {findTaxonomyTag, resolveTagAlias, type PlaceCategorySlug, type TaxonomyT
 import {resolvePriceDisplay} from '../utils/price';
 
 export const PRIMARY_TAG_SLUGS: Readonly<Record<PlaceCategorySlug, readonly string[]>> = {
-  food: ['chinese-cuisine', 'portuguese-cuisine', 'cha-chaan-teng', 'hot-pot', 'western-cuisine', 'japanese-cuisine', 'korean-cuisine', 'barbecue', 'snack', 'fast-food', 'southeast-asian-cuisine', 'coffee', 'milk-tea', 'fruit-tea', 'bread', 'dessert', 'cake', 'burger', 'fried-chicken'],
+  food: ['chinese-cuisine', 'portuguese-cuisine', 'cha-chaan-teng', 'hot-pot', 'western-cuisine', 'japanese-cuisine', 'korean-cuisine', 'barbecue', 'snack', 'fast-food', 'southeast-asian-cuisine', 'indian-cuisine', 'other-cuisine', 'coffee', 'milk-tea', 'fruit-tea', 'bread', 'dessert', 'cake', 'burger', 'fried-chicken'],
   shopping: ['clothing', 'electronics', 'supermarket'],
   entertainment: ['karaoke', 'cinema', 'board-games', 'bar', 'murder-mystery'],
   service: ['printing', 'hair-salon', 'repair-service']

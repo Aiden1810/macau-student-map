@@ -4,7 +4,9 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 import PlaceEditor, {adminEditorRequest, type EditorTarget} from './PlaceEditor';
 import BulkPlaceStatusDialog from './BulkPlaceStatusDialog';
 import BulkPlaceStatusResult, {type NamedBulkPlaceResult} from './BulkPlaceStatusResult';
-import {PLACE_STATUS_LABELS, type AdminPlaceRecord} from '@/lib/admin/place-editor';
+import {matchesAdminPlaceSearch, PLACE_STATUS_LABELS, type AdminPlaceRecord} from '@/lib/admin/place-editor';
+import {getTaxonomyTagLabelZhCN} from '@/lib/domain/taxonomy';
+import {withCuisineGroupLabel} from '@/lib/tags/display';
 import {formatPlacePrice, getPlacePresentation} from '@/lib/domain/place-types';
 import {getSelectedBulkPlaces, MAX_BULK_PLACES, type BulkPlaceResponse, type BulkPlaceStatus} from '@/lib/admin/bulk-place-selection';
 import {matchesPlaceQuality} from '@/lib/admin/place-quality';
@@ -58,7 +60,7 @@ export default function PlacesManager({createOpen, onCreateClose, refreshSignal,
     if (qualityFilter !== 'all') {setStatus('all'); setQuery('');}
   }, [qualityFilter, qualityFocusKey]);
   const visible = items.filter(item => matchesPlaceQuality(item, qualityFilter) && (status === 'all' || item.status === status) &&
-    [item.name, item.nameEn, item.address, ...item.searchKeywords].some(value => value?.toLowerCase().includes(query.trim().toLowerCase())));
+    matchesAdminPlaceSearch(item, query));
   const activeTarget = createOpen ? {kind: 'create' as const} : editor;
   const selected = getSelectedBulkPlaces(selectedIds, visible);
   const selectable = visible.slice(0, MAX_BULK_PLACES);
@@ -127,6 +129,7 @@ export default function PlacesManager({createOpen, onCreateClose, refreshSignal,
       </label><div className="min-w-0 flex-1 break-words">
       <div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-slate-900">{item.name}</h3><span className={`rounded-full px-2 py-1 text-xs font-medium ${item.status === 'published' ? 'bg-pine-50 text-pine-700' : item.status === 'draft' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>{PLACE_STATUS_LABELS[item.status]}</span></div><p className="mt-2 text-sm text-slate-500">{item.address || '地址待补充'}</p>
       <p className="mt-2 text-xs text-slate-600">{getPlacePresentation({category: item.categorySlug, tags: item.tagIds}).label} · {formatPlacePrice({category: item.categorySlug, tags: item.tagIds, pricePerPerson: item.pricePerPerson})} · {item.media.length} 张图片</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">{withCuisineGroupLabel(item.tagIds.map(id => getTaxonomyTagLabelZhCN(id) ?? '未知标签')).map(label => <span key={label} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">{label}</span>)}</div>
     </div><button type="button" disabled={busy} onClick={() => setEditor({kind: 'place', id: item.id})} className="min-h-11 w-full rounded-lg border border-emerald-700 px-4 text-sm font-semibold text-emerald-800 disabled:opacity-50 sm:w-auto">编辑资料与图片</button></article>)}</div>
     {confirmation && <BulkPlaceStatusDialog status={confirmation.status} items={confirmation.items} busy={busy}
       onCancel={() => {if (!busyRef.current) setConfirmation(null);}} onConfirm={() => void executeBulk()} />}

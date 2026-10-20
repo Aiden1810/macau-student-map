@@ -4,6 +4,7 @@ import {FormEvent, useMemo, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {getCanonicalTagsForAdminAndSubmit} from '@/lib/tags/schema';
 import LaunchCategorySelector from '@/components/LaunchCategorySelector';
+import PrimaryTagSelector from '@/components/PrimaryTagSelector';
 import {getLaunchTagOptions, isPrimaryTag, selectLaunchCategory, type LaunchCategoryKey} from '@/lib/domain/place-types';
 import {findTaxonomyTag, getTaxonomyTagLabelZhCN} from '@/lib/domain/taxonomy';
 import AmapPoiSelector from '@/components/AmapPoiSelector';
@@ -359,29 +360,8 @@ export default function ContributionForm({
                   <p className="text-xs font-semibold text-emerald-800">优先选择：{primaryTagGroup.title}</p>
                   <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-emerald-700">至少选择 1 个</span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {primaryTagGroup.tags.map((tag) => {
-                    const checked = selectedPresetTagIds.includes(tag.id);
-                    return (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedPresetTagIds((prev) =>
-                            checked ? prev.filter((item) => item !== tag.id) : [...prev, tag.id]
-                          );
-                        }}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                          checked
-                            ? 'border-[#006633] bg-[#006633] text-white shadow-sm'
-                            : 'border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50'
-                        }`}
-                      >
-                        {tag.name}
-                      </button>
-                    );
-                  })}
-                </div>
+                <PrimaryTagSelector tags={getLaunchTagOptions(launchCategory!)} selected={selectedPresetTagIds}
+                  onToggle={id => setSelectedPresetTagIds(previous => previous.includes(id) ? previous.filter(value => value !== id) : [...previous, id])} />
               </div>
             )}
 

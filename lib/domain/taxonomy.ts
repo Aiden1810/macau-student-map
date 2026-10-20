@@ -125,6 +125,22 @@ export const TAG_CATALOG: readonly TaxonomyTag[] = [
     aliases: ['東南亞菜', '东南亚菜', '泰餐', '越南菜', 'southeast asian']
   },
   {
+    id: '00000000-0000-0000-0000-000000000112',
+    slug: 'indian-cuisine',
+    kind: 'cuisine',
+    labelZhMO: '印度菜',
+    labelEn: 'Indian cuisine',
+    aliases: ['印度菜', '印度料理', '印度餐', '印餐', 'indian food', 'indian cuisine']
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000113',
+    slug: 'other-cuisine',
+    kind: 'cuisine',
+    labelZhMO: '其他菜系',
+    labelEn: 'Other cuisines',
+    aliases: ['其他菜系', '其它菜系', '其他料理', 'other cuisine', 'other cuisines']
+  },
+  {
     id: '00000000-0000-0000-0000-000000000201',
     slug: 'coffee',
     kind: 'product',
@@ -339,6 +355,8 @@ const TAG_LABELS_ZH_CN: Readonly<Record<string, string>> = {
   snack: '小食',
   'fast-food': '快餐',
   'southeast-asian-cuisine': '东南亚菜',
+  'indian-cuisine': '印度菜',
+  'other-cuisine': '其他菜系',
   coffee: '咖啡',
   'milk-tea': '奶茶',
   'fruit-tea': '果茶',
@@ -435,6 +453,18 @@ export function getTaxonomyTagLabelZhCN(idOrSlug: string): string | null {
 
 export function resolveTagAlias(query: string): TaxonomyTag[] {
   return tagsByAlias.get(normalizeSearchText(query)) ?? [];
+}
+
+// A discovery group, not extra stored tags: existing Southeast Asian records stay valid.
+export const OTHER_CUISINE_SLUGS: readonly string[] = ['indian-cuisine', 'southeast-asian-cuisine', 'other-cuisine'];
+
+export function expandCuisineFilterSlugs(slug: string): readonly string[] {
+  return slug === 'other-cuisine' ? OTHER_CUISINE_SLUGS : [slug];
+}
+
+export function resolveSearchTagAlias(query: string): TaxonomyTag[] {
+  return [...new Set(resolveTagAlias(query).flatMap(tag => expandCuisineFilterSlugs(tag.slug)))]
+    .map(slug => findTaxonomyTag(slug)!).filter(Boolean);
 }
 
 export function groupSelectedTags(tagIdsOrSlugs: readonly string[]): Partial<Record<TagKind, string[]>> {

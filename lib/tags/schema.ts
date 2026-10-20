@@ -38,6 +38,8 @@ const DISPLAY_GROUP_SLUGS: ReadonlyArray<{
       'snack',
       'fast-food',
       'southeast-asian-cuisine',
+      'indian-cuisine',
+      'other-cuisine',
       'burger',
       'fried-chicken'
     ]
@@ -85,6 +87,17 @@ export function findTagById(tagId: string): CanonicalTagOption | null {
 export function findTagByName(tagName: string): CanonicalTagOption | null {
   const tag = resolveTagAlias(tagName)[0] ?? findTaxonomyTag(tagName);
   return tag ? findTagById(tag.id) : null;
+}
+
+/** Toggle by ID even when an old label represents aliases or multiple tags. */
+export function toggleLegacyCanonicalTag(labels: readonly string[], tagId: string): string[] {
+  const canonicalLabels = [...new Set(labels.flatMap(label => {
+    const matches = resolveTagAlias(label);
+    return matches.length ? matches.map(tag => getTaxonomyTagLabelZhCN(tag.id)!) : [label];
+  }))];
+  const label = getTaxonomyTagLabelZhCN(tagId);
+  if (!label) return canonicalLabels;
+  return canonicalLabels.includes(label) ? canonicalLabels.filter(value => value !== label) : [...canonicalLabels, label];
 }
 
 export function migrateLegacyTagsForSubmission(inputTags: string[]): {tagIds: string[]; tagNames: string[]} {

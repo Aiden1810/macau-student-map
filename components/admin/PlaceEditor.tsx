@@ -4,6 +4,7 @@ import Image from 'next/image';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {z} from 'zod';
 import LaunchCategorySelector from '@/components/LaunchCategorySelector';
+import PrimaryTagSelector from '@/components/PrimaryTagSelector';
 import AmapPoiSelector from '@/components/AmapPoiSelector';
 import ImageUpload from '@/components/ImageUpload';
 import {authenticatedApiRequest} from '@/lib/api/client';
@@ -212,7 +213,7 @@ export default function PlaceEditor({target, onClose, onSaved}: {
           <label className="block"><span className="mb-1 block text-sm font-medium">地点名称 *</span><input required maxLength={120} value={form.name} onChange={event => setForm({...form, name: event.target.value})} className={INPUT} /></label>
           <label className="block"><span className="mb-1 block text-sm font-medium">地址</span><input maxLength={500} value={form.address ?? ''} onChange={event => setForm({...form, address: event.target.value || null})} className={INPUT} /></label>
         </div>
-        <fieldset><legend className="mb-2 text-sm font-medium">具体类型 * <span className="font-normal text-slate-500">与补充标签合计最多 8 个</span></legend>{tagButtons(primaryTags)}</fieldset>
+        <fieldset><legend className="mb-2 text-sm font-medium">具体类型 * <span className="font-normal text-slate-500">与补充标签合计最多 8 个</span></legend><PrimaryTagSelector tags={primaryTags} selected={form.tagIds} onToggle={selectTag} /></fieldset>
         <label className="block max-w-sm"><span className="mb-1 block text-sm font-medium">{form.categorySlug === 'food' ? '人均消费参考（人民币）' : '消费参考（人民币／人次）'}</span>
           <input type="number" min="0" max="100000" step="0.01" value={numbers.price} onChange={event => setNumbers({...numbers, price: event.target.value})} placeholder="可不填；0 表示免费" className={INPUT} /></label>
         <details className="rounded-xl border border-slate-200 p-3"><summary className="cursor-pointer text-sm font-medium">补充标签（可选）</summary>

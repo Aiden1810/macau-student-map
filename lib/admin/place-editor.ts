@@ -1,5 +1,5 @@
 import {z} from 'zod';
-import {findTaxonomyTag, normalizeSearchText} from '../domain/taxonomy';
+import {findTaxonomyTag, normalizeSearchText, resolveSearchTagAlias} from '../domain/taxonomy';
 import {isPrimaryTag, PRIMARY_TAG_SLUGS} from '../domain/place-types';
 
 export const postgresUuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
@@ -23,6 +23,15 @@ export type AdminPlaceInput = z.infer<typeof adminPlaceSchema>;
 export type EditorMedia = {id: string; url: string | null; sortOrder: number; previewError?: string};
 export type AdminPlaceRecord = AdminPlaceInput & {id: string; updatedAt: string; media: EditorMedia[]; pendingSubmissionIds?: string[]};
 export type SubmissionEditorRecord = AdminPlaceInput & {id: string; version: number; notes: string | null; media: EditorMedia[]};
+
+export function matchesAdminPlaceSearch(place: Pick<AdminPlaceInput, 'name' | 'nameEn' | 'address' | 'tagIds' | 'searchKeywords'>, query: string): boolean {
+  const normalized = normalizeSearchText(query);
+  const tags = place.tagIds.map(findTaxonomyTag).filter(tag => tag !== null);
+  if (resolveSearchTagAlias(query).some(match => tags.some(tag => tag.id === match.id))) return true;
+  return [place.name, place.nameEn, place.address, ...place.searchKeywords,
+    ...tags.flatMap(tag => [tag.labelZhMO, tag.labelEn, ...tag.aliases])]
+    .some(value => value != null && normalizeSearchText(value).includes(normalized));
+}
 
 export const PLACE_STATUS_LABELS = {draft: '草稿', published: '已上线', archived: '已下架'} as const;
 export const LEGACY_STATUS_LABELS = {pending: '待审核', verified: '已上线', rejected: '已驳回'} as const;

@@ -20,7 +20,7 @@ import {
   normalizeQuery
 } from '@/lib/search/tag-search';
 import {normalizePlaceSearchRequest} from '@/lib/domain/search';
-import {resolveTagAlias} from '@/lib/domain/taxonomy';
+import {resolveSearchTagAlias} from '@/lib/domain/taxonomy';
 import {isLaunchCategory, matchesLaunchCategory} from '@/lib/domain/place-types';
 import {createRequestGuard} from '@/lib/data/async-request';
 import {loadCanonicalPlaces, mergeLegacyAndCanonicalPlaces} from '@/lib/data/canonical-places';
@@ -379,7 +379,7 @@ export default function Page() {
     }
 
     const ranked = rankCompatibilityPlaces(request, visibleShops);
-    const matchedTags = resolveTagAlias(request.query).map((tag) => ({
+    const matchedTags = resolveSearchTagAlias(request.query).map((tag) => ({
       tag_id: tag.id,
       tag_name: tag.labelZhMO,
       score_source: 1

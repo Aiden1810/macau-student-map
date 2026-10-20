@@ -1,4 +1,4 @@
-import {normalizeSearchText, resolveTagAlias} from '../domain/taxonomy';
+import {expandCuisineFilterSlugs, normalizeSearchText, resolveTagAlias} from '../domain/taxonomy';
 
 export type LegacyFilterablePlace = {
   tags: readonly string[];
@@ -35,7 +35,7 @@ export function filterBySelectedFacet<T extends LegacyFilterablePlace>(
     );
   }
 
-  const selected = new Set(selectedValues.flatMap(canonicalTagKeys));
+  const selected = new Set(selectedValues.flatMap(canonicalTagKeys).flatMap(expandCuisineFilterSlugs));
 
   return places.filter((place) =>
     place.tags.some((tag) => canonicalTagKeys(tag).some((key) => selected.has(key))),

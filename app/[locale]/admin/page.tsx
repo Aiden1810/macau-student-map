@@ -2,10 +2,11 @@
 
 import {FormEvent, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import toast from 'react-hot-toast';
-import {getCanonicalTagsForAdminAndSubmit, migrateLegacyTagsForSubmission} from '@/lib/tags/schema';
+import {getCanonicalTagsForAdminAndSubmit, migrateLegacyTagsForSubmission, toggleLegacyCanonicalTag} from '@/lib/tags/schema';
 import LaunchCategorySelector from '@/components/LaunchCategorySelector';
+import PrimaryTagSelector from '@/components/PrimaryTagSelector';
 import {getPlacePresentation, getLaunchTagOptions, isPrimaryTag, selectLaunchCategory, type LaunchCategoryKey} from '@/lib/domain/place-types';
-import {getTaxonomyTagLabelZhCN, resolveTagAlias} from '@/lib/domain/taxonomy';
+import {findTaxonomyTag, getTaxonomyTagLabelZhCN, resolveTagAlias} from '@/lib/domain/taxonomy';
 import {Link} from '@/i18n/navigation';
 import {dedupeTrimmedList, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
 import {buildNormalizedShopPayload, type ShopCategory} from '@/lib/shops/payload';
@@ -554,13 +555,13 @@ function AdminShopForm({
 
           <div className="sm:col-span-2">
             <p className="mb-1 text-sm font-medium text-slate-700">类型与场景标签（最多8个）</p>
-            <div className="flex flex-wrap gap-2">
-              {Array.from(new Set([...availableTags, ...form.tags])).map((tag) => (
-                <button key={tag} type="button" onClick={() => toggleTag(tag)} className={`rounded-full border px-3 py-1 text-xs font-medium ${form.tags.includes(tag) ? 'border-[#006633] bg-[#006633] text-white' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
-                  {tag}
-                </button>
-              ))}
-            </div>
+            <PrimaryTagSelector
+              tags={migrateLegacyTagsForSubmission([...availableTags, ...form.tags]).tagIds.map(id => findTaxonomyTag(id)!)}
+              selected={form.tags.flatMap(label => {const matches = resolveTagAlias(label); return matches.length ? matches.map(tag => tag.id) : [label];})}
+              onToggle={id => setForm(previous => ({...previous, tags: toggleLegacyCanonicalTag(previous.tags, id)}))} />
+            <div className="mt-2 flex flex-wrap gap-2">{form.tags.filter(label => resolveTagAlias(label).length === 0).map(label => (
+              <button key={label} type="button" onClick={() => toggleTag(label)} className="rounded-full border border-[#006633] bg-[#006633] px-3 py-1 text-xs text-white">{label}</button>
+            ))}</div>
           </div>
 
           <label className="sm:col-span-2">

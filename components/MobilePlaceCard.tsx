@@ -5,6 +5,7 @@ import {Heart, MapPin, Star} from 'lucide-react';
 import {useLocale, useTranslations} from 'next-intl';
 import PlaceCover from './PlaceCover';
 import {formatPlacePrice, getPlacePresentation} from '@/lib/domain/place-types';
+import {resolveTagAlias} from '@/lib/domain/taxonomy';
 import type {Shop} from '@/types/shop';
 
 export default function MobilePlaceCard({shop, favorite, onFavorite, onLocate, highlighted}: {
@@ -17,6 +18,7 @@ export default function MobilePlaceCard({shop, favorite, onFavorite, onLocate, h
   const map = useTranslations('Map');
   const branch = /^(.*?)\s*[（(]([^（）()]+)[）)]$/.exec(shop.name);
   const label = getPlacePresentation(shop).label;
+  const cuisineTags = shop.tags.filter(value => resolveTagAlias(value).some(tag => tag.kind === 'cuisine'));
   const hasRating = shop.reviews > 0 && Number.isFinite(shop.rating) && shop.rating > 0;
   return (
     <article className={`flex items-start gap-1 rounded-[20px] border bg-white p-3 transition ${highlighted ? 'border-pine-600 ring-2 ring-pine-100' : 'border-line'}`}>
@@ -26,6 +28,9 @@ export default function MobilePlaceCard({shop, favorite, onFavorite, onLocate, h
           <h3 className="line-clamp-2 break-words text-[15px] font-semibold leading-[1.45] text-ink">{branch ? branch[1] : shop.name}</h3>
           {branch && <p className="line-clamp-1 text-[13px] leading-5 text-muted">({branch[2]})</p>}
           <p className="mt-1 text-xs leading-5 text-muted">{label}{shop.region ? ` · ${shop.region}` : ''}</p>
+          {cuisineTags.length > 0 && <div className="mt-1 flex flex-wrap gap-1">{cuisineTags.map(tag => (
+            <span key={tag} className="rounded-md bg-pine-50 px-1.5 py-0.5 text-[11px] leading-4 text-pine-800">{tag}</span>
+          ))}</div>}
           <p className="mt-0.5 text-[13px] font-medium leading-5 text-ink">{formatPlacePrice(shop)}</p>
           <p className="mt-1 flex items-center gap-1 text-xs text-muted">
             {hasRating ? <><Star size={12} className="fill-[#ae8641] text-[#ae8641]" aria-hidden="true" />{shop.rating.toFixed(1)} · {t('reviewsCount', {count: shop.reviews})}</> : map('noReviews')}

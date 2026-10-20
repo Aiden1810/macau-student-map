@@ -1,4 +1,4 @@
-import { normalizeSearchText, resolveTagAlias } from "../domain/taxonomy";
+import { normalizeSearchText, resolveTagAlias, resolveSearchTagAlias } from "../domain/taxonomy";
 import type {
   AssistantDecision,
   AssistantIntent,
@@ -38,7 +38,7 @@ export function validateRouteSnapshots(
 function matchesFood(place: AssistantPlace, food: string): boolean {
   const haystack = normalizeSearchText([place.name, ...place.tags].join(" "));
   if (haystack.includes(normalizeSearchText(food))) return true;
-  const aliases = resolveTagAlias(food).filter(
+  const aliases = resolveSearchTagAlias(food).filter(
     (tag) =>
       !tag.legacyLabels?.some(
         (label) => normalizeSearchText(label) === normalizeSearchText(food),
