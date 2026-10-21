@@ -48,7 +48,8 @@ function createHandler(options?: {
       role: 'admin'
     }),
     createClient: () => ({kind: 'fake-client'}),
-    listPending: async () => ({data: options?.rows ?? [pendingRow], error: null}),
+    listPending: async () => ({data: options?.rows ?? [pendingRow], error: null,
+      submitterEmails: new Map([[pendingRow.submitted_by, 'student@example.test']])}),
     countByStatus: async (_client, status) =>
       status === options?.countErrorStatus
         ? {count: null, error: {message: `${status} count failed`}}
@@ -70,7 +71,8 @@ describe('GET /api/admin/submissions', () => {
     expect(response.status).toBe(200);
     expect(body.ok).toBe(true);
     expect(body.data.items).toHaveLength(1);
-    expect(body.data.items[0]).toMatchObject({id: pendingRow.id, status: 'pending'});
+    expect(body.data.items[0]).toMatchObject({id: pendingRow.id, status: 'pending',
+      submitter: {id: pendingRow.submitted_by, email: 'student@example.test'}});
     expect(body.data.stats).toEqual({pending: 201, approved: 12, merged: 3, rejected: 4});
   });
 

@@ -9,6 +9,8 @@ import PlaceTypeBadge from '@/components/PlaceTypeBadge';
 import {getTaxonomyTagLabelZhCN} from '@/lib/domain/taxonomy';
 import {withCuisineGroupLabel} from '@/lib/tags/display';
 import PlaceEditor from './PlaceEditor';
+import AccountAttribution from './AccountAttribution';
+import type {AdminAccount} from '@/lib/admin/accounts';
 
 type QueueItem = {
   id: string;
@@ -18,6 +20,7 @@ type QueueItem = {
   tagIds: string[];
   notes: string | null;
   submittedAt: string | null;
+  submitter?: AdminAccount | null;
 };
 
 export type QueueStats = {
@@ -176,6 +179,7 @@ export default function SubmissionQueue({onPublished, onStatsChange}: {onPublish
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h3 className="font-semibold text-slate-900">{item.name}</h3>
+                  <AccountAttribution label="投稿账号" account={item.submitter} />
                   <p className="mt-1 text-xs text-slate-500">{item.address || '未填写地址'}</p>
                   <PlaceTypeBadge place={{category: item.categorySlug, tags: item.tagIds}} />
                   <p className="mt-1 text-xs text-slate-500">{withCuisineGroupLabel(item.tagIds.map(id => getTaxonomyTagLabelZhCN(id) ?? '未知标签')).join(' · ')}</p>

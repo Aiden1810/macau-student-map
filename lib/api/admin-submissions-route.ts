@@ -5,7 +5,7 @@ import {mapSubmissionRow} from '../data/submission-repository';
 export type AdminSubmissionStatus = 'pending' | 'approved' | 'merged' | 'rejected';
 
 type QueryError = {message: string};
-type ListResult = {data: unknown[] | null; error: QueryError | null};
+type ListResult = {data: unknown[] | null; error: QueryError | null; submitterEmails?: Map<string, string | null>};
 type CountResult = {count: number | null; error: QueryError | null};
 
 type AdminSubmissionsDependencies<Client> = {
@@ -66,7 +66,10 @@ export function createAdminSubmissionsGetHandler<Client>(
       MODERATION_STATUSES.map((status, index) => [status, countResults[index].count as number])
     ) as Record<AdminSubmissionStatus, number>;
     const response = successResponse(
-      {items: (itemsResult.data ?? []).map(mapSubmissionRow), stats},
+      {items: (itemsResult.data ?? []).map(row => {
+        const item = mapSubmissionRow(row);
+        return {...item, submitter: {id: item.submittedBy, email: itemsResult.submitterEmails?.get(item.submittedBy) ?? null}};
+      }), stats},
       {requestId}
     );
     return preventCaching(response);

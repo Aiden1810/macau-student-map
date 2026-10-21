@@ -1,7 +1,8 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {AdminPlaceInput, AdminPlaceRecord, EditorMedia, SubmissionEditorRecord} from './place-editor';
+import {readAccountEmails} from './accounts';
 
-export const ADMIN_PLACE_COLUMNS = 'id,name,name_en,address,category_slug,region,longitude,latitude,price_per_person,status,updated_at,search_keywords_manual,legacy_image_urls,place_tags(tag_id),place_media(id,bucket_id,storage_path,sort_order,lifecycle_status)';
+export const ADMIN_PLACE_COLUMNS = 'id,name,name_en,address,category_slug,region,longitude,latitude,price_per_person,status,updated_at,created_by,search_keywords_manual,legacy_image_urls,place_tags(tag_id),place_media(id,bucket_id,storage_path,sort_order,lifecycle_status)';
 type MediaRow = {id: string; bucket_id: string; storage_path: string; sort_order: number; lifecycle_status: string};
 type PlaceRow = {
   id: string; name: string; name_en: string | null; address: string | null;
@@ -10,6 +11,7 @@ type PlaceRow = {
   status: AdminPlaceInput['status']; updated_at: string; search_keywords_manual: string[];
   place_tags: {tag_id: string}[]; place_media: MediaRow[];
   legacy_image_urls?: string[];
+  created_by?: string | null;
 };
 
 export async function editorMedia(client: SupabaseClient, rows: MediaRow[]): Promise<EditorMedia[]> {
@@ -24,10 +26,11 @@ export async function editorMedia(client: SupabaseClient, rows: MediaRow[]): Pro
     }));
 }
 
-export async function mapAdminPlace(client: SupabaseClient, row: PlaceRow): Promise<AdminPlaceRecord> {
+export async function mapAdminPlace(client: SupabaseClient, row: PlaceRow, accounts: Map<string, string | null>): Promise<AdminPlaceRecord> {
   return {id: row.id, updatedAt: row.updated_at, name: row.name, nameEn: row.name_en, address: row.address,
     categorySlug: row.category_slug, region: row.region, longitude: row.longitude, latitude: row.latitude,
     pricePerPerson: row.price_per_person === null ? null : Number(row.price_per_person),
+    createdBy: row.created_by ? {id: row.created_by, email: accounts.get(row.created_by) ?? null} : null,
     tagIds: row.place_tags.map(tag => tag.tag_id), searchKeywords: row.search_keywords_manual ?? [], status: row.status,
     media: [...await editorMedia(client, row.place_media ?? []), ...(row.legacy_image_urls ?? []).map((url, index) => ({id: `legacy:${url}`, url, sortOrder: 1000 + index}))]};
 }
@@ -36,7 +39,8 @@ export async function loadAdminPlace(client: SupabaseClient, id: string) {
   const {data, error} = await client.from('places').select(ADMIN_PLACE_COLUMNS).eq('id', id).maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const record = await mapAdminPlace(client, data as unknown as PlaceRow);
+  const accounts = await readAccountEmails(client, [data.created_by]);
+  const record = await mapAdminPlace(client, data as unknown as PlaceRow, accounts);
   record.pendingSubmissionIds = await pendingPlaceSubmissions(client, id);
   return record;
 }

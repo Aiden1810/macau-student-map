@@ -18,6 +18,7 @@ import SubmissionQueue, {type QueueStats} from '@/components/admin/SubmissionQue
 import PlacesManager, {type PlaceSummary} from '@/components/admin/PlacesManager';
 import AdminNavigation, {type AdminSection} from '@/components/admin/AdminNavigation';
 import PlatformDashboard from '@/components/admin/PlatformDashboard';
+import UsersManager from '@/components/admin/UsersManager';
 import PlaceEditor from '@/components/admin/PlaceEditor';
 import type {QualityFilter} from '@/lib/admin/operations';
 import FeedbackInbox, {type FeedbackStats} from '@/components/admin/FeedbackInbox';
@@ -1402,6 +1403,7 @@ export default function AdminModerationPage() {
         <div hidden={section !== 'submissions'}><SubmissionQueue onPublished={() => setPlaceRefreshSignal(value => value + 1)} onStatsChange={setQueueStats} /></div>
         <div hidden={section !== 'feedback'}><FeedbackInbox onStatsChange={setFeedbackStats} /></div>
         {section==='reviews'&&<ReviewInbox/>}
+        {section==='users'&&<UsersManager/>}
         <div hidden={section !== 'tools'}>
           <div className="mb-5 rounded-2xl border border-line bg-white p-5"><h2 className="text-lg font-semibold text-ink">更多工具</h2><p className="mt-1 text-sm text-muted">历史店铺、搜索分析和操作记录集中在这里，按需展开查看。</p>
               <details className="w-full text-sm text-slate-600">

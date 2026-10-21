@@ -3,11 +3,13 @@ import {ADMIN_PLACE_COLUMNS, mapAdminPlace} from '@/lib/admin/place-data';
 import {adminPlaceSchema, prepareAdminPlaceInput} from '@/lib/admin/place-editor';
 import {parseJsonBody} from '@/lib/api/request';
 import {errorResponse, successResponse} from '@/lib/api/result';
+import {readAccountEmails} from '@/lib/admin/accounts';
 
 export const GET = createAdminPlaceRoute<Record<string, never>>(async (_request, client) => {
   const {data, error} = await client.from('places').select(ADMIN_PLACE_COLUMNS).is('legacy_shop_id', null).order('updated_at', {ascending: false}).limit(500);
   if (error) throw error;
-  const items = await Promise.all((data ?? []).map(row => mapAdminPlace(client, row as unknown as Parameters<typeof mapAdminPlace>[1])));
+  const accounts = await readAccountEmails(client, (data ?? []).map(row => row.created_by));
+  const items = await Promise.all((data ?? []).map(row => mapAdminPlace(client, row as unknown as Parameters<typeof mapAdminPlace>[1], accounts)));
   return successResponse({items});
 });
 

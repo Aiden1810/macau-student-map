@@ -1,6 +1,7 @@
 import {z} from 'zod';
 import {findTaxonomyTag, normalizeSearchText, resolveSearchTagAlias} from '../domain/taxonomy';
 import {isPrimaryTag, PRIMARY_TAG_SLUGS} from '../domain/place-types';
+import type {AdminAccount} from './accounts';
 
 export const postgresUuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 const optionalText = (max: number) => z.string().trim().max(max).nullable().transform(value => value || null);
@@ -21,7 +22,7 @@ export const adminPlaceSchema = z.object({
 
 export type AdminPlaceInput = z.infer<typeof adminPlaceSchema>;
 export type EditorMedia = {id: string; url: string | null; sortOrder: number; previewError?: string};
-export type AdminPlaceRecord = AdminPlaceInput & {id: string; updatedAt: string; media: EditorMedia[]; pendingSubmissionIds?: string[]};
+export type AdminPlaceRecord = AdminPlaceInput & {id: string; updatedAt: string; media: EditorMedia[]; pendingSubmissionIds?: string[]; createdBy?: AdminAccount | null};
 export type SubmissionEditorRecord = AdminPlaceInput & {id: string; version: number; notes: string | null; media: EditorMedia[]};
 
 export function matchesAdminPlaceSearch(place: Pick<AdminPlaceInput, 'name' | 'nameEn' | 'address' | 'tagIds' | 'searchKeywords'>, query: string): boolean {

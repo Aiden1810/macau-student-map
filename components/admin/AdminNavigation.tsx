@@ -10,14 +10,16 @@ import {
   MessageSquare,
   Plus,
   Settings2,
-  Store
+  Store,
+  Users
 } from 'lucide-react';
 import {Link} from '@/i18n/navigation';
 
-export type AdminSection = 'overview' | 'analytics' | 'places' | 'submissions' | 'reviews' | 'feedback' | 'activity' | 'tools';
+export type AdminSection = 'overview' | 'analytics' | 'users' | 'places' | 'submissions' | 'reviews' | 'feedback' | 'activity' | 'tools';
 const sections = [
   {key: 'overview', label: '总览', Icon: LayoutDashboard},
   {key: 'analytics', label: '数据分析', Icon: BarChart3},
+  {key: 'users', label: '用户管理', Icon: Users},
   {key: 'places', label: '店铺资料', Icon: Store},
   {key: 'submissions', label: '投稿审核', Icon: ClipboardCheck},
   {key: 'reviews', label: '用户评价', Icon: MessageSquare},
