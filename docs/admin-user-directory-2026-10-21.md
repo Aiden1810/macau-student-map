@@ -2,7 +2,7 @@
 
 ## 当前状态
 
-本地功能及验证完成，数据库迁移已安装，正在准备正式发布。最终上线信息见文末记录。
+已完成并上线。数据库迁移已安装，代码已提交并推送；正式地址为 https://www.aiden-macau-map.top/zh-CN/admin 。完整上线信息见文末记录。
 
 ## 已实现
 
@@ -65,7 +65,7 @@ npm.cmd run i18n:check
 
 当前店铺／投稿列表分别保留原有 500／200 条加载限制。本版用户列表已经分页；如果以后需要按用户查看全部贡献，可另外增加筛选入口。
 
-原有 docs/product-backlog.md、docs/wechat-miniapp-roadmap.md 和 tmp/ 属于其他窗口工作，本轮保留，不混入提交。
+原有 docs/product-backlog.md、docs/wechat-miniapp-roadmap.md 和 tmp/ 属于其他窗口工作，本轮保留，不混入提交。发布期间另一窗口开始修改手动地点资料相关文件（包括 lib/admin/place-editor.ts 等），这些后续工作也没有纳入本次发布源码，不回退或覆盖。
 
 ## 上线记录
 
@@ -77,4 +77,12 @@ npm.cmd run i18n:check
 - 安装前后地点 53 条、投稿 8 条，完整行指纹分别仍为 f03e46ab5f17fd45966bfadb463e1b0b 和 3d9d07b0e6aa7186d254e281dad512d5，内容未发生变化。
 - 安全 advisor 与安装前一致，无新增告警；既有 6 项公开管理 definer、1 项密码保护 WARN 保持原样。参考：[函数权限检查](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)、[密码保护说明](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)。
 - 发布前正式部署为 dpl_3GfxH4TGjb4zQu3BTHVbuvMuWFzE，已包含“其他菜系”更新；本次基于 1cb7d71 后继续修改，保留这部分代码。
-- 应用发布待完成。
+- 发布源码：47e560ac8e7d1fd8b989507f926292bf42382cd6，已推送 codex/admin-place-workflow。
+- 新部署：dpl_3eaVPCuMYe45rS2vtkJUVopFzoTf，READY、production；构建地址 https://macau-student-cybsseec0-aiden1810s-projects.vercel.app 。metadata 的 releaseCommit 和 releaseBranch 与上述提交、分支一致。
+- 使用该 Git 提交的干净 archive 导出源码，未复制 .env.local。先 --prod --skip-domain 构建暂存，确认正式域名仍指向旧部署；暂存检查通过后 promote，正式域名 inspect 已指向新部署。
+- 暂存：简体首页与公开地点接口 200；未登录访问用户管理、店铺管理、投稿审核接口均 401，带 private, no-store；公开地点数据没有 email、createdBy、submitter 字段。
+- 正式：三语言首页和后台页面 200；公开地点接口 200、7 条，旧店铺接口 200、0 条；未登录访问用户、店铺、投稿、平台工作台接口均 401、private, no-store。公开接口未暴露新增账号字段。
+- 已下载正式后台页面所引用的实际脚本，核对新“用户管理”和“来源未记录”文案存在，避免只验证旧页面 HTTP 200。
+- 新部署近 15 分钟、最多 20 条 5xx 日志查询未返回记录；这只是有限时间检查，不代表长期稳定性。
+- 未登录真实管理员账号进行网页端邮箱查看或人工写入验收。网页交互使用虚构账号检查；线上管理员读取和权限使用数据库内受控身份验证，没有输出邮箱明细。
+- 暂存／正式响应和检查脚本保存于 Git 忽略目录 output/release-admin-users-20261021/；界面预览服务和本次专用浏览器会话已关闭。
