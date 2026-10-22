@@ -131,7 +131,7 @@ npm run dev
 | 投稿与审核 | `components/ContributionForm.tsx` → `/api/submissions`、`/[id]/submit`；`components/admin/SubmissionQueue.tsx` → `/api/admin/submissions` → 权限检查和数据库审核函数。 |
 | 评价、收藏 | `components/reviews/`、`lib/hooks/useFavorites.ts` → 对应 API／Supabase，并受数据库权限限制。 |
 
-新旧地点数据都转换为界面使用的 `Shop`。当前合并逻辑按相同 ID 去重，保留旧展示字段，选择性补充新模型的首次发布时间、位置说明等；并非所有字段都由新模型覆盖。AI 目录读取的是最多 200 个已发布 `places`，不能默认它与首页的新旧合并列表完全相同。首页可在背景筛选时保留桌面 AI 浮窗，但筛选结果没有直接作为聊天候选列表传入。
+新旧地点数据都转换为界面使用的 `Shop`。当前合并逻辑按相同 ID 去重，保留旧展示字段，首次发布时间、位置说明、评分、评价数与推荐标签取自新模型；并非所有字段都由新模型覆盖。收藏关联与旧店删除副本的迁移要求见[一致性修复说明](place-consistency-migration.md)。AI 目录读取的是最多 200 个已发布 `places`，不能默认它与首页的新旧合并列表完全相同。首页可在背景筛选时保留桌面 AI 浮窗，但筛选结果没有直接作为聊天候选列表传入。
 
 AI 解析需求，数据库提供已发布店铺事实，高德提供路线；不要把模型输出当作价格或交通耗时的事实来源。详见 [AI 助手接入说明](place-assistant-setup.md)。
 

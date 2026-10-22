@@ -7,18 +7,22 @@ export type CanonicalPlacesListResult = {
 
 export type CanonicalPlacesListLoader = () => Promise<CanonicalPlacesListResult>;
 
-/** Preserve existing presentation while reading first publication from its authoritative source. */
+/** Preserve legacy presentation, but use the current review summary and publication metadata. */
 export function mergeLegacyAndCanonicalPlaces(legacy: readonly Shop[], canonical: readonly Shop[]): Shop[] {
   const canonicalById = new Map(canonical.map(place => [place.id, place]));
   const legacyIds = new Set(legacy.map(place => place.id));
   return [
-    ...legacy.map(place => canonicalById.has(place.id)
-      ? {...place, publishedAt: canonicalById.get(place.id)!.publishedAt ?? null,
-        ...(canonicalById.get(place.id)!.locationDetails ? {
-          locationDetails: canonicalById.get(place.id)!.locationDetails,
-          features: [...place.features.filter(feature => feature !== '小摊'), ...canonicalById.get(place.id)!.features.filter(feature => feature === '小摊')]
-        } : {})}
-      : place),
+    ...legacy.map(place => {
+      const current = canonicalById.get(place.id);
+      if (!current) return place;
+      return {...place, publishedAt: current.publishedAt ?? null,
+        rating: current.rating, reviews: current.reviews,
+        ratingLabel: current.ratingLabel, recommendStatus: current.recommendStatus,
+        ...(current.locationDetails ? {
+          locationDetails: current.locationDetails,
+          features: [...place.features.filter(feature => feature !== '小摊'), ...current.features.filter(feature => feature === '小摊')]
+        } : {})};
+    }),
     ...canonical.filter(place => !legacyIds.has(place.id))
   ];
 }
