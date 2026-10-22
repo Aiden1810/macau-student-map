@@ -41,6 +41,22 @@ function parseEnvFile(content) {
   return map;
 }
 
+function isExampleValue(value) {
+  return /^YOUR_[A-Z0-9_]+$/i.test(value) || /YOUR_PROJECT_REF/i.test(value);
+}
+
+function isSupabaseUrl(value) {
+  try {
+    const url = new URL(value);
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    const cloud = url.protocol === 'https:' && /^[a-z0-9-]+\.supabase\.co$/i.test(url.hostname);
+    return (cloud || (local && ['http:', 'https:'].includes(url.protocol))) &&
+      !url.username && !url.password && !url.search && !url.hash && url.pathname === '/';
+  } catch {
+    return false;
+  }
+}
+
 function run() {
   const envPath = path.join(root, '.env.local');
   const packagePath = path.join(root, 'package.json');
@@ -92,30 +108,43 @@ function run() {
     ];
 
     for (const key of requiredKeys) {
-      const value = env.get(key);
+      const value = env.get(key)?.trim();
+      const placeholder = Boolean(value && isExampleValue(value));
+      const configured = Boolean(value) && !placeholder;
       addCheck(
         `ENV: ${key}`,
-        Boolean(value),
-        value ? '已配置。' : '缺失或为空。',
-        value ? undefined : `在 .env.local 添加：${key}=你的值`,
+        configured,
+        placeholder ? '仍为示例占位值。' : configured ? '已填写；未验证服务连通性。' : '缺失或为空。',
+        configured ? undefined : `在 .env.local 填写 ${key} 的开发环境配置（不要使用示例占位值）。`,
       );
     }
 
-    const supabaseUrl = env.get('NEXT_PUBLIC_SUPABASE_URL');
-    if (supabaseUrl) {
-      const ok = /^https:\/\/.+\.supabase\.co$/i.test(supabaseUrl);
+    const supabaseUrl = env.get('NEXT_PUBLIC_SUPABASE_URL')?.trim();
+    if (supabaseUrl && !isExampleValue(supabaseUrl)) {
+      const ok = isSupabaseUrl(supabaseUrl);
       addCheck(
         'Supabase URL 格式',
         ok,
-        ok ? '格式看起来正确。' : '格式可能不正确（应类似 https://xxxx.supabase.co）。',
+        ok ? '云端或本地回环地址格式正确；未验证连接。' : '格式不正确：请使用 HTTPS Supabase 项目地址或 HTTP(S) 本地回环地址。',
       );
     }
 
-    const amapSecurityCode = env.get('NEXT_PUBLIC_AMAP_SECURITY_CODE');
+    const amapSecurityCode = env.get('NEXT_PUBLIC_AMAP_SECURITY_CODE')?.trim();
+    const securityPlaceholder = Boolean(amapSecurityCode && isExampleValue(amapSecurityCode));
     addCheck(
       'ENV: NEXT_PUBLIC_AMAP_SECURITY_CODE',
-      true,
-      amapSecurityCode ? '已配置。' : '未配置；仅当高德控制台要求安全密钥时才需要。',
+      !securityPlaceholder,
+      securityPlaceholder ? '仍为示例占位值。' : amapSecurityCode ? '已填写；未验证服务连通性。' : '未配置；仅当高德控制台要求安全密钥时才需要。',
+      securityPlaceholder ? '仅当高德控制台要求安全密钥时填写有效配置，否则留空。' : undefined,
+    );
+
+    const deepseekKey = env.get('DEEPSEEK_API_KEY')?.trim();
+    const aiPlaceholder = Boolean(deepseekKey && isExampleValue(deepseekKey));
+    addCheck(
+      'ENV: DEEPSEEK_API_KEY',
+      !aiPlaceholder,
+      aiPlaceholder ? '仍为示例占位值。' : deepseekKey ? '已填写；未发起 AI 请求，未验证有效性。' : '未配置；基础检查可继续，真实 AI 功能无法验证。',
+      aiPlaceholder ? '需要验证 AI 时填写服务端开发配置，否则留空；不要添加 NEXT_PUBLIC_ 前缀。' : undefined,
     );
   }
 

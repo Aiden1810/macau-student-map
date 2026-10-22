@@ -85,13 +85,18 @@ docs/                 Screenshots and project design notes
 
 ## Local Development
 
-Requirements: Node.js 24.x (see `.nvmrc` and `package.json`), matching CI and Vercel. Docker Desktop is only required when running the local Supabase database tests.
+Requirements: Node.js 24.x (see `.nvmrc` and `package.json`), matching CI and Vercel. Docker Desktop is only required when running the local Supabase CLI database tests.
+
+新成员请先阅读[中文本地启动与验证说明](docs/local-development.md)，核对远端分支、配置与验证范围。
 
 ~~~powershell
 git clone https://github.com/Aiden1810/macau-student-map.git
 Set-Location macau-student-map
-npm install
-Copy-Item .env.example .env.local
+npm ci
+if (-not (Test-Path .env.local)) {
+  Copy-Item .env.example .env.local
+}
+# Replace example placeholders with approved development configuration before starting.
 npm run dev
 ~~~
 
@@ -105,6 +110,8 @@ Configure these values in **.env.local**:
 | NEXT_PUBLIC_SUPABASE_ANON_KEY | Supabase publishable/anonymous key |
 | NEXT_PUBLIC_AMAP_WEB_KEY | AMap Web JavaScript API key |
 | NEXT_PUBLIC_AMAP_SECURITY_CODE | Optional AMap security code, when enabled in the AMap console |
+| DEEPSEEK_API_KEY | Server-only; required for real AI chat and place interpretation |
+| DEEPSEEK_MODEL | Optional model override; current default is deepseek-flash |
 
 Variables prefixed with **NEXT_PUBLIC_** are included in browser code. Do not place a Supabase **service_role** key, administrator password, or another private secret in them.
 
@@ -113,12 +120,15 @@ Useful checks:
 ~~~powershell
 npm run doctor
 npm test
+npx tsc --noEmit
 npm run lint
 npm run i18n:check
 npm run build
 ~~~
 
-Local database tests can be run separately after Docker Desktop is available:
+Build success does not verify database access or a working homepage. Doctor rejects the template's placeholder values and reports whether AI configuration is supplied, but it does not verify credentials or call external services. See the Chinese guide for configuration failures and verification boundaries.
+
+Local database tests can be run separately after Docker Desktop is available and the target has been confirmed to be an independent local environment. The reset command deletes and rebuilds that local database; it is not part of routine onboarding and must not be used on shared or production data:
 
 ~~~powershell
 npx supabase start
