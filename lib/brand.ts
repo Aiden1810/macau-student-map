@@ -10,6 +10,7 @@ export function brandName(locale: string): string {
 export function createManifest(locale: string): MetadataRoute.Manifest {
   const language = ['zh-CN', 'zh-MO', 'en'].includes(locale) ? locale : 'zh-CN';
   return {
+    id: '/',
     name: brandName(language),
     short_name: brandName(language),
     description: language === 'en' ? 'A local life map for students in Macau' : language === 'zh-MO' ? '澳門學生本地生活地圖' : '澳门学生本地生活地图',
