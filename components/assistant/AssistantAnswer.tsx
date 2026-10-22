@@ -25,7 +25,7 @@ export default function AssistantAnswer({message, copy}: {message: ChatMessage; 
           <h3 className="mt-1 break-words text-xl font-semibold text-pine-900">{winner.place.name}</h3>
           <p className="mt-2 text-sm leading-6 text-stone-700">{copy[intent.priority]}</p>
         </div>
-        <div className="grid grid-cols-2 divide-x divide-stone-100 sm:grid-cols-4">
+        <div className={`grid grid-cols-2 divide-x divide-stone-100 ${decision.rows.length > 2 ? 'sm:grid-cols-4' : ''}`}>
           {decision.rows.map(row => (
             <article key={row.place.id} className={`min-w-0 break-words border-t border-stone-100 px-3 py-4 ${row.place.id === winner.place.id ? 'bg-pine-50/30' : ''}`}>
               <h4 className="min-h-12 text-sm font-semibold leading-6 text-ink">{row.place.name}</h4>
