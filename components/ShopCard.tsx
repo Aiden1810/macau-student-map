@@ -3,6 +3,7 @@ import Image from 'next/image';
 import {Check, Heart, Navigation, Tag, Trash2} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import StarRating from '@/components/StarRating';
+import ReviewInvitation from '@/components/reviews/ReviewInvitation';
 import PlaceNavigationActions from '@/components/PlaceNavigationActions';
 import PlaceTypeBadge from '@/components/PlaceTypeBadge';
 import {formatPlacePrice} from '@/lib/domain/place-types';
@@ -61,6 +62,7 @@ export default function ShopCard({
 }: ShopCardProps) {
   const t = useTranslations('ShopCard');
   const isPending = shop.status === 'pending';
+  const hasRating = shop.reviews > 0 && Number.isFinite(shop.rating) && shop.rating > 0;
   const address = shop.address?.trim() || shop.locationDetails?.description || '地址信息收录中 (Address pending)';
   const isPendingAddress = address === '地址信息收录中 (Address pending)';
   const coverImageUrl = shop.imageUrls?.[0] ?? '';
@@ -141,18 +143,18 @@ export default function ShopCard({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
+        {(isPending || hasRating) && <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
           {shop.status === 'pending' && (
             <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
               待核实
             </span>
           )}
-          <div
+          {hasRating && <div
             className={`rounded-md border px-2 py-1 text-xs font-semibold ${ratingTag.bgClass} ${ratingTag.textClass} ${ratingTag.borderClass}`}
           >
             {ratingTag.label}
-          </div>
-        </div>
+          </div>}
+        </div>}
       </div>
 
       {shop.studentDiscount && (
@@ -185,18 +187,18 @@ export default function ShopCard({
           </div>
         )}
 
-        <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
+        {shop.reviewText?.trim() ? <div className="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{t('reviewTitle')}</p>
           <p className="text-sm text-slate-700 overflow-hidden [display:-webkit-box] [-webkit-line-clamp:3] [-webkit-box-orient:vertical]">
-            {shop.reviewText?.trim() ? shop.reviewText : t('noDetailedReview')}
+            {shop.reviewText}
           </p>
-        </div>
+        </div> : shop.reviews === 0 ? <ReviewInvitation placeId={shop.id} /> : null}
       </div>
 
       <div className="mt-auto border-t border-slate-50 pt-3">
-        <div className="mb-2">
+        {hasRating && <div className="mb-2">
           <StarRating score={shop.rating} reviewCount={shop.reviews} />
-        </div>
+        </div>}
         {hasLowSampleSize && (
           <p className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
             当前评分样本较少（少于5条评论），结果仅供参考。

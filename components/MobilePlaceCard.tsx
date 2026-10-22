@@ -16,7 +16,6 @@ export default function MobilePlaceCard({shop, favorite, onFavorite, onLocate, h
   const locale = useLocale();
   const t = useTranslations('ShopDetail');
   const home = useTranslations('Home');
-  const map = useTranslations('Map');
   const branch = /^(.*?)\s*[（(]([^（）()]+)[）)]$/.exec(shop.name);
   const label = getPlacePresentation(shop).label;
   const cuisineTags = shop.tags.filter(value => resolveTagAlias(value).some(tag => tag.kind === 'cuisine'));
@@ -35,9 +34,9 @@ export default function MobilePlaceCard({shop, favorite, onFavorite, onLocate, h
             <span key={tag} className="rounded-md bg-pine-50 px-1.5 py-0.5 text-[11px] leading-4 text-pine-800">{tag}</span>
           ))}</div>}
           <p className="mt-0.5 text-[13px] font-medium leading-5 text-ink">{formatPlacePrice(shop)}</p>
-          <p className="mt-1 flex items-center gap-1 text-xs text-muted">
-            {hasRating ? <><Star size={12} className="fill-[#ae8641] text-[#ae8641]" aria-hidden="true" />{shop.rating.toFixed(1)} · {t('reviewsCount', {count: shop.reviews})}</> : map('noReviews')}
-          </p>
+          {hasRating && <p className="mt-1 flex items-center gap-1 text-xs text-muted">
+            <Star size={12} className="fill-[#ae8641] text-[#ae8641]" aria-hidden="true" />{shop.rating.toFixed(1)} · {t('reviewsCount', {count: shop.reviews})}
+          </p>}
         </div>
       </Link>
       <div className="flex shrink-0 flex-col gap-1">

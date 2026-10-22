@@ -9,6 +9,8 @@ describe('rating count explanation', () => {
   });
   it('does not warn once five people have rated', () =>
     expect(renderToStaticMarkup(<StarRating score={4.8} reviewCount={5} />)).not.toContain('仅供参考'));
-  it('shows no rating instead of zero stars', () =>
-    expect(renderToStaticMarkup(<StarRating score={0} reviewCount={0} />)).toContain('暂无评分'));
+  it.each([0, -1, NaN, Infinity])('renders nothing for an absent or invalid score (%s)', score =>
+    expect(renderToStaticMarkup(<StarRating score={score} reviewCount={0} />)).toBe(''));
+  it('does not display an average when nobody has rated', () =>
+    expect(renderToStaticMarkup(<StarRating score={4} reviewCount={0} />)).toBe(''));
 });

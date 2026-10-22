@@ -11,6 +11,8 @@ it('shows concrete cuisine and group on compact mobile cards', () => {
   const markup = renderToStaticMarkup(<MobilePlaceCard shop={shop} favorite={false} highlighted={false} onLocate={() => {}} />);
   expect(markup).toContain('印度菜');
   expect(markup).toContain('其他菜系');
+  expect(markup).not.toContain('noReviews');
+  expect(markup).not.toContain('noRatingYet');
 });
 
 it('shows stall and approximate-location context on compact mobile cards', () => {

@@ -4,7 +4,7 @@ import PlaceLocationInfo from '@/components/PlaceLocationInfo';
 
 import Image from 'next/image';
 import Link from 'next/link';
-import {ArrowLeft, Heart, ImagePlus, MapPin, MessageCircle, MessageCirclePlus, Phone} from 'lucide-react';
+import {ArrowLeft, Heart, ImagePlus, MapPin, MessageCirclePlus, Phone} from 'lucide-react';
 import {useParams} from 'next/navigation';
 import {useLocale, useTranslations} from 'next-intl';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -15,6 +15,7 @@ import PlaceNavigationActions from '@/components/PlaceNavigationActions';
 import PlaceTypeBadge from '@/components/PlaceTypeBadge';
 import {formatPlacePrice} from '@/lib/domain/place-types';
 import StarRating from '@/components/StarRating';
+import ReviewInvitation from '@/components/reviews/ReviewInvitation';
 import {createRequestGuard, runLatest} from '@/lib/data/async-request';
 import {loadAuthRole} from '@/lib/data/auth-role';
 import {loadComments} from '@/lib/data/comments';
@@ -140,7 +141,7 @@ function ShopHero({
         <div className="mt-4 text-ink">
           {price.kind === 'paid' ? <p className="flex flex-wrap items-baseline gap-2"><span className="text-3xl font-semibold tracking-tight">¥{price.value}</span><span className="text-sm text-muted">{t(shop.category === 'food' || shop.category === 'drink' ? 'priceUnit' : 'servicePriceUnit')}</span></p> : <p className="text-base font-medium text-muted">{formatPlacePrice(shop)}</p>}
         </div>
-        <div className="mt-3">{hasRating ? <StarRating score={shop.rating} reviewCount={shop.reviews} /> : <p className="text-sm text-muted">暂无评价</p>}</div>
+        {hasRating && <div className="mt-3"><StarRating score={shop.rating} reviewCount={shop.reviews} /></div>}
         {tags.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{tags.map(tag => <span key={tag} className="rounded-lg bg-[#eeefeb] px-2.5 py-1.5 text-xs text-muted">{tag}</span>)}</div>}
         {shop.studentDiscount?.trim() && <p className="mt-4 rounded-xl bg-pine-50 p-3 text-sm leading-6 text-pine-800">{shop.studentDiscount}</p>}
         <div className="mt-6 rounded-2xl border border-line bg-white p-4">
@@ -155,8 +156,7 @@ function ShopHero({
 }
 
 
-function CommentList({comments, loading, error}: {comments: CommentWithImages[]; loading: boolean; error: string | null}) {
-  const t = useTranslations('ShopDetail');
+function CommentList({comments, loading, error, placeId}: {comments: CommentWithImages[]; loading: boolean; error: string | null; placeId: string}) {
   if (loading) {
     return <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">评论加载中...</div>;
   }
@@ -168,7 +168,7 @@ function CommentList({comments, loading, error}: {comments: CommentWithImages[];
   return (
     <section id="reviews" className="scroll-mt-20 space-y-4">
       {comments.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl bg-[#eeefeb]/60 px-4 py-7 text-center text-muted"><MessageCircle size={28} strokeWidth={1.4} aria-hidden="true" /><p className="text-sm">{t('emptyReviews')}</p></div>
+        <ReviewInvitation placeId={placeId} />
       ) : (
         comments.map((comment) => {
           const dateLabel = new Date(comment.updatedAt ?? comment.createdAt).toLocaleString();
@@ -448,8 +448,8 @@ export default function ShopDetailPage() {
 
         <section className="space-y-2">
           <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-ink">{t('reviews')}</h2><Link href={`/${locale}/shop/${shop.id}/review/new`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-pine-700"><MessageCirclePlus size={17} aria-hidden="true" />{t('writeReview')}</Link></div>
-          <ReviewForm key={shopId} placeId={shopId} compact onSuccess={fetchComments} onRefresh={fetchComments}/>
-          <CommentList comments={comments} loading={commentsLoading} error={commentsError} />
+          {comments.length > 0 && <ReviewForm key={shopId} placeId={shopId} compact onSuccess={fetchComments} onRefresh={fetchComments}/>}
+          <CommentList comments={comments} loading={commentsLoading} error={commentsError} placeId={shopId} />
         </section>
       </main>
 

@@ -11,8 +11,8 @@ export default function StarRating({score, reviewCount}: StarRatingProps) {
   const hasHalfStar = safeScore - fullStars >= 0.5;
   const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
 
-  if (safeScore <= 0) {
-    return <span className="text-xs text-slate-400">暂无评分</span>;
+  if (safeScore <= 0 || (reviewCount !== undefined && reviewCount <= 0)) {
+    return null;
   }
 
   return (

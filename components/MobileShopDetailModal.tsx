@@ -1,6 +1,8 @@
 'use client';
 
 import PlaceLocationInfo from '@/components/PlaceLocationInfo';
+import StarRating from '@/components/StarRating';
+import ReviewInvitation from '@/components/reviews/ReviewInvitation';
 
 import Image from 'next/image';
 import {MessageCircle, Navigation, Star, StarHalf, X} from 'lucide-react';
@@ -22,34 +24,6 @@ type CommentWithImages = {
   comment_images: Array<{image_url: string}>;
 };
 
-function InlineStarRating({score, reviewCount}: {score: number; reviewCount?: number}) {
-  const safeScore = Number.isFinite(score) ? Math.max(0, Math.min(5, score)) : 0;
-  const fullStars = Math.floor(safeScore);
-  const hasHalfStar = safeScore - fullStars >= 0.5;
-  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-
-  if (safeScore <= 0) {
-    return <span className="text-xs text-slate-400">暂无评分</span>;
-  }
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex items-center gap-0.5">
-        {Array.from({length: fullStars}).map((_, i) => (
-          <Star key={`f-${i}`} className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-        ))}
-        {hasHalfStar && <StarHalf className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
-        {Array.from({length: emptyStars}).map((_, i) => (
-          <Star key={`e-${i}`} className="h-3.5 w-3.5 text-slate-300" />
-        ))}
-      </div>
-      <span className="text-sm font-bold text-slate-700">{safeScore.toFixed(1)}</span>
-      {typeof reviewCount === 'number' && (
-        <span className="text-xs text-slate-400">({reviewCount} 条评论)</span>
-      )}
-    </div>
-  );
-}
 
 
 interface MobileShopDetailModalProps {
@@ -146,7 +120,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
 
             <PlaceLocationInfo details={shop.locationDetails} />
             <div className="mt-2 flex items-center gap-3">
-              <InlineStarRating score={shop.rating} reviewCount={shop.reviews} />
+              <StarRating score={shop.rating} reviewCount={shop.reviews} />
               <span className="text-sm font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
                 {formatPlacePrice(shop)}
               </span>
@@ -187,7 +161,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
 
           {/* Post Comment Section */}
           <div className="px-4 pt-4">
-            <ReviewForm placeId={shop.id} compact onSuccess={fetchComments} onRefresh={fetchComments} />
+            {comments.length > 0 && <ReviewForm placeId={shop.id} compact onSuccess={fetchComments} onRefresh={fetchComments} />}
           </div>
 
           {/* Divider */}
@@ -203,7 +177,7 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
             {commentsLoading ? (
               <p className="text-sm text-slate-500">加载中...</p>
             ) : comments.length === 0 ? (
-              <p className="text-sm text-slate-500">还没有评论，来抢沙发吧。</p>
+              <ReviewInvitation placeId={shop.id} />
             ) : (
               <div className="space-y-3">
                 {comments.map((comment) => {
