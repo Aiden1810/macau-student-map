@@ -1,4 +1,5 @@
 import type {
+  AssistantDecision,
   AssistantIntent,
   AssistantOrigin,
   AssistantPlace,
@@ -15,6 +16,8 @@ export type ChatMessage = {
   places?: AssistantPlace[];
   routes?: RouteSnapshot[];
   origin?: AssistantOrigin | null;
+  decision?: AssistantDecision;
+  intent?: AssistantIntent;
 };
 export type PlaceConfirmation = {
   query: string;

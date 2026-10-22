@@ -249,6 +249,8 @@ export function assistantCopy(locale: string) {
       "Some routes are missing; travel conclusions cover only the available routes.",
     ),
     reference: text("人均参考", "人均參考", "Reference per person"),
+    unavailable: text("暂无", "暫無", "Unavailable"),
+    explanation: text("补充说明", "補充說明", "More context"),
     groupTotal: text(
       "全组参考餐费",
       "全組參考餐費",

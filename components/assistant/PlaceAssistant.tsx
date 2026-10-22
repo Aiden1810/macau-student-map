@@ -6,7 +6,6 @@ import {
   ArrowUpRight,
   Check,
   Compass,
-  LoaderCircle,
   History,
   Minimize2,
   MapPin,
@@ -21,6 +20,7 @@ import { usePlaceChat } from "./usePlaceChat";
 import ConversationHistory from "./ConversationHistory";
 import ChatOriginPicker from "./ChatOriginPicker";
 import RouteComparisonTable from "./RouteComparisonTable";
+import AssistantAnswer from "./AssistantAnswer";
 
 export default function PlaceAssistant({
   visible = true,
@@ -218,18 +218,7 @@ export default function PlaceAssistant({
                           {copy.title}
                         </p>
                         {message.historical && <p className="mb-1 text-xs text-muted">{copy.historyAnswer}</p>}
-                        <div
-                          className={`whitespace-pre-wrap break-words text-sm leading-7 ${message.error ? "text-red-700" : "text-stone-700"}`}
-                        >
-                          {message.loading && (
-                            <LoaderCircle
-                              size={14}
-                              className="mr-2 inline animate-spin text-pine-700 motion-reduce:animate-none"
-                              aria-hidden="true"
-                            />
-                          )}
-                          {message.text}
-                        </div>
+                        <AssistantAnswer message={message} copy={copy} />
                         {message.error && (
                           <button
                             type="button"

@@ -215,11 +215,12 @@ export function usePlaceChat(copy: ChatCopy) {
       }
     }
     if (task.token !== serial.current) return;
+    const decision = comparePlaces(places, task.intent, routes);
     const text =
       task.intent.intent === "travel_times"
         ? `${task.origin ? `${copy.originFrom}「${task.origin.label}」\n` : ""}${mapFailed ? copy.routesFailed : copy.routeIntro}`
         : formatAssistantAnswer(
-          comparePlaces(places, task.intent, routes),
+          decision,
           task.intent,
           copy,
           Boolean(task.origin),
@@ -230,6 +231,8 @@ export function usePlaceChat(copy: ChatCopy) {
       places: task.origin ? places : undefined,
       routes,
       origin: task.origin,
+      decision,
+      intent: task.intent,
     });
     finishWork(task.token);
   }
