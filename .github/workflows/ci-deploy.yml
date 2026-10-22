@@ -43,8 +43,8 @@ jobs:
     needs: lint-and-build
     runs-on: ubuntu-latest
     env:
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_ORG_ID: team_HPaY82QThdACpL6Yt4V8Zfhq
+      VERCEL_PROJECT_ID: prj_Hpu3ocNgDefJ7ATF2juPvL45J30l
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - name: Checkout
@@ -56,13 +56,13 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Install Vercel CLI
-        run: npm i -g vercel@50.41.0
+        run: npm i -g vercel@64.3.1
 
       - name: Pull Vercel Environment
-        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+        run: vercel pull --yes --environment=production --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
 
       - name: Build Production Artifacts
-        run: vercel build --prod --token="$VERCEL_TOKEN"
+        run: vercel build --prod --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
 
       - name: Deploy to Vercel
-        run: vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+        run: vercel deploy --prebuilt --prod --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
