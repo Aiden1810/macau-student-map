@@ -52,9 +52,9 @@ function run() {
   const nodeMajor = Number(process.versions.node.split('.')[0]);
   addCheck(
     'Node.js 版本',
-    nodeMajor >= 20,
-    `当前 ${process.versions.node}；要求 20 或更高。`,
-    nodeMajor >= 20 ? undefined : '安装 Node.js 20 LTS 或更高版本。',
+    nodeMajor === 24,
+    `当前 ${process.versions.node}；要求 24.x，与 CI 和 Vercel 一致。`,
+    nodeMajor === 24 ? undefined : '安装 Node.js 24 LTS，与 .nvmrc 和 package.json 保持一致。',
   );
 
   // 1) package.json

@@ -85,7 +85,7 @@ docs/                 Screenshots and project design notes
 
 ## Local Development
 
-Requirements: Node.js 20 or later. Docker Desktop is only required when running the local Supabase database tests.
+Requirements: Node.js 24.x (see `.nvmrc` and `package.json`), matching CI and Vercel. Docker Desktop is only required when running the local Supabase database tests.
 
 ~~~powershell
 git clone https://github.com/Aiden1810/macau-student-map.git
