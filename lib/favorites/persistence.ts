@@ -1,4 +1,4 @@
-export const FAVORITES_KEY = 'mz_food_favorites';
+export {FAVORITES_KEY} from './storage';
 type FavoritePersistence = {
   read: () => string[];
   writeLocal: (next: string[]) => void;
