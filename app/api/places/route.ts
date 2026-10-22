@@ -1,11 +1,13 @@
 import {createRequestId, errorResponse, successResponse} from '@/lib/api/result';
 import {getPublicPlaces} from '@/lib/data/public-places';
 import {isMissingRelationError} from '@/lib/supabase/errors';
+import {instrumentApi} from '@/lib/observability/context';
 
 // Keep response/request ids fresh. Only the anonymous database result is shared.
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export const GET = instrumentApi('places.list',handleGet);
+async function handleGet() {
   const response = await loadResponse();
   response.headers.set('cache-control', 'no-store');
   return response;

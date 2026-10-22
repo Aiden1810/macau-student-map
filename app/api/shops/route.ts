@@ -1,9 +1,11 @@
 import {createRequestId, errorResponse, successResponse} from '@/lib/api/result';
 import {getPublicLegacyShops} from '@/lib/data/public-legacy-shops';
+import {instrumentApi} from '@/lib/observability/context';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export const GET = instrumentApi('shops.list',handleGet);
+async function handleGet() {
   const requestId = createRequestId();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

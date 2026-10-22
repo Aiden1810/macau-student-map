@@ -26,7 +26,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost');
     const headers = new Headers(init?.headers); calls.push({url, headers});
-    if (url.pathname === '/api/shops') return GET();
+    if (url.pathname === '/api/shops') return GET(new Request('http://localhost/api/shops'));
     if (url.pathname === '/api/admin/shops/refresh-cache') return Response.json({ok: !fail, data: {refreshed: true}}, {status: fail ? 503 : 200});
     expect(url.pathname).toBe('/rest/v1/shops');
     const privileged = headers.get('authorization') === 'Bearer admin-token';
@@ -39,20 +39,20 @@ afterEach(() => {vi.unstubAllEnvs(); vi.unstubAllGlobals();});
 
 describe('legacy shop read boundary', () => {
   it('shares only anonymous verified rows, preserves translation data, and leaves responses uncached', async () => {
-    const first = await GET();
+    const first = await GET(new Request('http://localhost/api/shops'));
     expect(first.headers.get('cache-control')).toBe('no-store');
     expect((await first.json()).data.items[0].name_i18n.en).toBe('Public shop');
     publicName = '更新店名';
-    expect((await (await GET()).json()).data.items[0].name).toBe('公开店铺');
+    expect((await (await GET(new Request('http://localhost/api/shops'))).json()).data.items[0].name).toBe('公开店铺');
     expect(calls).toHaveLength(1);
     expect(calls[0].url.searchParams.get('status')).toBe('eq.verified');
     expect(calls[0].headers.get('authorization')).toBe('Bearer public-key');
   });
   it('does not store failed queries and recovers without waiting for expiry', async () => {
     fail = true;
-    expect((await GET()).status).toBe(500);
+    expect((await GET(new Request('http://localhost/api/shops'))).status).toBe(500);
     fail = false;
-    expect((await (await GET()).json()).data.items[0].name).toBe('公开店铺');
+    expect((await (await GET(new Request('http://localhost/api/shops'))).json()).data.items[0].name).toBe('公开店铺');
     expect(calls).toHaveLength(2);
   });
   it('uses the public endpoint for visitors and keeps administrator reads outside shared cache', async () => {
@@ -65,17 +65,17 @@ describe('legacy shop read boundary', () => {
     expect(calls.filter(call => call.url.pathname === '/rest/v1/shops')).toHaveLength(2);
   });
   it('clears the warmed list only after server administrator authorization', async () => {
-    await GET(); publicName = '管理员修改';
+    await GET(new Request('http://localhost/api/shops')); publicName = '管理员修改';
     const denied = createShopCacheRefreshRoute({authorize: async () => ({ok: false as const,
       error: {code: 'FORBIDDEN' as const, status: 403, message: 'denied'}}), client: () => ({}) as SupabaseClient});
     const request = new Request('http://localhost/api/admin/shops/refresh-cache', {method: 'POST'});
     expect((await denied(request, {params: Promise.resolve({})})).status).toBe(403);
-    expect((await (await GET()).json()).data.items[0].name).toBe('公开店铺');
+    expect((await (await GET(new Request('http://localhost/api/shops'))).json()).data.items[0].name).toBe('公开店铺');
     const allowed = createShopCacheRefreshRoute({authorize: async () => admin, client: () => ({}) as SupabaseClient});
     const response = await allowed(request, {params: Promise.resolve({})});
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('private, no-store');
-    expect((await (await GET()).json()).data.items[0].name).toBe('管理员修改');
+    expect((await (await GET(new Request('http://localhost/api/shops'))).json()).data.items[0].name).toBe('管理员修改');
   });
   it('sends an authenticated refresh after browser writes without turning a saved write into a failure', async () => {
     const client = {auth: {getSession: async () => ({data: {session: {access_token: 'admin-token'}}})}} as unknown as SupabaseClient;

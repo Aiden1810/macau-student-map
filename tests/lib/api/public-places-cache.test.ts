@@ -43,7 +43,7 @@ beforeEach(() => {
 afterEach(() => {vi.unstubAllGlobals(); vi.unstubAllEnvs();});
 
 async function names() {
-  const response = await GET();
+  const response = await GET(new Request('http://localhost/api/places'));
   const result = await response.json();
   return {response, result, names: result.data?.items.map((item: {name: string}) => item.name)};
 }

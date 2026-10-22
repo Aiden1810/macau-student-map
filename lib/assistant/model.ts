@@ -1,5 +1,6 @@
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { generateText, Output } from "ai";
+import {measureModelCall} from '../observability/context';
 import {
   assistantIntentSchema,
   type AssistantIntent,
@@ -14,8 +15,10 @@ export async function interpretPlaceQuestion(
   originLabel: string | null = null,
 ): Promise<AssistantIntent> {
   const provider = createDeepSeek({ apiKey: process.env.DEEPSEEK_API_KEY });
-  const { output } = await generateText({
-    model: provider(process.env.DEEPSEEK_MODEL?.trim() || "deepseek-flash"),
+  const model = process.env.DEEPSEEK_MODEL?.trim() || "deepseek-flash";
+  return measureModelCall('assistant.compare',model,signal,async capture => {
+  const { output, usage } = await generateText({
+    model: provider(model),
     output: Output.object({ schema: assistantIntentSchema }),
     providerOptions: { deepseek: { thinking: { type: "disabled" } } },
     maxOutputTokens: 1200,
@@ -40,5 +43,7 @@ foods为想吃的具体品类的同义关键词（例如粉面/火锅/炸鸡）�
       confirmedOriginLabel: originLabel,
     }),
   });
+  capture(usage);
   return assistantIntentSchema.parse(output);
+  });
 }

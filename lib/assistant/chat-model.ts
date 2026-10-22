@@ -1,5 +1,6 @@
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { generateText, Output } from "ai";
+import {measureModelCall} from '../observability/context';
 import {
   chatUnderstandingSchema,
   type ChatRequest,
@@ -15,8 +16,10 @@ export async function understandPlaceChat(
   const provider = createDeepSeek({
     apiKey: process.env.DEEPSEEK_API_KEY?.trim(),
   });
-  const { output } = await generateText({
-    model: provider(process.env.DEEPSEEK_MODEL?.trim() || "deepseek-flash"),
+  const model = process.env.DEEPSEEK_MODEL?.trim() || "deepseek-flash";
+  return measureModelCall('assistant.chat',model,signal,async capture => {
+  const { output, usage } = await generateText({
+    model: provider(model),
     output: Output.object({ schema: chatUnderstandingSchema }),
     providerOptions: { deepseek: { thinking: { type: "disabled" } } },
     maxOutputTokens: 1600,
@@ -35,5 +38,7 @@ foods和excludedFoods分别提取想吃和明确不要的具体品类，不能�
       catalog: catalog.map(({ name, address }) => ({ name, address })),
     }),
   });
+  capture(usage);
   return chatUnderstandingSchema.parse(output);
+  });
 }

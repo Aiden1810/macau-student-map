@@ -4,6 +4,7 @@ import {createRoot, type Root} from 'react-dom/client';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 const api = vi.hoisted(() => ({request: vi.fn(), submissions: vi.fn()}));
 vi.mock('../../../components/admin/PlaceEditor', () => ({adminEditorRequest: api.request, default: () => null}));
+vi.mock('../../../components/admin/UserGrowthPanel', () => ({default: () => null}));
 vi.mock('../../../lib/supabase', () => ({supabase: {auth: {getSession: async () => ({data: {session: {access_token: 'test'}}})}}}));
 vi.mock('../../../lib/api/client', () => ({authenticatedApiRequest: api.submissions}));
 import UsersManager from '../../../components/admin/UsersManager';

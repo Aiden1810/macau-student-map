@@ -3,6 +3,7 @@
 import {useEffect, useState, type FormEvent} from 'react';
 import {adminEditorRequest} from './PlaceEditor';
 import type {UserDirectory} from '@/lib/admin/accounts';
+import UserGrowthPanel from './UserGrowthPanel';
 
 const buttonStyle = 'min-h-11 rounded-xl border border-line bg-white px-4 text-sm font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50';
 const dateFormat = new Intl.DateTimeFormat('zh-CN', {timeZone: 'Asia/Macau', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false});
@@ -42,6 +43,7 @@ export default function UsersManager() {
       <p className="mt-1 text-3xl font-semibold tabular-nums text-pine-800" aria-live="polite">{data?.total ?? '—'}</p>
       <p className="mt-2 text-xs leading-relaxed text-muted">统计当前未删除的注册账号，包含尚未完成邮箱验证的账号；不包含匿名访客。</p>
     </div>
+    <UserGrowthPanel />
     <form onSubmit={search} className="mt-5 flex flex-wrap gap-2">
       <label htmlFor="admin-user-search" className="sr-only">搜索邮箱或账号 ID</label>
       <input id="admin-user-search" value={input} maxLength={200} onChange={event => setInput(event.target.value)} placeholder="搜索邮箱或账号 ID"
