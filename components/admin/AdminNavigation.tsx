@@ -15,6 +15,8 @@ import {
   Gauge
 } from 'lucide-react';
 import {Link} from '@/i18n/navigation';
+import {useLocale} from 'next-intl';
+import {brandName} from '@/lib/brand';
 
 export type AdminSection = 'overview' | 'analytics' | 'users' | 'usage' | 'places' | 'submissions' | 'reviews' | 'feedback' | 'activity' | 'tools';
 const sections = [
@@ -39,6 +41,7 @@ export default function AdminNavigation({
   onChange: (section: AdminSection) => void;
   onCreate: () => void;
 }) {
+  const locale = useLocale();
   return (
     <>
       <header className="mb-6 flex flex-wrap items-center justify-between gap-5">
@@ -47,10 +50,10 @@ export default function AdminNavigation({
             aria-hidden="true"
             className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pine-700 text-xl text-white"
           >
-            觅
+            {locale === 'en' ? 'C' : locale === 'zh-MO' ? '覓' : '觅'}
           </span>
           <div>
-            <p className="text-xs font-medium tracking-widest text-pine-700">城觅 / CityU Food</p>
+            <p className="text-xs font-medium tracking-widest text-pine-700">{brandName(locale)}</p>
             <h1 className="mt-1 text-2xl font-semibold tracking-tight text-ink">管理工作台</h1>
           </div>
         </div>

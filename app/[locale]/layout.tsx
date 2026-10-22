@@ -4,6 +4,19 @@ import {notFound} from 'next/navigation';
 import {Toaster} from 'react-hot-toast';
 import TrafficTracker from '@/components/TrafficTracker';
 import {routing} from '@/i18n/routing';
+import type {Metadata} from 'next';
+import {brandName, BRAND_MANIFEST_VERSION} from '@/lib/brand';
+
+export async function generateMetadata({params}: {params: Promise<{locale: string}>}): Promise<Metadata> {
+  const {locale} = await params;
+  const name = brandName(locale);
+  return {
+    title: name,
+    applicationName: name,
+    manifest: `/${locale}/manifest.webmanifest?v=${BRAND_MANIFEST_VERSION}`,
+    appleWebApp: {capable: true, statusBarStyle: 'default', title: name}
+  };
+}
 
 export default async function LocaleLayout({
   children,

@@ -4,7 +4,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Upgrade CityU Food into a deployable and operable Macau student local-life platform MVP while preserving existing data and public functionality.
+**Goal:** Upgrade Chengmi into a deployable and operable Macau student local-life platform MVP while preserving existing data and public functionality.
 
 **Architecture:** Add a canonical place/submission/review taxonomy beside the legacy `shops` model, migrate with an expand-and-contract strategy, and route complex writes through validated server endpoints. Postgres provides indexed search, constraints, atomic moderation functions, and RLS; the Next.js UI becomes a thin consumer of typed services.
 

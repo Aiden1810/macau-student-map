@@ -1,4 +1,5 @@
 import type {Metadata, Viewport} from 'next';
+import {brandName, BRAND_MANIFEST_VERSION, BRAND_ICON_VERSION} from '@/lib/brand';
 import PwaRegister from '@/components/PwaRegister';
 import './globals.css';
 
@@ -10,18 +11,18 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  applicationName: '城觅 / CityU Food',
-  title: '城觅 / CityU Food',
+  applicationName: brandName('zh-CN'),
+  title: brandName('zh-CN'),
   description: '澳门学生美食地图与探店推荐',
-  manifest: '/manifest.webmanifest?v=20260413m4',
+  manifest: `/manifest.webmanifest?v=${BRAND_MANIFEST_VERSION}`,
   icons: {
-    icon: '/icon?v=20260413m4',
-    apple: '/apple-icon?v=20260413m4'
+    icon: `/icon?v=${BRAND_ICON_VERSION}`,
+    apple: `/apple-icon?v=${BRAND_ICON_VERSION}`
   },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: '城觅 / CityU Food'
+    title: brandName('zh-CN')
   }
 };
 

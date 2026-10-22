@@ -13,7 +13,7 @@ const zhCN = {
   invalid: '请填写至少 10 个字的具体说明。', preview: '反馈内容',
   contactTitle: '提交后会怎样？', steps: ['反馈进入管理员后台，只有你和管理员可查看。', '管理员核对问题后，会标记为已处理。', '需要回复时，请留下邮箱或微信等联系方式。'],
   note: '店铺信息与服务体验', noteBody: '纠错或投诉时，请写清店铺名称、分店和大致发生时间，方便核对。目前暂不支持上传附件和站内对话。',
-  feedbackTitle: '城觅 / CityU Food 用户反馈', category: '反馈类型'
+  feedbackTitle: '城觅 用户反馈', category: '反馈类型'
 };
 const zhMO: typeof zhCN = {
   back: '返回地圖', title: '聯絡我們', subtitle: '一起讓城覓更好用。',
@@ -30,10 +30,10 @@ const zhMO: typeof zhCN = {
   invalid: '請填寫至少 10 個字的具體說明。', preview: '意見內容',
   contactTitle: '提交後會怎樣？', steps: ['意見進入管理員後台，只有你和管理員可查看。', '管理員核對問題後，會標記為已處理。', '需要回覆時，請留下電郵或微信等聯絡方式。'],
   note: '店舖資料與服務體驗', noteBody: '更正或投訴時，請寫清店舖名稱、分店及大致發生時間，方便核對。目前暫不支援上傳附件及站內對話。',
-  feedbackTitle: '城覓 / CityU Food 用戶意見', category: '意見類型'
+  feedbackTitle: '城覓 用戶意見', category: '意見類型'
 };
 const en: typeof zhCN = {
-  back: 'Back to map', title: 'Contact us', subtitle: 'Help make CityU Food better.',
+  back: 'Back to map', title: 'Contact us', subtitle: 'Help make Chengmi better.',
   intro: 'Send a site issue, place correction, complaint or suggestion directly to our administrators.',
   formTitle: 'What is your feedback about?', categories: ['Site issue', 'Place correction', 'Complaint', 'Suggestion'],
   place: 'Related place or page', optional: 'Optional', placePlaceholder: 'Place, branch name or page link',
@@ -47,7 +47,7 @@ const en: typeof zhCN = {
   invalid: 'Please describe the issue in at least 10 characters.', preview: 'Feedback text',
   contactTitle: 'What happens next?', steps: ['Your feedback goes to a private administrator inbox.', 'Administrators check the issue and mark it as handled.', 'Leave an email or WeChat ID if you would like a reply.'],
   note: 'Place details and service experiences', noteBody: 'For corrections or complaints, include the place, branch and approximate time. Attachments and in-app conversations are not available yet.',
-  feedbackTitle: 'CityU Food feedback', category: 'Category'
+  feedbackTitle: 'Chengmi feedback', category: 'Category'
 };
 
 export function contactCopy(locale: string) {return locale === 'en' ? en : locale === 'zh-MO' ? zhMO : zhCN;}

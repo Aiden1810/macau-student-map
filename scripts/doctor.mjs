@@ -161,7 +161,7 @@ function run() {
   const passCount = checks.filter((c) => c.ok).length;
   const failCount = checks.length - passCount;
 
-  console.log('\nMU Map Doctor 检查报告\n');
+  console.log('\nChengmi Doctor 检查报告\n');
 
   for (const c of checks) {
     const mark = c.ok ? '✅' : '❌';

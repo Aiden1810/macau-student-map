@@ -1,8 +1,8 @@
-const CACHE_VERSION = 'macau-pulse-v4';
+const CACHE_VERSION = 'macau-pulse-v5';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 
-const ICON_VERSION = '20260410m2';
+const ICON_VERSION = '20260413m4';
 const APP_SHELL_ASSETS = [
   '/',
   '/manifest.webmanifest',

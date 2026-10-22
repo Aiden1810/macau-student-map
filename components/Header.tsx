@@ -4,6 +4,7 @@ import {type CSSProperties, useEffect, useRef, useState} from 'react';
 import {Link, usePathname} from '@/i18n/navigation';
 import {assistantCopy} from '@/lib/assistant/copy';
 import {contactCopy} from '@/lib/contact/copy';
+import {brandName} from '@/lib/brand';
 
 interface HeaderProps {
   assistantOpen: boolean;
@@ -115,11 +116,11 @@ export default function Header({
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pine-700 text-white">
             <span className="text-xs font-extrabold tracking-wide">觅</span>
           </div>
-          <h1 className="truncate text-sm font-bold text-[#0d2918] sm:text-base md:text-lg md:text-[#0c4b2f]">城觅 <span className="ml-1 text-xs font-normal text-muted">CityU Food</span></h1>
+          <h1 className="truncate text-sm font-bold text-[#0d2918] sm:text-base md:text-lg md:text-[#0c4b2f]">{brandName(locale)}</h1>
         </div>
 
         <div className="flex h-[52px] min-w-0 flex-1 items-center gap-2 rounded-full border border-line/60 bg-white px-3 shadow-[0_3px_16px_#193d3210] md:hidden">
-          <span aria-label="城觅" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pine-700 text-lg font-semibold text-white">觅</span>
+          <span aria-label={brandName(locale)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pine-700 text-lg font-semibold text-white">{locale === 'en' ? 'C' : locale === 'zh-MO' ? '覓' : '觅'}</span>
           <input type="search" aria-label={tHome('mobile.searchPlaceholder')} placeholder={tHome('mobile.searchPlaceholder')} value={searchQuery} onChange={event => setSearchQuery(event.target.value)}
             className="min-w-0 flex-1 bg-transparent py-3 text-base text-ink placeholder:text-muted outline-none" />
           <Search size={19} aria-hidden="true" className="shrink-0 text-muted" />

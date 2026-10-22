@@ -1,4 +1,4 @@
-# Macau Student Map
+# Chengmi
 
 面向澳门学生的本地生活信息地图，用于探索餐饮及校园周边生活地点。
 
