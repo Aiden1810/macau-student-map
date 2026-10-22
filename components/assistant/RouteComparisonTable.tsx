@@ -25,6 +25,15 @@ export default function RouteComparisonTable({
     { key: "transit", icon: Bus },
     { key: "walking", icon: Footprints },
   ] as const;
+  // Compare the returned seconds, before rounding the displayed minutes.
+  const fastest = Object.fromEntries(modes.map(({key}) => {
+    const seconds = places.flatMap(place => {
+      const choice = routes.find(route => route.placeId === place.id)?.[key];
+      return choice?.status === 'ok' && Number.isFinite(choice.durationSeconds) && choice.durationSeconds >= 0
+        ? [choice.durationSeconds] : [];
+    });
+    return [key, seconds.length ? Math.min(...seconds) : null];
+  }));
   return (
     <section aria-label={copy.routes} className="mt-4 space-y-3">
       {places.map((place) => {
@@ -32,10 +41,10 @@ export default function RouteComparisonTable({
         return (
           <article
             key={place.id}
-            className="overflow-hidden rounded-2xl border border-line bg-white"
+            className="min-w-0 overflow-hidden rounded-2xl border border-line bg-white"
           >
             <div className="border-b border-stone-100 px-4 py-3">
-              <h3 className="font-semibold text-stone-900">{place.name}</h3>
+              <h3 className="break-words font-semibold text-stone-900">{place.name}</h3>
               <p className="mt-1 text-xs leading-relaxed text-muted">
                 {place.address || copy.addressUnknown}
               </p>
@@ -44,36 +53,35 @@ export default function RouteComparisonTable({
               {modes.map(({ key, icon: Icon }) => {
                 const choice = result?.[key];
                 return (
-                  <div key={key} className="px-4 py-3">
+                  <div key={key} className="min-w-0 break-words px-4 py-3">
                     <p className="mb-2 flex items-center gap-2 text-xs font-medium text-muted">
                       <Icon size={14} aria-hidden="true" />
                       {copy[key]}
                     </p>
-                    {choice?.status === "ok" ? (
+                    {choice?.status === "ok" && Number.isFinite(choice.durationSeconds) && choice.durationSeconds >= 0 ? (
                       <>
-                        <p className="text-xl font-semibold tabular-nums text-emerald-950">
+                        <p className="flex flex-wrap items-baseline gap-1.5 text-3xl font-semibold tabular-nums text-emerald-950">
                           {Math.ceil(choice.durationSeconds / 60)}{" "}
                           <span className="text-xs font-normal text-muted">
                             {copy.minutes}
                           </span>
+                          {choice.durationSeconds === fastest[key] && (
+                            <span aria-label={`${copy[key]}：${copy.fastestRoute}`} className="rounded-md bg-pine-50 px-2 py-1 text-xs font-medium text-pine-700">{copy.fastestRoute}</span>
+                          )}
                         </p>
                         <p className="mt-1 text-xs tabular-nums text-stone-600">
                           {formatRouteDistance(choice.distanceMeters, copy)}
                         </p>
-                        {choice.lines.length > 0 && (
-                          <p className="mt-2 text-xs leading-relaxed text-muted">
-                            {choice.lines.join(" → ")}
-                          </p>
-                        )}
-                        {choice.walkingMeters !== null && (
-                          <p className="mt-1 text-xs text-muted">
-                            {copy.walk}{" "}
-                            {formatRouteDistance(choice.walkingMeters, copy)}
-                          </p>
+                        {(choice.lines.length > 0 || choice.walkingMeters !== null) && (
+                          <details className="mt-2 text-xs leading-5 text-muted">
+                            <summary className="min-h-9 cursor-pointer py-2 font-medium text-stone-700 focus-visible:ring-2 focus-visible:ring-pine-700">{copy.routeDetails}</summary>
+                            {choice.lines.length > 0 && <p>{choice.lines.join(" → ")}</p>}
+                            {choice.walkingMeters !== null && <p className="mt-1">{copy.walk} {formatRouteDistance(choice.walkingMeters, copy)}</p>}
+                          </details>
                         )}
                         {origin && place.coordinates && (
                           <a
-                            className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs font-medium text-pine-700 underline-offset-4 hover:underline"
+                            className="mt-2 inline-flex min-h-11 items-center gap-1 rounded-xl bg-pine-700 px-3 py-2 text-sm font-medium text-white hover:bg-pine-800 focus-visible:ring-2 focus-visible:ring-pine-700 focus-visible:ring-offset-2"
                             href={buildRouteNavigationUrl(
                               origin.coordinates,
                               place.coordinates,
@@ -89,13 +97,10 @@ export default function RouteComparisonTable({
                         )}
                       </>
                     ) : (
-                      <p className="text-xs leading-relaxed text-muted">
-                        {!place.coordinates
-                          ? copy.missing_coordinates
-                          : choice
-                            ? copy[choice.status]
-                            : copy.notQueried}
-                      </p>
+                      <div className="text-xs leading-relaxed text-muted">
+                        <p className="text-sm font-medium text-stone-700">{copy.noAvailableRoute}</p>
+                        <p className="mt-1">{!place.coordinates ? copy.missing_coordinates : choice && choice.status !== 'ok' ? copy[choice.status] : choice ? copy.error : copy.notQueried}</p>
+                      </div>
                     )}
                   </div>
                 );

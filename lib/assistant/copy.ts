@@ -95,6 +95,9 @@ export function assistantCopy(locale: string) {
       "Checking live routes…",
     ),
     routes: text("路线比较", "路線比較", "Journey comparison"),
+    fastestRoute: text("最快", "最快", "Fastest"),
+    routeDetails: text("线路与步行详情", "路線與步行詳情", "Route and walking details"),
+    noAvailableRoute: text("暂无可用路线", "暫無可用路線", "No available route"),
     place: text("店铺", "店舖", "Place"),
     price: text(
       "人均参考（人民币）",
