@@ -1,5 +1,7 @@
 'use client';
 
+import PlaceLocationInfo from '@/components/PlaceLocationInfo';
+
 import Image from 'next/image';
 import {MessageCircle, Navigation, Star, StarHalf, X} from 'lucide-react';
 import {useCallback, useEffect, useMemo, useState} from 'react';
@@ -139,9 +141,10 @@ export default function MobileShopDetailModal({shop, open, onClose, onLocate}: M
             <h3 className="text-xl font-bold text-slate-900">{shop.name}</h3>
             <PlaceTypeBadge place={shop} />
             <p className="mt-1 text-sm text-slate-500">
-              {shop.address?.trim() || '地址信息收录中 (Address pending)'}
+              {shop.address?.trim() || (shop.locationDetails?.description ? '位置说明见下方' : '地址信息收录中 (Address pending)')}
             </p>
 
+            <PlaceLocationInfo details={shop.locationDetails} />
             <div className="mt-2 flex items-center gap-3">
               <InlineStarRating score={shop.rating} reviewCount={shop.reviews} />
               <span className="text-sm font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">

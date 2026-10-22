@@ -1,3 +1,4 @@
+import PlaceLocationInfo from '@/components/PlaceLocationInfo';
 import Image from 'next/image';
 import {Check, Heart, Navigation, Tag, Trash2} from 'lucide-react';
 import {useTranslations} from 'next-intl';
@@ -60,7 +61,7 @@ export default function ShopCard({
 }: ShopCardProps) {
   const t = useTranslations('ShopCard');
   const isPending = shop.status === 'pending';
-  const address = shop.address?.trim() || '地址信息收录中 (Address pending)';
+  const address = shop.address?.trim() || shop.locationDetails?.description || '地址信息收录中 (Address pending)';
   const isPendingAddress = address === '地址信息收录中 (Address pending)';
   const coverImageUrl = shop.imageUrls?.[0] ?? '';
   const hasValidImageUrl = typeof coverImageUrl === 'string' && coverImageUrl.trim().length > 0;
@@ -129,7 +130,7 @@ export default function ShopCard({
             {shop.name}
           </h3>
           <div className="mt-1 flex items-center gap-1.5 flex-wrap text-sm text-slate-500">
-            <PlaceTypeBadge place={shop} />
+            <PlaceTypeBadge place={shop} /><PlaceLocationInfo details={shop.locationDetails} compact />
             <span className="font-medium text-emerald-700">
               {formatPlacePrice(shop)}
             </span>

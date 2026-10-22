@@ -1,5 +1,6 @@
 import type {PlaceSubmissionDraftInput} from '../domain/submission';
 import {placeSubmissionDraftSchema} from '../domain/submission';
+import {readLocationDetails, requiresLocationDescription} from '../domain/location-details';
 import {PRIMARY_TAG_SLUGS} from '../domain/place-types';
 import type {PlaceRegion} from '../domain/place';
 import {deriveRegionFromCoordinates} from '../shops/normalization';
@@ -72,6 +73,10 @@ function validateTags(category: PlaceCategorySlug, tagIds: readonly string[]): s
 
 export function prepareSubmissionForSubmit(input: PlaceSubmissionDraftInput) {
   const draft = placeSubmissionDraftSchema.parse(input);
+  const locationDetails = readLocationDetails(draft.locationDetails);
+  if (requiresLocationDescription(locationDetails)) {
+    throw new SubmissionValidationError('locationDetails.description', '请填写位置描述，说明到附近后怎么找到这个地点。');
+  }
   if (draft.longitude === null) {
     throw new SubmissionValidationError('longitude', 'Longitude is required before submission.');
   }
@@ -83,6 +88,7 @@ export function prepareSubmissionForSubmit(input: PlaceSubmissionDraftInput) {
     source_place_id: draft.sourcePlaceId,
     name: draft.name,
     address: draft.address,
+    location_details: locationDetails,
     category_slug: draft.categorySlug,
     region: resolveSubmissionRegion(draft.region, draft.longitude, draft.latitude),
     longitude: draft.longitude,

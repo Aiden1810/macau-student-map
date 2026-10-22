@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {locationDetailsSchema, readLocationDetails, requiresLocationDescription} from '../domain/location-details';
 import {findTaxonomyTag, normalizeSearchText, resolveSearchTagAlias} from '../domain/taxonomy';
 import {isPrimaryTag, PRIMARY_TAG_SLUGS} from '../domain/place-types';
 import type {AdminAccount} from './accounts';
@@ -10,6 +11,7 @@ export const adminPlaceSchema = z.object({
   name: z.string().trim().min(1, '请填写地点名称').max(120),
   nameEn: optionalText(120).default(null),
   address: optionalText(500).default(null),
+  locationDetails: locationDetailsSchema.optional(),
   categorySlug: z.enum(['food', 'shopping', 'entertainment', 'service']),
   region: z.enum(['macau-peninsula', 'taipa', 'coloane', 'hengqin', 'zhuhai', 'other']).nullable().default(null),
   longitude: z.number().finite().min(-180).max(180).nullable(),
@@ -39,6 +41,10 @@ export const LEGACY_STATUS_LABELS = {pending: '待审核', verified: '已上线'
 
 export function prepareAdminPlaceInput(input: unknown): AdminPlaceInput {
   const value = adminPlaceSchema.parse(input);
+  const locationDetails = readLocationDetails(value.locationDetails);
+  if (value.status === 'published' && requiresLocationDescription(locationDetails)) {
+    throw new Error('手动地点发布前请补充位置描述，并核对标点依据');
+  }
   const tags = value.tagIds.map(findTaxonomyTag);
   if (tags.some(tag => !tag)) throw new Error('存在未知标签，请刷新后重试');
   const primary = tags.filter(tag => tag && isPrimaryTag(tag));
@@ -52,7 +58,7 @@ export function prepareAdminPlaceInput(input: unknown): AdminPlaceInput {
     throw new Error('地点需要位于澳门或珠海服务范围内');
   }
   const seen = new Set<string>();
-  return {...value, tagIds: [...new Set(value.tagIds)], searchKeywords: value.searchKeywords.filter(word => {
+  return {...value, ...(value.locationDetails ? {locationDetails} : {}), tagIds: [...new Set(value.tagIds)], searchKeywords: value.searchKeywords.filter(word => {
     const normalized = normalizeSearchText(word);
     if (seen.has(normalized)) return false;
     seen.add(normalized);

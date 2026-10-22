@@ -6,6 +6,8 @@ import {createRequestGuard} from '@/lib/data/async-request';
 import {createComponentLifecycleGuard} from '@/lib/data/component-lifecycle';
 import {supabase} from '@/lib/supabase';
 import PlaceTypeBadge from '@/components/PlaceTypeBadge';
+import PlaceLocationInfo from '@/components/PlaceLocationInfo';
+import type {LocationDetails} from '@/lib/domain/location-details';
 import {getTaxonomyTagLabelZhCN} from '@/lib/domain/taxonomy';
 import {withCuisineGroupLabel} from '@/lib/tags/display';
 import PlaceEditor from './PlaceEditor';
@@ -16,6 +18,7 @@ type QueueItem = {
   id: string;
   name: string;
   address: string | null;
+  locationDetails?: LocationDetails;
   categorySlug: string;
   tagIds: string[];
   notes: string | null;
@@ -180,7 +183,8 @@ export default function SubmissionQueue({onPublished, onStatsChange}: {onPublish
                 <div>
                   <h3 className="font-semibold text-slate-900">{item.name}</h3>
                   <AccountAttribution label="投稿账号" account={item.submitter} />
-                  <p className="mt-1 text-xs text-slate-500">{item.address || '未填写地址'}</p>
+                  <p className="mt-1 text-xs text-slate-500">{item.address || item.locationDetails?.description || '未填写地址'}</p>
+                  <PlaceLocationInfo details={item.locationDetails} compact />
                   <PlaceTypeBadge place={{category: item.categorySlug, tags: item.tagIds}} />
                   <p className="mt-1 text-xs text-slate-500">{withCuisineGroupLabel(item.tagIds.map(id => getTaxonomyTagLabelZhCN(id) ?? '未知标签')).join(' · ')}</p>
                   <p className="mt-1 break-all text-[11px] text-slate-400">{item.id}</p>

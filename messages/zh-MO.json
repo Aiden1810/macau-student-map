@@ -123,7 +123,8 @@
       "xiangzhou": "香洲區",
       "hengqin": "橫琴區",
       "others": "其它"
-    }
+    },
+    "stalls": "小攤"
   },
   "ShopCard": {
     "recommend": "強推",
@@ -185,9 +186,17 @@
     "backHome": "返回地圖"
   },
   "Contribute": {
+    "kindLabel": "你想推薦甚麼？",
+    "kindStore": "店鋪",
+    "kindStall": "小攤",
+    "kindStoreDescription": "有門店的好去處",
+    "kindStallDescription": "街頭巷尾的小攤",
+    "storeLocationHint": "先搜尋店名；地圖未收錄，也能手動新增。",
+    "stallLocationHint": "不需要門牌地址，標出位置、說清怎麼找即可；也可以搜尋地圖已收錄的小攤。",
+    "close": "關閉",
     "button": "投稿",
-    "title": "提交新店鋪",
-    "subtitle": "先搜尋地點，再提交初始評價。",
+    "title": "提交新地點",
+    "subtitle": "把你和同學熟悉的好去處，分享給更多人。",
     "searchLabel": "搜尋店鋪名稱",
     "searchScope": "搜尋範圍",
     "searchBothCities": "澳門＋珠海",
@@ -203,11 +212,11 @@
     "searching": "正在搜尋地點...",
     "searchEmpty": "未找到匹配結果",
     "searchFailed": "地點搜尋失敗",
-    "manualSelectButton": "找不到？在地圖上選點",
-    "manualSelectHint": "請在地圖上點擊任意位置選擇座標。",
+    "manualSelectButton": "地圖搜不到？手動新增地點",
+    "manualSelectHint": "請在地圖標記實際位置，或在下方搜尋附近地標。",
     "manualSelected": "已選座標",
-    "manualNameLabel": "店鋪名稱",
-    "manualNamePlaceholder": "請輸入店鋪名稱",
+    "manualNameLabel": "地點名稱",
+    "manualNamePlaceholder": "請填寫地點名稱，例如：樓下烤冷麵",
     "manualCategoryLabel": "店鋪分類",
     "unnamedPlace": "未命名地點",
     "checkingDuplicate": "正在檢查重複...",

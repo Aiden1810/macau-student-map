@@ -4,11 +4,12 @@ import {Copy, ExternalLink, Navigation} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import {useState} from 'react';
 import {buildAmapNavigationUrl} from '@/lib/amap/navigation';
+import {getLocationCopyText, getLocationNotice} from '@/lib/domain/location-details';
 import type {Shop} from '@/types/shop';
 
 type PlaceNavigationActionsProps = {
   variant?: 'default' | 'mobile-footer';
-  place: Pick<Shop, 'name' | 'address' | 'coordinates' | 'hasCoordinates'>;
+  place: Pick<Shop, 'name' | 'address' | 'coordinates' | 'hasCoordinates' | 'locationDetails'>;
 };
 
 export default function PlaceNavigationActions({place, variant = 'default'}: PlaceNavigationActionsProps) {
@@ -16,8 +17,8 @@ export default function PlaceNavigationActions({place, variant = 'default'}: Pla
   const [copyResult, setCopyResult] = useState<{text: string; success: boolean} | null>(null);
   const navigationUrl = buildAmapNavigationUrl(place);
   const webUrl = buildAmapNavigationUrl(place, {callNative: false});
-  const address = place.address.trim();
-  const copyText = address ? `${place.name.trim()}\n${address}` : '';
+  const copyText = getLocationCopyText(place);
+  const locationNotice = getLocationNotice(place.locationDetails);
   const currentCopyResult = copyResult?.text === copyText ? copyResult : null;
   const actionClassName = `${variant === 'mobile-footer' ? 'flex-1 min-w-0' : ''} inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine-600 focus-visible:ring-offset-2`;
 
@@ -64,6 +65,7 @@ export default function PlaceNavigationActions({place, variant = 'default'}: Pla
       </div>
 
       {!navigationUrl && <p className="text-xs text-slate-500">{t('missingCoordinates')}</p>}
+      {locationNotice && <p className="text-xs text-amber-800">{locationNotice}</p>}
       {!copyText && <p className="text-xs text-slate-500">{t('missingAddress')}</p>}
 
       <p role="status" className="text-xs text-pine-800">

@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {locationDetailsSchema, readLocationDetails} from '../domain/location-details';
 import type {PlaceSubmissionDraftInput} from '../domain/submission';
 
 const submissionRowSchema = z.object({
@@ -7,6 +8,7 @@ const submissionRowSchema = z.object({
   merged_into_place_id: z.string().nullable().optional(),
   name: z.string(),
   address: z.string().nullable(),
+  location_details: locationDetailsSchema.optional(),
   category_slug: z.enum(['food', 'shopping', 'entertainment', 'service']),
   region: z.string().nullable(),
   longitude: z.number().nullable(),
@@ -34,6 +36,7 @@ export function mapSubmissionRow(input: unknown) {
     mergedIntoPlaceId: row.merged_into_place_id ?? null,
     name: row.name,
     address: row.address,
+    locationDetails: readLocationDetails(row.location_details),
     categorySlug: row.category_slug,
     region: row.region,
     longitude: row.longitude,
@@ -56,6 +59,7 @@ export function toDraftRow(input: PlaceSubmissionDraftInput, userId: string) {
     source_place_id: input.sourcePlaceId,
     name: input.name,
     address: input.address,
+    location_details: readLocationDetails(input.locationDetails),
     category_slug: input.categorySlug,
     region: input.region,
     longitude: input.longitude,

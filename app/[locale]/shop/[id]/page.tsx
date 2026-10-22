@@ -1,5 +1,7 @@
 'use client';
 
+import PlaceLocationInfo from '@/components/PlaceLocationInfo';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import {ArrowLeft, Heart, ImagePlus, MapPin, MessageCircle, MessageCirclePlus, Phone} from 'lucide-react';
@@ -142,7 +144,8 @@ function ShopHero({
         {tags.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{tags.map(tag => <span key={tag} className="rounded-lg bg-[#eeefeb] px-2.5 py-1.5 text-xs text-muted">{tag}</span>)}</div>}
         {shop.studentDiscount?.trim() && <p className="mt-4 rounded-xl bg-pine-50 p-3 text-sm leading-6 text-pine-800">{shop.studentDiscount}</p>}
         <div className="mt-6 rounded-2xl border border-line bg-white p-4">
-          <div className="flex items-start gap-3"><MapPin size={19} aria-hidden="true" className="mt-0.5 shrink-0 text-pine-700" /><div className="min-w-0"><h2 className="text-xs text-muted">{t('address')}</h2><p className="mt-1 break-words text-sm leading-6 text-ink">{shop.address || '地址待补充'}</p></div></div>
+          <div className="flex items-start gap-3"><MapPin size={19} aria-hidden="true" className="mt-0.5 shrink-0 text-pine-700" /><div className="min-w-0"><h2 className="text-xs text-muted">{t('address')}</h2><p className="mt-1 break-words text-sm leading-6 text-ink">{shop.address || (shop.locationDetails?.description ? '无门牌地址，请按位置描述寻找' : '地址待补充')}</p></div></div>
+          <PlaceLocationInfo details={shop.locationDetails} />
           {phone && <a href={`tel:${phone.replace(/\s+/g, '')}`} className="mt-3 inline-flex min-h-11 items-center gap-2 border-t border-line pt-3 text-sm font-medium text-pine-700"><Phone size={16} aria-hidden="true" />{phone}</a>}
           <div className="mt-4 hidden border-t border-line pt-4 md:block"><PlaceNavigationActions key={shop.id} place={shop} /></div>
         </div>

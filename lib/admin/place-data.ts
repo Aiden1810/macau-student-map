@@ -1,11 +1,12 @@
+import {readLocationDetails} from '../domain/location-details';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import type {AdminPlaceInput, AdminPlaceRecord, EditorMedia, SubmissionEditorRecord} from './place-editor';
 import {readAccountEmails} from './accounts';
 
-export const ADMIN_PLACE_COLUMNS = 'id,name,name_en,address,category_slug,region,longitude,latitude,price_per_person,status,updated_at,created_by,search_keywords_manual,legacy_image_urls,place_tags(tag_id),place_media(id,bucket_id,storage_path,sort_order,lifecycle_status)';
+export const ADMIN_PLACE_COLUMNS = 'id,name,name_en,address,location_details,category_slug,region,longitude,latitude,price_per_person,status,updated_at,created_by,search_keywords_manual,legacy_image_urls,place_tags(tag_id),place_media(id,bucket_id,storage_path,sort_order,lifecycle_status)';
 type MediaRow = {id: string; bucket_id: string; storage_path: string; sort_order: number; lifecycle_status: string};
 type PlaceRow = {
-  id: string; name: string; name_en: string | null; address: string | null;
+  id: string; name: string; name_en: string | null; address: string | null; location_details?: unknown;
   category_slug: AdminPlaceInput['categorySlug']; region: AdminPlaceInput['region'];
   longitude: number | null; latitude: number | null; price_per_person: number | null;
   status: AdminPlaceInput['status']; updated_at: string; search_keywords_manual: string[];
@@ -27,7 +28,7 @@ export async function editorMedia(client: SupabaseClient, rows: MediaRow[]): Pro
 }
 
 export async function mapAdminPlace(client: SupabaseClient, row: PlaceRow, accounts: Map<string, string | null>): Promise<AdminPlaceRecord> {
-  return {id: row.id, updatedAt: row.updated_at, name: row.name, nameEn: row.name_en, address: row.address,
+  return {id: row.id, updatedAt: row.updated_at, name: row.name, nameEn: row.name_en, address: row.address, locationDetails: readLocationDetails(row.location_details),
     categorySlug: row.category_slug, region: row.region, longitude: row.longitude, latitude: row.latitude,
     pricePerPerson: row.price_per_person === null ? null : Number(row.price_per_person),
     createdBy: row.created_by ? {id: row.created_by, email: accounts.get(row.created_by) ?? null} : null,
@@ -58,14 +59,14 @@ export async function pendingPlaceSubmissions(client: SupabaseClient, placeId: s
 
 export async function loadSubmissionEditor(client: SupabaseClient, id: string): Promise<SubmissionEditorRecord | null> {
   const {data: row, error} = await client.from('place_submissions')
-    .select('id,name,address,category_slug,region,longitude,latitude,price_per_person,tag_ids,notes,version,status')
+    .select('id,name,address,location_details,category_slug,region,longitude,latitude,price_per_person,tag_ids,notes,version,status')
     .eq('id', id).eq('status', 'pending').maybeSingle();
   if (error) throw error;
   if (!row) return null;
   const {data: media, error: mediaError} = await client.from('place_media')
     .select('id,bucket_id,storage_path,sort_order,lifecycle_status').eq('submission_id', id);
   if (mediaError) throw mediaError;
-  return {id: row.id, name: row.name, nameEn: null, address: row.address,
+  return {id: row.id, name: row.name, nameEn: null, address: row.address, locationDetails: readLocationDetails(row.location_details),
     categorySlug: row.category_slug, region: row.region, longitude: row.longitude, latitude: row.latitude,
     pricePerPerson: row.price_per_person === null ? null : Number(row.price_per_person), tagIds: row.tag_ids,
     searchKeywords: [], status: 'published', version: row.version, notes: row.notes,

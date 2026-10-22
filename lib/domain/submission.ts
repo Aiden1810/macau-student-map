@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {locationDetailsSchema} from './location-details';
 
 const nullableTrimmedText = (maximum: number) =>
   z
@@ -20,6 +21,7 @@ export const placeSubmissionDraftSchema = z
     sourcePlaceId: postgresUuid.nullable().default(null),
     name: z.string().trim().min(1).max(120),
     address: nullableTrimmedText(500).default(null),
+    locationDetails: locationDetailsSchema.optional(),
     categorySlug: z.enum(['food', 'shopping', 'entertainment', 'service']),
     region: nullableTrimmedText(80).default(null),
     longitude: z.number().min(-180).max(180).nullable(),

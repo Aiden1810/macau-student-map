@@ -87,6 +87,7 @@ describe('place submission validation', () => {
       prepareSubmissionForSubmit({...validDraft, name: '  校園漢堡研究所  ', notes: ' 近北門 '})
     ).toEqual({
       source_place_id: null,
+      location_details: {source: 'unknown', businessForm: 'unknown', accuracy: 'unknown', mobility: 'unknown', description: null, landmark: null, hours: null},
       name: '校園漢堡研究所',
       address: '澳門氹仔大學大馬路',
       category_slug: 'food',

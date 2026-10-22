@@ -1,4 +1,5 @@
 import {deriveTrustLabel} from '../ranking/confidence';
+import {readLocationDetails} from '../domain/location-details';
 import {getTaxonomyTagLabelZhCN} from '../domain/taxonomy';
 import {withCuisineGroupLabel} from '../tags/display';
 import type {Place} from '../domain/place';
@@ -24,6 +25,7 @@ type CanonicalPlaceRow = {
   id: string;
   name: string;
   address: string | null;
+  location_details?: unknown;
   category_slug: 'food' | 'shopping' | 'entertainment' | 'service';
   region: string | null;
   longitude: number | null;
@@ -45,6 +47,7 @@ function finiteNumber(value: number | string | null): number | null {
   return Number.isFinite(number) ? number : null;
 }
 export function mapCanonicalPlaceToShop(row: CanonicalPlaceRow): Shop {
+  const locationDetails = readLocationDetails(row.location_details);
   const tagRows = (row.place_tags ?? [])
     .map((relation) => relation.tags)
     .filter((tag): tag is NonNullable<typeof tag> => tag !== null);
@@ -52,6 +55,7 @@ export function mapCanonicalPlaceToShop(row: CanonicalPlaceRow): Shop {
   const features = tagRows
     .map((tag) => FEATURE_BY_TAG[tag.slug])
     .filter((feature): feature is ShopFeature => Boolean(feature));
+  if (locationDetails.businessForm === 'stall') features.push('小摊');
   const rating = finiteNumber(row.rating_average) ?? 0;
   const reviews = Math.max(0, row.review_count ?? 0);
   const trust = deriveTrustLabel(row.rating_average === null ? null : rating, reviews);
@@ -67,6 +71,7 @@ export function mapCanonicalPlaceToShop(row: CanonicalPlaceRow): Shop {
     id: row.id,
     name: row.name,
     address: row.address ?? '',
+    locationDetails,
     imageUrls: mediaUrls.length > 0 ? mediaUrls : row.legacy_image_urls ?? [],
     type: row.category_slug === 'food' ? '餐饮' : '服务',
     category: row.category_slug,
@@ -113,6 +118,7 @@ export function mapPlaceToShop(place: Place): Shop {
     id: place.id,
     name: place.name,
     address: place.address,
+    location_details: place.locationDetails,
     category_slug: place.category,
     region: place.region,
     longitude: place.longitude,

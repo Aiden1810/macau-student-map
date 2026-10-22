@@ -742,11 +742,13 @@ export default function Page() {
 
         <main className="relative mx-auto max-w-[1380px] px-4 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] sm:px-6 md:h-[calc(100dvh-4rem)] md:pb-4 lg:px-8">
           {isContributeOpen && (
-            <div className="mt-2 max-h-[60dvh] overflow-y-auto">
+            <div style={{display: mapPickMode ? 'none' : undefined}} className="mt-2 max-h-[60dvh] overflow-y-auto">
               <ContributionForm
                 manualCoordinates={manualCoordinates}
                 poiSearchOrigin={poiSearchOrigin}
                 onRequestMapPick={() => {
+                  setManualCoordinates(null);
+                  setCollapseMobileSheetSignal(value => value + 1);
                   setMapPickMode(true);
                   setViewMode('map');
                 }}
@@ -844,11 +846,13 @@ export default function Page() {
       </div>
 
       {isContributeOpen && (
-        <div className="fixed inset-x-0 bottom-0 z-[90] max-h-[90dvh] overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:hidden">
+        <div style={{display: mapPickMode ? 'none' : undefined}} className="fixed inset-x-0 bottom-0 z-[90] max-h-[90dvh] overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:hidden">
           <ContributionForm
             manualCoordinates={manualCoordinates}
             poiSearchOrigin={poiSearchOrigin}
             onRequestMapPick={() => {
+              setManualCoordinates(null);
+              setCollapseMobileSheetSignal(value => value + 1);
               setMapPickMode(true);
               setViewMode('map');
             }}
@@ -869,6 +873,11 @@ export default function Page() {
           />
         </div>
       )}
+      {isContributeOpen && mapPickMode && <div className="fixed inset-x-3 bottom-4 z-[95] mx-auto max-w-md rounded-xl border border-emerald-200 bg-white p-3 text-sm shadow-lg">
+        <p className="font-medium text-emerald-900">请在地图上点击地点的实际位置</p>
+        <p className="mt-1 text-xs text-slate-600">不知道具体位置，可以返回填写并搜索附近地标。</p>
+        <button type="button" onClick={() => setMapPickMode(false)} className="mt-2 min-h-10 rounded-lg border border-slate-300 px-3 text-emerald-800">返回填写／搜索地标</button>
+      </div>}
       <FloatingPlaceAssistant open={assistantPanel.open} hasOpened={assistantPanel.hasOpened} onClose={closeAssistant} />
     </div>
   );

@@ -1,4 +1,5 @@
 import type {PlaceCategorySlug, TagKind} from './taxonomy';
+import type {LocationDetails} from './location-details';
 
 export type PlaceStatus = 'draft' | 'published' | 'archived';
 
@@ -22,6 +23,7 @@ export type Place = {
   name: string;
   nameEn: string | null;
   address: string | null;
+  locationDetails?: LocationDetails;
   category: PlaceCategorySlug;
   region: PlaceRegion | null;
   longitude: number | null;

@@ -1,5 +1,6 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
 import {z} from 'zod';
+import {locationDetailsSchema, readLocationDetails} from '../domain/location-details';
 import type {Place} from '../domain/place';
 
 const categorySchema = z.enum(['food', 'shopping', 'entertainment', 'service']);
@@ -11,6 +12,7 @@ const placeRowSchema = z.object({
   name: z.string().trim().min(1),
   name_en: z.string().trim().min(1).nullable().default(null),
   address: z.string().trim().min(1).nullable().default(null),
+  location_details: locationDetailsSchema.optional(),
   category_slug: categorySchema,
   region: regionSchema.nullable().default(null),
   longitude: z.number().finite().min(-180).max(180).nullable().default(null),
@@ -83,6 +85,7 @@ export function mapPlaceRow(row: unknown): Place {
     name: value.name,
     nameEn: value.name_en,
     address: value.address,
+    locationDetails: readLocationDetails(value.location_details),
     category: value.category_slug,
     region: value.region,
     longitude: value.longitude,
@@ -111,6 +114,7 @@ const PLACE_SELECT = `
   name,
   name_en,
   address,
+  location_details,
   category_slug,
   region,
   longitude,

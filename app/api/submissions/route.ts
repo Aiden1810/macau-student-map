@@ -5,7 +5,7 @@ import {createRequestId, errorResponse, successResponse} from '@/lib/api/result'
 import {createAuthenticatedSupabaseClient, requireUser} from '@/lib/auth/require-user';
 
 const SUBMISSION_COLUMNS =
-  'id,source_place_id,merged_into_place_id,name,address,category_slug,region,longitude,latitude,price_per_person,tag_ids,notes,status,submitted_by,version,submitted_at,reviewed_at,review_note,created_at,updated_at';
+  'id,source_place_id,merged_into_place_id,name,address,location_details,category_slug,region,longitude,latitude,price_per_person,tag_ids,notes,status,submitted_by,version,submitted_at,reviewed_at,review_note,created_at,updated_at';
 
 export async function GET(request: Request) {
   const requestId = createRequestId();

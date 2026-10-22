@@ -123,7 +123,8 @@
       "xiangzhou": "Xiangzhou",
       "hengqin": "Hengqin",
       "others": "Others"
-    }
+    },
+    "stalls": "Stalls"
   },
   "ShopCard": {
     "recommend": "Recommended",
@@ -185,9 +186,17 @@
     "backHome": "Back to map"
   },
   "Contribute": {
+    "kindLabel": "What would you like to recommend?",
+    "kindStore": "Store",
+    "kindStall": "Stall",
+    "kindStoreDescription": "A place with a storefront",
+    "kindStallDescription": "A neighborhood street stall",
+    "storeLocationHint": "Search by name first, or add the place manually if it is missing from the map.",
+    "stallLocationHint": "No street address needed: mark the location and explain how to find it. You can also search for a stall already listed on the map.",
+    "close": "Close",
     "button": "Contribute",
-    "title": "Contribute a Shop",
-    "subtitle": "Search a location first, then submit an initial review.",
+    "title": "Submit a new place",
+    "subtitle": "Share the local favorites you and your classmates know.",
     "searchLabel": "Search shop name",
     "searchScope": "Search area",
     "searchBothCities": "Macau + Zhuhai",
@@ -203,11 +212,11 @@
     "searching": "Searching places...",
     "searchEmpty": "No results found",
     "searchFailed": "Failed to search places",
-    "manualSelectButton": "Can't find it? Select on map",
-    "manualSelectHint": "Click anywhere on the map to set location.",
+    "manualSelectButton": "Can't find it? Add a place manually",
+    "manualSelectHint": "Mark the actual place on the map, or search for a nearby landmark below.",
     "manualSelected": "Selected coordinates",
-    "manualNameLabel": "Shop Name",
-    "manualNamePlaceholder": "Enter shop name",
+    "manualNameLabel": "Place name",
+    "manualNamePlaceholder": "Enter the place name, e.g. cold noodle stall downstairs",
     "manualCategoryLabel": "Category",
     "unnamedPlace": "Unnamed place",
     "checkingDuplicate": "Checking duplicate...",

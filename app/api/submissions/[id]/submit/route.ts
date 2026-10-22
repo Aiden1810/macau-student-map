@@ -18,7 +18,7 @@ const submitSchema = z
   .strict();
 
 const SUBMISSION_COLUMNS =
-  'id,source_place_id,merged_into_place_id,name,address,category_slug,region,longitude,latitude,price_per_person,tag_ids,notes,status,submitted_by,version,submitted_at,reviewed_at,review_note,created_at,updated_at';
+  'id,source_place_id,merged_into_place_id,name,address,location_details,category_slug,region,longitude,latitude,price_per_person,tag_ids,notes,status,submitted_by,version,submitted_at,reviewed_at,review_note,created_at,updated_at';
 
 type RouteContext = {params: Promise<{id: string}>};
 
@@ -59,6 +59,7 @@ export async function POST(request: Request, {params}: RouteContext) {
     sourcePlaceId: draft.sourcePlaceId,
     name: draft.name,
     address: draft.address,
+    locationDetails: draft.locationDetails,
     categorySlug: draft.categorySlug,
     region: draft.region,
     longitude: draft.longitude,

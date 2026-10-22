@@ -49,6 +49,7 @@ describe('mapPlaceRow', () => {
   it('maps a complete Supabase row to the canonical Place contract', () => {
     expect(mapPlaceRow(completeRow)).toEqual({
       id: 'place-1',
+      locationDetails: {source: 'unknown', businessForm: 'unknown', accuracy: 'unknown', mobility: 'unknown', description: null, landmark: null, hours: null},
       name: '校園漢堡研究所',
       nameEn: 'Campus Burger Lab',
       address: '澳門氹仔大學大馬路',

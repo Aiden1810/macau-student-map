@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {Heart, MapPin, Star} from 'lucide-react';
 import {useLocale, useTranslations} from 'next-intl';
 import PlaceCover from './PlaceCover';
+import PlaceLocationInfo from './PlaceLocationInfo';
 import {formatPlacePrice, getPlacePresentation} from '@/lib/domain/place-types';
 import {resolveTagAlias} from '@/lib/domain/taxonomy';
 import type {Shop} from '@/types/shop';
@@ -28,6 +29,8 @@ export default function MobilePlaceCard({shop, favorite, onFavorite, onLocate, h
           <h3 className="line-clamp-2 break-words text-[15px] font-semibold leading-[1.45] text-ink">{branch ? branch[1] : shop.name}</h3>
           {branch && <p className="line-clamp-1 text-[13px] leading-5 text-muted">({branch[2]})</p>}
           <p className="mt-1 text-xs leading-5 text-muted">{label}{shop.region ? ` · ${shop.region}` : ''}</p>
+          <PlaceLocationInfo details={shop.locationDetails} compact />
+          {shop.locationDetails?.description && <p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-muted">{shop.locationDetails.description}</p>}
           {cuisineTags.length > 0 && <div className="mt-1 flex flex-wrap gap-1">{cuisineTags.map(tag => (
             <span key={tag} className="rounded-md bg-pine-50 px-1.5 py-0.5 text-[11px] leading-4 text-pine-800">{tag}</span>
           ))}</div>}

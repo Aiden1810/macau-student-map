@@ -6,6 +6,8 @@ import {z} from 'zod';
 import LaunchCategorySelector from '@/components/LaunchCategorySelector';
 import PrimaryTagSelector from '@/components/PrimaryTagSelector';
 import AmapPoiSelector from '@/components/AmapPoiSelector';
+import LocationDetailsFields from '@/components/LocationDetailsFields';
+import {readLocationDetails} from '@/lib/domain/location-details';
 import ImageUpload from '@/components/ImageUpload';
 import {authenticatedApiRequest} from '@/lib/api/client';
 import {supabase} from '@/lib/supabase';
@@ -68,6 +70,8 @@ export default function PlaceEditor({target, onClose, onSaved}: {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [lastPublishBody, setLastPublishBody] = useState<string | null>(null);
   const [pendingSubmissions, setPendingSubmissions] = useState<string[]>([]);
+  const usingLandmarkPoint = form.locationDetails?.source === 'manual' && selectedPoi !== null &&
+    numbers.longitude === String(selectedPoi.coordinates[0]) && numbers.latitude === String(selectedPoi.coordinates[1]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -86,7 +90,7 @@ export default function PlaceEditor({target, onClose, onSaved}: {
       if (!active) return;
       setForm({name: data.name, nameEn: data.nameEn, address: data.address, categorySlug: data.categorySlug,
         region: data.region, longitude: data.longitude, latitude: data.latitude, pricePerPerson: data.pricePerPerson,
-        tagIds: data.tagIds, searchKeywords: data.searchKeywords, status: data.status});
+        tagIds: data.tagIds, searchKeywords: data.searchKeywords, status: data.status, locationDetails: readLocationDetails(data.locationDetails)});
       setNumbers({longitude: data.longitude?.toString() ?? '', latitude: data.latitude?.toString() ?? '', price: data.pricePerPerson?.toString() ?? ''});
       setLaunch(getPlacePresentation({category: data.categorySlug, tags: data.tagIds}).launch);
       setKeywords(data.searchKeywords.join('，'));
@@ -143,6 +147,7 @@ export default function PlaceEditor({target, onClose, onSaved}: {
         return parsed;
       };
       const input = prepareAdminPlaceInput({...form, longitude: number(numbers.longitude), latitude: number(numbers.latitude),
+        locationDetails: usingLandmarkPoint ? {...readLocationDetails(form.locationDetails), accuracy: 'approximate'} : form.locationDetails,
         pricePerPerson: number(numbers.price), searchKeywords: keywords.split(/[,，\n]/).map(value => value.trim()).filter(Boolean)});
       let result: SavedResult;
       if (persisted) result = await adminEditorRequest<SavedResult>(`/api/admin/places/${persisted}`, {method: 'PATCH', body: JSON.stringify(input)});
@@ -204,15 +209,23 @@ export default function PlaceEditor({target, onClose, onSaved}: {
         <AmapPoiSelector selectedPlace={selectedPoi} onSelect={poi => {
           setSelectedPoi(poi);
           const derived = deriveRegionFromCoordinates(poi.coordinates[0], poi.coordinates[1]);
-          setForm(current => ({...current, name: poi.name, address: poi.fullAddress,
-            region: derived ? REGION_FROM_LEGACY[derived] ?? null : null}));
+          setForm(current => {
+            const details = readLocationDetails(current.locationDetails);
+            return {...current, ...(details.source === 'manual' ? {} : {name: poi.name, address: poi.fullAddress}),
+              locationDetails: details.source === 'manual' ? {...details, landmark: poi.name, accuracy: 'approximate'} : {...details, source: 'map', accuracy: 'unknown'},
+              region: derived ? REGION_FROM_LEGACY[derived] ?? null : null};
+          });
           setNumbers(current => ({...current, longitude: String(poi.coordinates[0]), latitude: String(poi.coordinates[1])}));
-        }} onClearSelection={() => setSelectedPoi(null)} labels={{label: '搜索地图地点', placeholder: '搜索澳门或珠海的店名并选择具体分店',
+        }} onClearSelection={() => setSelectedPoi(null)} labels={{label: form.locationDetails?.source === 'manual' ? '搜索附近地标' : '搜索地图地点', placeholder: '搜索澳门或珠海的店名并选择具体分店',
           searching: '搜索中…', empty: '没有找到地点，可在高级信息填写坐标', searchFailed: '地图搜索失败，请重试', unnamedPlace: '未命名地点', poiId: '地图地点编号'}} />
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block"><span className="mb-1 block text-sm font-medium">地点名称 *</span><input required maxLength={120} value={form.name} onChange={event => setForm({...form, name: event.target.value})} className={INPUT} /></label>
           <label className="block"><span className="mb-1 block text-sm font-medium">地址</span><input maxLength={500} value={form.address ?? ''} onChange={event => setForm({...form, address: event.target.value || null})} className={INPUT} /></label>
         </div>
+        <LocationDetailsFields value={readLocationDetails(form.locationDetails)} showSource required={form.status === 'published'}
+          approximateOnly={usingLandmarkPoint}
+          onChange={locationDetails => setForm(current => ({...current, locationDetails}))} />
+        {target.kind === 'submission' && form.locationDetails?.source === 'manual' && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">审核前请核对位置描述、照片和标点依据。位置无法确认时，先关闭并待补充，不要猜点发布。</p>}
         <fieldset><legend className="mb-2 text-sm font-medium">具体类型 * <span className="font-normal text-slate-500">与补充标签合计最多 8 个</span></legend><PrimaryTagSelector tags={primaryTags} selected={form.tagIds} onToggle={selectTag} /></fieldset>
         <label className="block max-w-sm"><span className="mb-1 block text-sm font-medium">{form.categorySlug === 'food' ? '人均消费参考（人民币）' : '消费参考（人民币／人次）'}</span>
           <input type="number" min="0" max="100000" step="0.01" value={numbers.price} onChange={event => setNumbers({...numbers, price: event.target.value})} placeholder="可不填；0 表示免费" className={INPUT} /></label>

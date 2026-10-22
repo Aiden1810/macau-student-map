@@ -1,6 +1,6 @@
 'use client';
 
-import {Bike, Check, Heart, Moon} from 'lucide-react';
+import {Bike, Check, Heart, Moon, Store} from 'lucide-react';
 import {useTranslations} from 'next-intl';
 import type {DrawerFiltersState, ShopFeature} from '@/types/shop';
 
@@ -41,6 +41,10 @@ export default function QuickFilters({compact = false, count, loading, filters, 
         <button type="button" aria-pressed={filters.features.includes('深夜营业')} className={chipClass(filters.features.includes('深夜营业'))} onClick={() => toggleFeature('深夜营业')}>
           <Moon aria-hidden="true" className="h-3.5 w-3.5" />{t('openLate')}
           {filters.features.includes('深夜营业') && <Check aria-hidden="true" className="h-3 w-3" />}
+        </button>
+        <button type="button" aria-pressed={filters.features.includes('小摊')} className={chipClass(filters.features.includes('小摊'))} onClick={() => toggleFeature('小摊')}>
+          <Store aria-hidden="true" className="h-3.5 w-3.5" />{t('stalls')}
+          {filters.features.includes('小摊') && <Check aria-hidden="true" className="h-3 w-3" />}
         </button>
       </div>
       {extraLabels.length > 0 && <p className="break-words text-xs text-slate-500">{extraLabels.join(' · ')}</p>}

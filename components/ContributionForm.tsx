@@ -8,6 +8,8 @@ import PrimaryTagSelector from '@/components/PrimaryTagSelector';
 import {getLaunchTagOptions, isPrimaryTag, selectLaunchCategory, type LaunchCategoryKey} from '@/lib/domain/place-types';
 import {findTaxonomyTag, getTaxonomyTagLabelZhCN} from '@/lib/domain/taxonomy';
 import AmapPoiSelector from '@/components/AmapPoiSelector';
+import LocationDetailsFields from '@/components/LocationDetailsFields';
+import {readLocationDetails, requiresLocationDescription} from '@/lib/domain/location-details';
 import ImageUpload from '@/components/ImageUpload';
 import type {AmapPoiOption, AmapPoiSearchOrigin} from '@/lib/amap/place-search';
 import {authenticatedApiRequest} from '@/lib/api/client';
@@ -48,7 +50,15 @@ export default function ContributionForm({
   const [isDuplicate, setIsDuplicate] = useState(false);
 
   const [manualMode, setManualMode] = useState(false);
+  const [contributionKind, setContributionKind] = useState<'store' | 'stall'>('store');
   const [manualShopName, setManualShopName] = useState('');
+  const [locationDetails, setLocationDetails] = useState(() => readLocationDetails());
+  const [referencePoi, setReferencePoi] = useState<AmapPoiOption | null>(null);
+  const [usingLandmark, setUsingLandmark] = useState(false);
+  // Only a new map click can confirm a point after changing the location source.
+  const [discardedManualPoint, setDiscardedManualPoint] = useState<[number, number] | null>(null);
+  const manualPoint = usingLandmark ? referencePoi?.coordinates ?? null
+    : manualCoordinates !== discardedManualPoint ? manualCoordinates : null;
 
   const [category, setCategory] = useState<PlaceCategorySlug | ''>('');
   const [launchCategory, setLaunchCategory] = useState<LaunchCategoryKey | null>(null);
@@ -63,6 +73,38 @@ export default function ContributionForm({
   const [submitLoading, setSubmitLoading] = useState(false);
   const [contributeMessage, setContributeMessage] = useState<string | null>(null);
   const [contributeError, setContributeError] = useState<string | null>(null);
+
+  const clearLocationFeedback = () => {
+    setContributeError(null); setContributeMessage(null);
+    setIsDuplicate(false); setDuplicateCandidates([]);
+  };
+
+  const chooseContributionKind = (kind: 'store' | 'stall') => {
+    setContributionKind(kind);
+    setLocationDetails(current => ({...current, businessForm: kind}));
+    clearLocationFeedback();
+    // Use the suggested method only for an empty form; keep any entered place information.
+    if (!selectedPlace && !manualPoint && !manualShopName.trim() && !locationDetails.description && !draftId) {
+      setManualMode(kind === 'stall');
+      setDiscardedManualPoint(manualCoordinates);
+      setLocationDetails(current => ({...current, businessForm: kind, source: kind === 'stall' ? 'manual' : 'unknown', accuracy: 'unknown'}));
+    }
+  };
+
+  const startManualLocation = () => {
+    setManualMode(true); setSelectedPlace(null); setReferencePoi(null); setUsingLandmark(false);
+    setDiscardedManualPoint(manualCoordinates);
+    setLocationDetails(current => ({...current, businessForm: contributionKind, source: 'manual', accuracy: 'unknown'}));
+    clearLocationFeedback();
+    onRequestMapPick();
+  };
+
+  const returnToPlaceSearch = () => {
+    setManualMode(false); setSelectedPlace(null); setReferencePoi(null); setUsingLandmark(false);
+    setDiscardedManualPoint(manualCoordinates);
+    setLocationDetails(current => ({...current, businessForm: contributionKind, source: 'unknown', accuracy: 'unknown'}));
+    clearLocationFeedback();
+  };
 
   const allL2Groups = useMemo(() => {
     const canonical = getCanonicalTagsForAdminAndSubmit();
@@ -88,6 +130,7 @@ export default function ContributionForm({
 
   const handleChoosePlace = (option: AmapPoiOption) => {
     setSelectedPlace(option);
+    setLocationDetails(current => ({...current, source: 'map', accuracy: 'unknown'}));
     setContributeError(null);
     setContributeMessage(null);
     setDuplicateCandidates([]);
@@ -103,8 +146,8 @@ export default function ContributionForm({
   };
 
   const buildDraftPayload = () => {
-    const canUseSearch = !!selectedPlace;
-    const canUseManual = manualMode && !!manualCoordinates && manualShopName.trim().length > 0;
+    const canUseSearch = !manualMode && !!selectedPlace;
+    const canUseManual = manualMode && !!manualPoint && manualShopName.trim().length > 0;
     if ((!canUseSearch && !canUseManual) || !category) {
       throw new Error('请先完成地点、名称和主分类。');
     }
@@ -119,11 +162,13 @@ export default function ContributionForm({
       throw new Error('请至少选择 1 个实际提供的地点类型。');
     }
 
-    const coordinates = canUseSearch ? selectedPlace!.coordinates : manualCoordinates!;
+    const coordinates = canUseSearch ? selectedPlace!.coordinates : manualPoint!;
     return {
       sourcePlaceId: null,
       name: canUseSearch ? selectedPlace!.name : manualShopName.trim(),
       address: canUseSearch ? selectedPlace!.fullAddress || null : null,
+      locationDetails: {...locationDetails, businessForm: contributionKind, source: canUseSearch ? 'map' : 'manual',
+        accuracy: manualMode && usingLandmark ? 'approximate' : locationDetails.accuracy},
       categorySlug: category,
       region: null,
       longitude: coordinates[0],
@@ -173,10 +218,16 @@ export default function ContributionForm({
   const handleSubmitContribute = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const canSubmitFromSearch = !!selectedPlace;
-    const canSubmitFromManual = manualMode && !!manualCoordinates && manualShopName.trim().length > 0;
+    const canSubmitFromSearch = !manualMode && !!selectedPlace;
+    const canSubmitFromManual = manualMode && !!manualPoint && manualShopName.trim().length > 0;
 
-    if ((!canSubmitFromSearch && !canSubmitFromManual) || submitLoading) return;
+    if (submitLoading) return;
+    if (!canSubmitFromSearch && !canSubmitFromManual) {
+      setContributeError('请填写地点名称，并选择地图位置或附近地标。'); return;
+    }
+    if (manualMode && requiresLocationDescription(readLocationDetails({...locationDetails, source: 'manual'}))) {
+      setContributeError('请填写位置描述，说明到附近后怎么找到这个地点。'); return;
+    }
 
     if (!category) {
       setContributeError('请选择店铺主分类');
@@ -246,9 +297,23 @@ export default function ContributionForm({
           onClick={handleCancel}
           className="inline-flex rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
         >
-          {tContribute('button')}
+          {tContribute('close')}
         </button>
       </div>
+
+      <fieldset className="mt-4">
+        <legend className="mb-2 text-sm font-medium text-slate-800">{tContribute('kindLabel')}</legend>
+        <div className="grid grid-cols-2 gap-2">
+          {(['store', 'stall'] as const).map(kind => <button key={kind} type="button"
+            aria-label={tContribute(kind === 'store' ? 'kindStore' : 'kindStall')}
+            aria-pressed={contributionKind === kind} disabled={submitLoading} onClick={() => chooseContributionKind(kind)}
+            className={`min-h-20 rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:opacity-60 ${contributionKind === kind ? 'border-emerald-700 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}>
+            <span className="block text-sm font-semibold">{tContribute(kind === 'store' ? 'kindStore' : 'kindStall')}</span>
+            <span className="mt-1 block text-xs leading-5">{tContribute(kind === 'store' ? 'kindStoreDescription' : 'kindStallDescription')}</span>
+          </button>)}
+        </div>
+        <p className="mt-2 text-xs leading-5 text-slate-600">{tContribute(contributionKind === 'store' ? 'storeLocationHint' : 'stallLocationHint')}</p>
+      </fieldset>
 
       {!manualMode && (
         <>
@@ -277,13 +342,7 @@ export default function ContributionForm({
 
           <button
             type="button"
-            onClick={() => {
-              setManualMode(true);
-              setContributeError(null);
-              setContributeMessage(null);
-              setSelectedPlace(null);
-              onRequestMapPick();
-            }}
+            onClick={startManualLocation}
             className="mt-3 inline-flex rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             {tContribute('manualSelectButton')}
@@ -292,14 +351,23 @@ export default function ContributionForm({
       )}
 
       {manualMode && (
-        <div className="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-700">
-          {manualCoordinates
-            ? `${tContribute('manualSelected')}: ${manualCoordinates[1].toFixed(6)}, ${manualCoordinates[0].toFixed(6)}`
-            : tContribute('manualSelectHint')}
+        <div className="mt-4 space-y-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-700">
+          <p>{manualPoint
+            ? `${usingLandmark ? '已使用附近地标的大致位置' : tContribute('manualSelected')}: ${manualPoint[1].toFixed(6)}, ${manualPoint[0].toFixed(6)}`
+            : tContribute('manualSelectHint')}</p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className="min-h-10 underline" onClick={() => {setDiscardedManualPoint(manualCoordinates); setUsingLandmark(false); setLocationDetails(current => ({...current, source: 'manual', accuracy: 'unknown'})); onRequestMapPick();}}>{manualPoint ? '重新在地图标点' : '在地图标点'}</button>
+            <button type="button" className="min-h-10 underline" onClick={returnToPlaceSearch}>返回搜索店铺</button>
+          </div>
+          <AmapPoiSelector selectedPlace={referencePoi} searchOrigin={poiSearchOrigin}
+            onSelect={poi => {setDiscardedManualPoint(manualCoordinates); setReferencePoi(poi); setUsingLandmark(true); setLocationDetails(current => ({...current, source: 'manual', landmark: poi.name, accuracy: 'approximate'}));}}
+            onClearSelection={() => {setReferencePoi(null); setUsingLandmark(false); setLocationDetails(current => ({...current, landmark: null, accuracy: 'unknown'}));}}
+            labels={{label: '搜索附近地标（可选）', placeholder: '搜索附近的店铺、楼宇或公交站', searching: '搜索中…', empty: '未找到地标，可以直接地图标点', searchFailed: '搜索失败，请重试', unnamedPlace: '未命名地点', poiId: '地标编号'}} />
+          <p className="text-xs">地标只用于说明位置，不会把你的地点改成地标店铺。</p>
         </div>
       )}
 
-      {isDuplicate && !manualMode && (
+      {isDuplicate && (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           {tContribute('duplicateWarning')}
           {duplicateCandidates.length > 0 && (
@@ -314,7 +382,7 @@ export default function ContributionForm({
         </div>
       )}
 
-      {(selectedPlace || (manualMode && manualCoordinates)) && (
+      {(selectedPlace || manualMode) && (
         <form onSubmit={handleSubmitContribute} className="mt-4 space-y-4">
           <div>
             <LaunchCategorySelector value={launchCategory} onChange={(key) => {
@@ -328,17 +396,21 @@ export default function ContributionForm({
 
           {manualMode && (
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">{tContribute('manualNameLabel')}</label>
+              <label className="block text-sm font-medium text-slate-700"><span className="mb-1 block">{tContribute('manualNameLabel')}</span>
               <input
                 type="text"
+                maxLength={120}
                 value={manualShopName}
                 onChange={(e) => setManualShopName(e.target.value)}
                 placeholder={tContribute('manualNamePlaceholder')}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
                 required
               />
+              </label>
             </div>
           )}
+
+          <LocationDetailsFields value={locationDetails} onChange={setLocationDetails} showBusinessForm={false} required approximateOnly={manualMode && usingLandmark} />
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">消费参考（人民币／人次） <span className="font-normal text-slate-400">（可选；请勿填写每小时或包场总价）</span></label>
