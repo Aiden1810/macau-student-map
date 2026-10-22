@@ -12,7 +12,7 @@ const compat = new FlatCompat({
 const config = [
   ...compat.extends('next/core-web-vitals', 'next/typescript'),
   {
-    ignores: ['node_modules/**', '.next/**', 'out/**', 'build/**', 'output/**', '.playwright-cli/**', 'next-env.d.ts']
+    ignores: ['node_modules/**', '.next/**', 'out/**', 'build/**', 'output/**', 'tmp/**', '.playwright-cli/**', 'next-env.d.ts']
   }
 ];
 
