@@ -85,7 +85,7 @@ docs/                 Screenshots and project design notes
 
 ## Local Development
 
-Use Node.js 24 (verified locally with 24.19.0). The locked AI SDK packages require Node.js 22 or later; Node.js 20 is insufficient for the current dependency set. Docker Desktop is only required when running the local Supabase CLI database tests.
+Requirements: Node.js 24.x (see `.nvmrc` and `package.json`), matching CI and Vercel. Docker Desktop is only required when running the local Supabase CLI database tests.
 
 新成员请先阅读[中文本地启动与验证说明](docs/local-development.md)，核对远端分支、配置与验证范围。
 
@@ -126,7 +126,7 @@ npm run i18n:check
 npm run build
 ~~~
 
-Build success does not verify database access or a working homepage. The current doctor checks presence/format only and can accept example placeholders; it does not verify credentials or AI configuration. See the Chinese guide for configuration failures and verification boundaries.
+Build success does not verify database access or a working homepage. Doctor rejects the template's placeholder values and reports whether AI configuration is supplied, but it does not verify credentials or call external services. See the Chinese guide for configuration failures and verification boundaries.
 
 Local database tests can be run separately after Docker Desktop is available and the target has been confirmed to be an independent local environment. The reset command deletes and rebuilds that local database; it is not part of routine onboarding and must not be used on shared or production data:
 
