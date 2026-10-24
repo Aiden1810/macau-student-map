@@ -53,6 +53,7 @@ npm test
 npx tsc --noEmit --incremental false
 npm run lint
 npm run i18n:check
+npm audit --omit=dev --audit-level=high
 npm run build
 npm run dev
 ```
@@ -64,3 +65,17 @@ npm run dev
 首次并发验证时全量测试通过 665/666 项，容量夹具的子进程在 7 秒上限内未完成；该项单独复测通过。保留原断言和超时配置，随后使用单个 worker 重新执行全量测试，以减少资源竞争。
 
 最终 `npm test -- --maxWorkers=1`：**105 个测试文件、666 项测试全部通过**，退出码为 0。普通开发仍可运行默认的 `npm test`；若再次遇到容量夹具超时，应先排查机器负载和该夹具的初始化耗时，不应仅放宽断言。
+
+## 用户要求复核后的发现
+
+首轮交付时 GitHub CI 仍在运行，随后安全审计失败：原有 `zod@4.4.3` 受高危公告 [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) 影响，处理过大集合时可能耗尽内存。公告列出的修复版本为 4.6.6。该依赖在清理前的 `main` 上已存在，清理操作没有引入它；但首轮验证遗漏了 CI 中的安全审计命令，这是交付检查不足。
+
+复核后将 Zod 精确版本更新到 `4.6.7`，仅修改 `package.json`、lockfile 对应条目及本记录，没有使用 `npm audit fix --force` 或批量升级依赖。生产依赖安全审计已报告 0 项已知漏洞。这不是对整个项目不存在安全问题的保证。
+
+完整 `npm audit` 仍报告 **6 项开发依赖告警（2 高危、4 中危）**。根据 lockfile，涉及的节点全部标记为 `dev`：`brace-expansion`、`vite` 为高危；`@humanfs/node`、`@vitest/mocker`、`postcss-selector-parser`、`vitest` 为中危。它们属于开发和测试工具依赖，应安排单独维护与验证，不能把生产依赖审计通过理解为完整审计通过。原始报告保存在本地 `output/maintenance/security-audit-2026-10-24.json`。本轮不扩大为工具链批量升级。
+
+本地恢复目录再次核对：22 项的文件数量、总字节数均与清理前清单一致，环境配置、迁移、测试、路演素材及交接包仍存在。恢复清单没有清理前逐文件哈希，不能把这次核对表述为逐字节完整性校验。
+
+源码更新通过现有 PR #3 提交；在 PR 合并并部署前，不应声称线上已完成依赖修复。
+
+Zod 更新后重新验证：105 个文件、666 项测试全部通过；生产依赖安全审计为 0 项已知漏洞；三语言 287 个 key 契约、production build（包含 lint 与类型检查）、`git diff --check` 均通过。完整依赖审计仍有上述 6 项开发告警，未宣称通过。
