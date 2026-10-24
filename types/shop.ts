@@ -4,8 +4,6 @@ export type ShopType = '餐饮' | '服务';
 
 export type RecommendStatus = 'recommend' | 'neutral' | 'avoid';
 
-export type FilterOption = '全部' | '餐饮' | '服务' | '有折扣' | '强推';
-
 export type ViewMode = 'list' | 'map';
 
 export type ShopStatus = 'pending' | 'verified' | 'rejected';

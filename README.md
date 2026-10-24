@@ -123,6 +123,7 @@ npm test
 npx tsc --noEmit
 npm run lint
 npm run i18n:check
+npm audit --audit-level=low
 npm run build
 ~~~
 
