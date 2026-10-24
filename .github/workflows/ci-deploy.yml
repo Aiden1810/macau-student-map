@@ -1,5 +1,8 @@
 name: CI + Deploy
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -9,13 +12,13 @@ on:
 
 jobs:
   lint-and-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -32,8 +35,8 @@ jobs:
       - name: Translation contract
         run: npm run i18n:check
 
-      - name: Production dependency audit
-        run: npm audit --omit=dev --audit-level=high
+      - name: Dependency audit (including development tools)
+        run: npm audit --audit-level=low
 
       - name: Build
         run: npm run build
@@ -41,17 +44,16 @@ jobs:
   deploy-vercel:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: lint-and-build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       VERCEL_ORG_ID: team_HPaY82QThdACpL6Yt4V8Zfhq
       VERCEL_PROJECT_ID: prj_Hpu3ocNgDefJ7ATF2juPvL45J30l
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: .nvmrc
 
@@ -59,10 +61,16 @@ jobs:
         run: npm i -g vercel@64.3.1
 
       - name: Pull Vercel Environment
-        run: vercel pull --yes --environment=production --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+        run: vercel pull --yes --environment=production --scope="$VERCEL_ORG_ID"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Build Production Artifacts
-        run: vercel build --prod --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+        run: vercel build --prod --scope="$VERCEL_ORG_ID"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy to Vercel
-        run: vercel deploy --prebuilt --prod --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+        run: vercel deploy --prebuilt --prod --scope="$VERCEL_ORG_ID"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
