@@ -70,7 +70,7 @@ export async function readOperations(client: SupabaseClient, range: TrafficRange
       : '搜索记录读取失败，请刷新重试；失败不代表没有搜索。'),
     readBlock<QualityRow, ReturnType<typeof summarizeQuality>>(() => readRows<QualityRow>((from, to) => client
       .from('places').select('id,name,status,address,longitude,latitude,legacy_image_urls,place_media(lifecycle_status)', {count: 'exact'})
-      .is('legacy_shop_id', null).order('updated_at', {ascending: false}).order('id')
+      .order('updated_at', {ascending: false}).order('id')
       .range(from, to).abortSignal(signal), 500), summarizeQuality),
     (async (): Promise<DataBlock<number>> => {
       try {

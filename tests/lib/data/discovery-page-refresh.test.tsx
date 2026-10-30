@@ -14,8 +14,13 @@ vi.mock('../../../lib/supabase', () => ({supabase: {...db, auth: {
 }}}));
 vi.mock('../../../lib/hooks/useFavorites', () => ({useFavorites: () => ({favorites: [], toggleFavorite() {}, isLoaded: true})}));
 vi.mock('../../../i18n/navigation', () => ({Link: ({children}: {children: React.ReactNode}) => <>{children}</>}));
-vi.mock('../../../components/ContributionForm', () => ({default: ({onSuccess}: {onSuccess: () => Promise<void>}) =>
-  <button data-submit onClick={() => {void onSuccess();}}>submit</button>}));
+vi.mock('../../../components/ContributionForm', () => ({default: ({onSuccess, onBusyChange}: {
+  onSuccess: () => Promise<void>; onBusyChange?: (busy: boolean) => void;
+}) => <div>
+  <button data-busy onClick={() => onBusyChange?.(true)}>start upload</button>
+  <button data-idle onClick={() => onBusyChange?.(false)}>finish upload</button>
+  <button data-submit onClick={() => {void onSuccess();}}>submit</button>
+</div>}));
 vi.mock('../../../components/Header', () => ({default: ({onToggleContribute}: {onToggleContribute: () => void}) =>
   <button data-contribute onClick={onToggleContribute}>contribute</button>}));
 vi.mock('../../../components/assistant/FloatingPlaceAssistant', () => ({default: () => null}));
@@ -61,6 +66,29 @@ async function returnToPage() {
 }
 
 describe('homepage automatic updates', () => {
+  it('renders only published places and never consults the retired shop endpoint', async () => {
+    await act(async () => root.render(<HomePage />));
+    expect(host.querySelector('output')?.textContent).toBe('新店');
+    expect(vi.mocked(fetch).mock.calls.map(([input]) => String(input))).not.toContain('/api/shops');
+  });
+  it('reports a failed initial place request even when the retired shop endpoint would succeed', async () => {
+    failCanonical = true;
+    await act(async () => root.render(<HomePage />));
+    expect(host.querySelector('output')?.textContent).toBe('');
+    expect(toast.error).toHaveBeenCalled();
+    expect(host.querySelector('output')?.dataset.loading).toBe('false');
+  });
+  it('keeps the contribution mounted when its header toggle is clicked during an operation', async () => {
+    await act(async () => root.render(<HomePage />));
+    const toggle = () => host.querySelector<HTMLButtonElement>('[data-contribute]')!.click();
+    await act(async () => toggle());
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-busy]')!.click());
+    await act(async () => toggle());
+    expect(host.querySelector('[data-submit]')).not.toBeNull();
+    await act(async () => host.querySelector<HTMLButtonElement>('[data-idle]')!.click());
+    await act(async () => toggle());
+    expect(host.querySelector('[data-submit]')).toBeNull();
+  });
   it('uses HTTP without opening a channel and quietly applies successful updates', async () => {
     await act(async () => root.render(<HomePage />));
     expect(host.querySelector('output')?.textContent).toContain('新店');
@@ -71,15 +99,14 @@ describe('homepage automatic updates', () => {
     expect(db.channel).not.toHaveBeenCalled();
     expect(toast.success).not.toHaveBeenCalled();
   });
-  it.each(['legacy', 'canonical', 'canonical-schema'])('keeps both sources when the automatic %s request fails', async source => {
+  it.each(['canonical', 'canonical-schema'])('keeps the published list when the automatic %s request fails', async source => {
     await act(async () => root.render(<HomePage />));
-    if (source === 'legacy') failLegacy = true;
-    else if (source === 'canonical-schema') canonicalUnavailable = true;
+    if (source === 'canonical-schema') canonicalUnavailable = true;
     else failCanonical = true;
     name = '不完整的新结果';
     await returnToPage();
     const text = host.querySelector('output')?.textContent;
-    expect(text).toContain('旧店'); expect(text).toContain('新店'); expect(text).not.toContain('不完整的新结果');
+    expect(text).not.toContain('旧店'); expect(text).toContain('新店'); expect(text).not.toContain('不完整的新结果');
     expect(toast.error).not.toHaveBeenCalled();
   });
   it('lets an in-flight manual refresh finish instead of superseding it with an automatic request', async () => {

@@ -5,6 +5,7 @@ import {Crosshair, LoaderCircle, Minus, Plus} from 'lucide-react';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Shop} from '@/types/shop';
 import {buildPlacePinHtml} from '@/lib/amap/place-marker';
+import {loadAmapPlaceSdk} from '@/lib/amap/place-search';
 import {formatPlacePrice, getPlacePresentation} from '@/lib/domain/place-types';
 
 interface MapPlaceholderProps {
@@ -34,7 +35,9 @@ type AMapLngLat = {
 type AMapMarker = {
   on: (event: string, handler: () => void) => void;
   setMap: (map: AMapMapInstance | null) => void;
-  setContent?: (content: HTMLElement | string) => void;
+  setContent: (content: HTMLElement | string) => void;
+  setOffset: (offset: unknown) => void;
+  setzIndex: (zIndex: number) => void;
 };
 
 type AMapBounds = {
@@ -77,8 +80,12 @@ type AMapNamespace = {
   Pixel: new (x: number, y: number) => unknown;
   MarkerCluster: new (
     map: AMapMapInstance,
-    markers: AMapMarker[],
-    options: {gridSize: number; renderClusterMarker: (context: {count: number; marker: {setContent: (content: HTMLElement) => void}}) => void}
+    points: Array<{lnglat: [number, number]; shopId: string}>,
+    options: {
+      gridSize: number;
+      renderMarker: (context: {marker: AMapMarker; data?: Array<{shopId: string}>}) => void;
+      renderClusterMarker: (context: {count: number; marker: {setContent: (content: HTMLElement) => void}}) => void;
+    }
   ) => {setMap: (map: AMapMapInstance | null) => void};
   Geolocation: new (options: {
     enableHighAccuracy: boolean;
@@ -87,12 +94,11 @@ type AMapNamespace = {
     showCircle: boolean;
     zoomToAccuracy: boolean;
   }) => AMapGeolocation;
-  plugin: (name: string, callback: () => void) => void;
+  plugin: (name: string | string[], callback: () => void) => void;
 };
 
 type AMapWindow = Window & {
   AMap?: AMapNamespace;
-  __amapLoadingPromise?: Promise<AMapNamespace>;
   _AMapSecurityConfig?: {securityJsCode?: string};
 };
 
@@ -106,56 +112,20 @@ function getAMapFromWindow(): AMapNamespace | undefined {
   return (window as AMapWindow).AMap;
 }
 
-function loadAmapScript(key: string): Promise<AMapNamespace> {
-  if (typeof window === 'undefined') {
-    return Promise.reject(new Error('AMap only works in browser'));
-  }
-
-  const w = window as AMapWindow;
-  const securityCode = process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE;
-
-  if (securityCode && !w._AMapSecurityConfig) {
-    w._AMapSecurityConfig = {securityJsCode: securityCode};
-  }
-
-  if (w.AMap) {
-    return Promise.resolve(w.AMap);
-  }
-
-  if (w.__amapLoadingPromise) {
-    return w.__amapLoadingPromise;
-  }
-
-  w.__amapLoadingPromise = new Promise((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>('script[data-amap="true"]');
-
-    if (existingScript) {
-      existingScript.addEventListener('load', () => {
-        if (w.AMap) resolve(w.AMap);
+async function loadAmapScript(key: string): Promise<AMapNamespace> {
+  const amap = await loadAmapPlaceSdk(key) as unknown as AMapNamespace;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('AMap plugins load timed out')), 12000);
+    try {
+      amap.plugin(['AMap.Scale', 'AMap.ToolBar', 'AMap.Geolocation', 'AMap.MarkerCluster'], () => {
+        clearTimeout(timer);
+        resolve(amap);
       });
-      existingScript.addEventListener('error', () => reject(new Error('Failed to load AMap script')));
-      return;
+    } catch (error) {
+      clearTimeout(timer);
+      reject(error);
     }
-
-    const script = document.createElement('script');
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.Scale,AMap.ToolBar,AMap.Geolocation,AMap.MarkerCluster`;
-    script.async = true;
-    script.defer = true;
-    script.dataset.amap = 'true';
-
-    script.onload = () => {
-      if (w.AMap) {
-        resolve(w.AMap);
-      } else {
-        reject(new Error('AMap script loaded but AMap is unavailable'));
-      }
-    };
-    script.onerror = () => reject(new Error('Failed to load AMap script'));
-
-    document.head.appendChild(script);
   });
-
-  return w.__amapLoadingPromise;
 }
 
 function buildUserPinHtml(anchored = true): string {
@@ -457,45 +427,41 @@ export default function MapPlaceholder({
     const isFilteredView = activeL1 !== 'all' && activeL1 !== 'region';
 
     const validShops = shops.filter((shop) => shop.hasCoordinates);
-
-    const markers = validShops.map((shop) => {
-      const isTopRank = topRankShopIds.has(shop.id);
-      const marker = new AMap.Marker({
-        position: shop.coordinates,
-        offset: new AMap.Pixel(0, 0),
-        content: isFilteredView && isTopRank ? buildTopRankMarkerHtml(shop) : buildPlacePinHtml(shop),
-        zIndex: isFilteredView ? (isTopRank ? 120 : 90) : 100,
-        extData: {shopId: shop.id}
-      });
-
+    const markerShops = new WeakMap<AMapMarker, Shop>();
+    const bindMarkerEvents = (marker: AMapMarker, shop: Shop) => {
+      const alreadyBound = markerShops.has(marker);
+      markerShops.set(marker, shop);
+      if (alreadyBound) return;
       marker.on('click', () => {
-        onSelectShop(shop.id);
+        const currentShop = markerShops.get(marker);
+        if (currentShop) onSelectShop(currentShop.id);
       });
-
       marker.on('mouseover', () => {
-        if (window.innerWidth > 768) {
-          setHoveredShopId(shop.id);
+        const currentShop = markerShops.get(marker);
+        if (window.innerWidth > 768 && currentShop) {
+          setHoveredShopId(currentShop.id);
         }
       });
-
       marker.on('mouseout', () => {
         setHoveredShopId(null);
       });
-
-      if (!isFilteredView) {
-        markersRef.current.set(shop.id, {marker});
-      } else {
-        marker.setMap(map);
-        markersRef.current.set(shop.id, {marker});
-      }
-      return marker;
-    });
-
-    if (markers.length === 0) return;
+    };
+    if (validShops.length === 0) return;
 
     if (!isFilteredView) {
-      clusterRef.current = new AMap.MarkerCluster(map, markers, {
+      const shopsById = new Map(validShops.map(shop => [shop.id, shop]));
+      const points = validShops.map(shop => ({lnglat: shop.coordinates, shopId: shop.id}));
+      clusterRef.current = new AMap.MarkerCluster(map, points, {
         gridSize: 60,
+        renderMarker: (context) => {
+          const shopId = context.data?.[0]?.shopId;
+          const shop = shopId ? shopsById.get(shopId) : undefined;
+          if (!shop) return;
+          context.marker.setContent(buildPlacePinHtml(shop));
+          context.marker.setOffset(new AMap.Pixel(0, 0));
+          context.marker.setzIndex(100);
+          bindMarkerEvents(context.marker, shop);
+        },
         renderClusterMarker: (context) => {
           const count = context.count;
           const div = document.createElement('div');
@@ -515,8 +481,22 @@ export default function MapPlaceholder({
           context.marker.setContent(div);
         }
       });
-    } else if (shouldAutoFitFilteredMarkers) {
-      if (map.setFitView && markers.length > 0) {
+    } else {
+      const markers = validShops.map((shop) => {
+        const isTopRank = topRankShopIds.has(shop.id);
+        const marker = new AMap.Marker({
+          position: shop.coordinates,
+          offset: new AMap.Pixel(0, 0),
+          content: isTopRank ? buildTopRankMarkerHtml(shop) : buildPlacePinHtml(shop),
+          zIndex: isTopRank ? 120 : 90,
+          extData: {shopId: shop.id}
+        });
+        bindMarkerEvents(marker, shop);
+        marker.setMap(map);
+        markersRef.current.set(shop.id, {marker});
+        return marker;
+      });
+      if (shouldAutoFitFilteredMarkers && map.setFitView) {
         setTimeout(() => {
           if (mapRef.current?.setFitView) {
             mapRef.current.setFitView(markers, false, [80, 50, 200, 50], 16);
@@ -530,7 +510,7 @@ export default function MapPlaceholder({
     const map = mapRef.current;
     const AMap = getAMapFromWindow();
 
-    if (!map || !AMap) {
+    if (!mapReady || !map || !AMap) {
       return;
     }
 
@@ -570,7 +550,7 @@ export default function MapPlaceholder({
     if (shouldRefocus || selectionChanged) {
       flyToLocation(selectedShop.coordinates[0], selectedShop.coordinates[1]);
     }
-  }, [selectedShop, locateSignal, flyToLocation]);
+  }, [selectedShop, locateSignal, flyToLocation, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;

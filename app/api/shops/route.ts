@@ -1,6 +1,7 @@
 import {createRequestId, errorResponse, successResponse} from '@/lib/api/result';
-import {getPublicLegacyShops} from '@/lib/data/public-legacy-shops';
+import {getPublicPlaces} from '@/lib/data/public-places';
 import {instrumentApi} from '@/lib/observability/context';
+import {toLegacyShopResponse} from '@/lib/mappers/legacy-shop-response';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,8 @@ async function handleGet() {
   let response: Response;
   try {
     if (!url || !key) throw new Error('Missing public database configuration.');
-    response = successResponse({items: await getPublicLegacyShops(url, key)}, {requestId});
+    // Preserve old HTTP clients without retaining a second database source.
+    response = successResponse({items: (await getPublicPlaces(url, key)).map(toLegacyShopResponse)}, {requestId});
   } catch {
     response = errorResponse({code: 'INTERNAL_ERROR', message: 'Unable to load public shops.', status: 500}, requestId);
   }

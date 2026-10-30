@@ -1,6 +1,7 @@
 'use client';
 
 import {useEffect, useMemo, useState} from 'react';
+import type {Session} from '@supabase/supabase-js';
 import {useLocale, useTranslations} from 'next-intl';
 import {Link} from '@/i18n/navigation';
 import {authenticatedApiRequest} from '@/lib/api/client';
@@ -44,42 +45,58 @@ export default function MySubmissionsPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let authRevision = 0;
+    let requestVersion = 0;
+    let currentUserId: string | null | undefined;
+    let controller: AbortController | null = null;
 
-    const run = async () => {
+    const applySession = (session: Session | null) => {
+      const nextUserId = session?.user.id ?? null;
+      if (cancelled || currentUserId === nextUserId) return;
+      currentUserId = nextUserId;
+      const version = ++requestVersion;
+      controller?.abort();
+      controller = null;
+      // Clear the previous account before starting any new request.
+      setSubmissions([]);
       setLoading(true);
       setError(null);
 
-      const {data, error: sessionError} = await supabase.auth.getSession();
-
-      if (cancelled) return;
-
-      if (sessionError || !data.session?.access_token) {
+      if (!session?.access_token || !nextUserId) {
         setError('请先登录后查看投稿记录。');
-        setSubmissions([]);
         setLoading(false);
         return;
       }
 
-      try {
-        const result = await authenticatedApiRequest<{items: SubmissionRow[]}>(
-          '/api/submissions',
-          data.session.access_token
-        );
-        if (cancelled) return;
-        setSubmissions(result.items);
-      } catch (requestError) {
-        if (cancelled) return;
-        setError(requestError instanceof Error ? requestError.message : '投稿记录加载失败。');
-        setSubmissions([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      const requestController = new AbortController();
+      controller = requestController;
+      const isCurrent = () => !cancelled && requestVersion === version;
+      void authenticatedApiRequest<{items: SubmissionRow[]}>(
+        '/api/submissions', session.access_token, {signal: requestController.signal}
+      ).then(result => {
+        if (isCurrent()) setSubmissions(result.items);
+      }).catch(requestError => {
+        if (isCurrent()) setError(requestError instanceof Error ? requestError.message : '投稿记录加载失败。');
+      }).finally(() => {
+        if (isCurrent()) setLoading(false);
+      });
     };
 
-    run();
+    const initialRevision = authRevision;
+    const {data: listener} = supabase.auth.onAuthStateChange((_event, session) => {
+      authRevision++;
+      applySession(session);
+    });
+    void supabase.auth.getSession().then(({data, error: sessionError}) => {
+      if (authRevision === initialRevision) applySession(sessionError ? null : data.session);
+    }).catch(() => {
+      if (authRevision === initialRevision) applySession(null);
+    });
 
     return () => {
       cancelled = true;
+      controller?.abort();
+      listener.subscription.unsubscribe();
     };
   }, []);
 

@@ -14,7 +14,6 @@ import FloatingPlaceAssistant from '@/components/assistant/FloatingPlaceAssistan
 import MapPlaceholder from '@/components/MapPlaceholder';
 import MobileCategoryNav from '@/components/MobileCategoryNav';
 import ShopList from '@/components/ShopList';
-import {mapShopList} from '@/lib/mappers/shop';
 import {
   buildSearchResponse,
   normalizeQuery
@@ -23,7 +22,6 @@ import {normalizePlaceSearchRequest} from '@/lib/domain/search';
 import {resolveSearchTagAlias} from '@/lib/domain/taxonomy';
 import {isLaunchCategory, matchesLaunchCategory} from '@/lib/domain/place-types';
 import {createRequestGuard} from '@/lib/data/async-request';
-import {loadCanonicalPlaces, mergeLegacyAndCanonicalPlaces} from '@/lib/data/canonical-places';
 import {filterBySelectedFacet} from '@/lib/search/legacy-filters';
 import {filterFoodPlaces} from '@/lib/search/food-filters';
 import {filterRecommendedPlaces} from '@/lib/search/recommendation-filters';
@@ -31,7 +29,6 @@ import {parseDiscoveryUrlState, updateDiscoverySearchParams} from '@/lib/search/
 import {rankCompatibilityPlaces} from '@/lib/services/search-places';
 import type {AmapPoiSearchOrigin} from '@/lib/amap/place-search';
 import {supabase} from '@/lib/supabase';
-import {loadLegacyShopList, notifyShopListChanged} from '@/lib/data/legacy-shops';
 import {useFavorites} from '@/lib/hooks/useFavorites';
 import {shouldTrackVisit} from '@/lib/analytics/traffic-policy';
 import {DrawerFiltersState, Shop, ShopCategoryKey, ViewMode} from '@/types/shop';
@@ -117,7 +114,6 @@ function applyDrawerFilters(shops: Shop[], drawerFilters: DrawerFiltersState): S
 export default function Page() {
   const t = useTranslations('Common');
   const tContribute = useTranslations('Contribute');
-  const tShopCard = useTranslations('ShopCard');
   const tHome = useTranslations('Home');
   const locale = useLocale() as 'zh-CN' | 'zh-MO' | 'en';
 
@@ -148,19 +144,20 @@ export default function Page() {
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [userRole, setUserRole] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [approvingShopId, setApprovingShopId] = useState<Shop['id'] | null>(null);
-  const [deletingShopId, setDeletingShopId] = useState<Shop['id'] | null>(null);
 
 
   const [isContributeOpen, setIsContributeOpen] = useState(false);
+  const contributionBusyRef = useRef(false);
+  const handleContributionBusyChange = useCallback((busy: boolean) => {
+    contributionBusyRef.current = busy;
+  }, []);
   const [mapPickMode, setMapPickMode] = useState(false);
   const [manualCoordinates, setManualCoordinates] = useState<[number, number] | null>(null);
 
-  const [pageNotice, setPageNotice] = useState<string | null>(null);
   const [showSubmissionFollowup, setShowSubmissionFollowup] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [pageNotice, setPageNotice] = useState<string | null>(null);
   const [searchFallbackMessage, setSearchFallbackMessage] = useState<string | null>(null);
   const [mobileSheetTopOffset, setMobileSheetTopOffset] = useState(116);
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
@@ -207,41 +204,17 @@ export default function Page() {
     shopRequestsPendingRef.current += 1;
     const requestToken = shopsRequestGuardRef.current.begin();
     if (!silent) setLoading(true);
-    let canonicalFailed = false;
-
     try {
-      const [legacyResult, canonicalResult] = await Promise.all([
-        loadLegacyShopList(supabase, userRole === 'admin'),
-        loadCanonicalPlaces(async () => {
-          try {
-            const response = await fetch('/api/places');
-            const body = (await response.json().catch(() => null)) as {ok?: boolean; data?: {items?: Shop[]; canonicalAvailable?: boolean}} | null;
-            const ok = response.ok && body?.ok === true && body.data?.canonicalAvailable !== false;
-            canonicalFailed = !ok;
-            return ok ? {ok: true, items: body?.data?.items ?? []} : {ok: false, items: []};
-          } catch (error) {
-            canonicalFailed = true;
-            throw error;
-          }
-        })
-      ]);
-
-      if (!shopsRequestGuardRef.current.isCurrent(requestToken)) {
-        return;
+      const response = await fetch('/api/places', {cache: 'no-store'});
+      const body = await response.json().catch(() => null) as {
+        ok?: boolean; data?: {items?: Shop[]; canonicalAvailable?: boolean}
+      } | null;
+      if (!response.ok || body?.ok !== true || body.data?.canonicalAvailable === false || !Array.isArray(body.data?.items)) {
+        throw new Error('Published places are unavailable');
       }
-
-      // Keep the complete current list when either source fails during a quiet refresh.
-      if (silent && (legacyResult.error || canonicalFailed)) return;
-
-      if (legacyResult.error && canonicalResult.length === 0) {
-        console.error('Failed to fetch shops:', legacyResult.error.message);
-        setShops([]);
-        toast.error(tHome('toast.loadFailed'));
-        return;
-      }
-
-      const legacyShops = mapShopList((legacyResult.data ?? []) as unknown[], locale);
-      setShops(mergeLegacyAndCanonicalPlaces(legacyShops, canonicalResult));
+      if (!shopsRequestGuardRef.current.isCurrent(requestToken)) return;
+      setShops(body.data.items);
+      setPageError(null);
 
       if (hasFetchedRef.current && !silent) {
         toast.success(tHome('toast.updated'));
@@ -255,6 +228,7 @@ export default function Page() {
       console.error('Failed to fetch shops:', error);
       if (!silent) {
         setShops([]);
+        setPageError(tHome('toast.loadFailed'));
         toast.error(tHome('toast.loadFailed'));
       }
     } finally {
@@ -263,9 +237,9 @@ export default function Page() {
         setLoading(false);
       }
     }
-  }, [locale, tHome, userRole]);
+  }, [tHome]);
 
-  const fetchCurrentUserRole = useCallback(async () => {
+  const fetchCurrentUser = useCallback(async () => {
     const requestToken = roleRequestGuardRef.current.begin();
     const {data: authData, error: authError} = await supabase.auth.getUser();
 
@@ -274,7 +248,6 @@ export default function Page() {
     }
 
     if (authError || !authData?.user) {
-      setUserRole(null);
       setUserEmail(null);
       return;
     }
@@ -282,53 +255,25 @@ export default function Page() {
     const user = authData.user;
     setUserEmail(user.email ?? null);
 
-    const {data: profile, error: profileError} = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (!roleRequestGuardRef.current.isCurrent(requestToken)) {
-      return;
-    }
-
-    if (profileError) {
-      console.error('Failed to fetch profile role:', profileError.message);
-      setUserRole(null);
-      return;
-    }
-
-    const {data: currentAuthData} = await supabase.auth.getUser();
-    if (!roleRequestGuardRef.current.isCurrent(requestToken)) {
-      return;
-    }
-
-    if (currentAuthData.user?.id !== user.id) {
-      setUserRole(null);
-      setUserEmail(currentAuthData.user?.email ?? null);
-      return;
-    }
-
-    setUserRole(profile?.role ?? null);
   }, []);
 
   useEffect(() => {
     // Guard objects are stable across renders; capture them so the cleanup
     // closes over the same instances instead of re-reading the ref.
     const roleGuard = roleRequestGuardRef.current;
-    fetchCurrentUserRole();
+    fetchCurrentUser();
 
     const {
       data: {subscription}
     } = supabase.auth.onAuthStateChange(() => {
-      fetchCurrentUserRole();
+      fetchCurrentUser();
     });
 
     return () => {
       subscription.unsubscribe();
       roleGuard.invalidate();
     };
-  }, [fetchCurrentUserRole]);
+  }, [fetchCurrentUser]);
 
   useEffect(() => {
     const shopsGuard = shopsRequestGuardRef.current;
@@ -363,8 +308,7 @@ export default function Page() {
   const quietlyRefreshShops = useCallback(() => fetchShops({silent: true}), [fetchShops]);
   useDiscoveryRefresh(quietlyRefreshShops);
 
-  const isAdmin = userRole === 'admin';
-  const visibleShops = isAdmin ? shops : shops.filter((shop) => shop.status === 'verified');
+  const visibleShops = shops.filter((shop) => shop.status === 'verified');
 
   const searchComputed = useMemo(() => {
     const request = normalizePlaceSearchRequest({query: debouncedSearchQuery});
@@ -543,66 +487,8 @@ export default function Page() {
     return true;
   };
 
-  const handleApproveShop = async (shopId: Shop['id']) => {
-    if (userRole !== 'admin' || approvingShopId) {
-      return;
-    }
-
-    setApprovingShopId(shopId);
-    setPageError(null);
-    setPageNotice(null);
-
-    const {error} = await supabase.from('shops').update({status: 'verified'}).eq('id', shopId);
-
-    setApprovingShopId(null);
-
-    if (error) {
-      setPageError(`${tShopCard('approveFailed')}: ${error.message}`);
-      return;
-    }
-
-    await notifyShopListChanged(supabase);
-    setPageNotice(tShopCard('approveSuccess'));
-    await fetchShops();
-  };
-
-  const handleDeleteShop = async (shopId: Shop['id']) => {
-    if (userRole !== 'admin' || deletingShopId) {
-      return;
-    }
-
-    const confirmed = window.confirm(tHome('confirm.deleteShop'));
-    if (!confirmed) {
-      return;
-    }
-
-    setDeletingShopId(shopId);
-    setPageError(null);
-    setPageNotice(null);
-
-    const {data, error} = await supabase.from('shops').delete().eq('id', shopId).select('id');
-
-    setDeletingShopId(null);
-
-    if (error) {
-      setPageError(`${tHome('errors.deleteFailed')}: ${error.message}`);
-      return;
-    }
-
-    if (!data || data.length === 0) {
-      setPageError(tHome('errors.deleteNotEffective'));
-      await fetchShops();
-      return;
-    }
-
-    await notifyShopListChanged(supabase);
-    setShops((prev) => prev.filter((shop) => shop.id !== shopId));
-    setPageNotice(tHome('toast.deleted'));
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setUserRole(null);
     setUserEmail(null);
   };
 
@@ -639,6 +525,7 @@ export default function Page() {
               mySubmissionsHref="/my-submissions"
               onLogout={handleLogout}
               onToggleContribute={() => {
+                if (contributionBusyRef.current) return;
                 setIsContributeOpen((prev) => !prev);
                 setMapPickMode(false);
                 setManualCoordinates(null);
@@ -695,12 +582,6 @@ export default function Page() {
           activeFilterLabels={activeFilterLabels}
           onClearSearch={() => setSearchQuery('')}
           onClearAllFilters={resetAllFiltersAndSearch}
-          canApprove={isAdmin}
-          approvingShopId={approvingShopId}
-          onApproveShop={handleApproveShop}
-          canDelete={isAdmin}
-          deletingShopId={deletingShopId}
-          onDeleteShop={handleDeleteShop}
           collapseMobileSheetSignal={collapseMobileSheetSignal}
           mobileTopOffsetPx={mobileSheetTopOffset}
           onToggleAssistant={toggleAssistant}
@@ -729,6 +610,7 @@ export default function Page() {
           mySubmissionsHref="/my-submissions"
           onLogout={handleLogout}
           onToggleContribute={() => {
+            if (contributionBusyRef.current) return;
             setIsContributeOpen((prev) => !prev);
             setMapPickMode(false);
             setManualCoordinates(null);
@@ -744,6 +626,7 @@ export default function Page() {
           {isContributeOpen && (
             <div style={{display: mapPickMode ? 'none' : undefined}} className="mt-2 max-h-[60dvh] overflow-y-auto">
               <ContributionForm
+                onBusyChange={handleContributionBusyChange}
                 manualCoordinates={manualCoordinates}
                 poiSearchOrigin={poiSearchOrigin}
                 onRequestMapPick={() => {
@@ -822,13 +705,7 @@ export default function Page() {
                 activeFilterLabels={activeFilterLabels}
                 onClearSearch={() => setSearchQuery('')}
                 onClearAllFilters={resetAllFiltersAndSearch}
-                canApprove={isAdmin}
-                approvingShopId={approvingShopId}
-                onApproveShop={handleApproveShop}
-                canDelete={isAdmin}
-                deletingShopId={deletingShopId}
-                onDeleteShop={handleDeleteShop}
-                collapseMobileSheetSignal={collapseMobileSheetSignal}
+                                                    collapseMobileSheetSignal={collapseMobileSheetSignal}
                 drawerFilters={drawerFilters}
                 onChangeDrawerFilters={setDrawerFilters}
                 activeL1={activeL1}
@@ -848,6 +725,7 @@ export default function Page() {
       {isContributeOpen && (
         <div style={{display: mapPickMode ? 'none' : undefined}} className="fixed inset-x-0 bottom-0 z-[90] max-h-[90dvh] overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] md:hidden">
           <ContributionForm
+            onBusyChange={handleContributionBusyChange}
             manualCoordinates={manualCoordinates}
             poiSearchOrigin={poiSearchOrigin}
             onRequestMapPick={() => {

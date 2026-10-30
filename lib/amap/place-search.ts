@@ -177,28 +177,34 @@ export function loadAmapPlaceSdk(key: string): Promise<AmapNamespace> {
 
   amapWindow.__amapPlaceLoadingPromise = new Promise((resolve, reject) => {
     const existingScript = document.querySelector<HTMLScriptElement>('script[data-amap="true"]');
-    if (existingScript) {
-      existingScript.addEventListener('load', () => {
-        if (amapWindow.AMap) resolve(amapWindow.AMap);
-      });
-      existingScript.addEventListener('error', () => reject(new Error('Failed to load AMap script')));
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.PlaceSearch`;
-    script.async = true;
-    script.defer = true;
-    script.dataset.amap = 'true';
-    script.onload = () => {
-      if (amapWindow.AMap) {
-        resolve(amapWindow.AMap);
+    const script = existingScript ?? document.createElement('script');
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      script.removeEventListener('load', onLoad);
+      script.removeEventListener('error', onError);
+      if (error) {
+        script.remove();
+        delete amapWindow.__amapPlaceLoadingPromise;
+        reject(error);
       } else {
-        reject(new Error('AMap script loaded but AMap is unavailable'));
+        resolve(amapWindow.AMap!);
       }
     };
-    script.onerror = () => reject(new Error('Failed to load AMap script'));
-    document.head.appendChild(script);
+    const onLoad = () => finish(amapWindow.AMap ? undefined : new Error('AMap script loaded but AMap is unavailable'));
+    const onError = () => finish(new Error('Failed to load AMap script'));
+    const timer = setTimeout(() => finish(new Error('AMap script load timed out')), 12000);
+    script.addEventListener('load', onLoad);
+    script.addEventListener('error', onError);
+    if (!existingScript) {
+      script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}&plugin=AMap.PlaceSearch`;
+      script.async = true;
+      script.defer = true;
+      script.dataset.amap = 'true';
+      document.head.appendChild(script);
+    }
   });
 
   return amapWindow.__amapPlaceLoadingPromise;
@@ -211,30 +217,41 @@ async function searchCity(
   unnamedPlaceLabel: string
 ): Promise<AmapPoiOption[]> {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (options: AmapPoiOption[], error?: unknown) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (error) reject(error);
+      else resolve(options);
+    };
+    const timer = setTimeout(() => finish([], new Error('AMap search timed out')), 12000);
     amap.plugin('AMap.PlaceSearch', () => {
-      const placeSearch = new amap.PlaceSearch({
-        city,
-        citylimit: true,
-        pageSize: 8,
-        pageIndex: 1,
-        extensions: 'base'
-      });
+      if (settled) return;
+      try {
+        const placeSearch = new amap.PlaceSearch({
+          city,
+          citylimit: true,
+          pageSize: 8,
+          pageIndex: 1,
+          extensions: 'base'
+        });
 
-      placeSearch.search(keyword, (status, result) => {
-        if (status === 'no_data' || result?.info === 'NO_DATA') {
-          resolve([]);
-          return;
-        }
-        if (status !== 'complete' || !result?.poiList?.pois) {
-          if (result?.info && result.info !== 'OK') {
-            reject(new Error(result.info));
+        placeSearch.search(keyword, (status, result) => {
+          if (settled) return;
+          if (status === 'no_data' || result?.info === 'NO_DATA') {
+            finish([]);
             return;
           }
-          resolve([]);
-          return;
-        }
-        resolve(mapAmapPois(result.poiList.pois, unnamedPlaceLabel, city));
-      });
+          if (status !== 'complete' || !result?.poiList?.pois) {
+            finish([], result?.info && result.info !== 'OK' ? new Error(result.info) : undefined);
+            return;
+          }
+          finish(mapAmapPois(result.poiList.pois, unnamedPlaceLabel, city));
+        });
+      } catch (error) {
+        finish([], error);
+      }
     });
   });
 }

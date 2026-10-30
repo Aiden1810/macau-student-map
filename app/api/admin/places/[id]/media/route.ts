@@ -6,10 +6,9 @@ import {markTransferredSourceForCleanup} from '@/lib/services/media';
 
 export const POST = createAdminPlaceRoute(async (request, client, auth, id) => {
   if (!postgresUuid.safeParse(id).success) return errorResponse({code: 'NOT_FOUND', status: 404, message: '地点不存在'});
-  const {data: place, error: placeError} = await client.from('places').select('id,legacy_shop_id,legacy_image_urls').eq('id', id).maybeSingle();
+  const {data: place, error: placeError} = await client.from('places').select('id,legacy_image_urls').eq('id', id).maybeSingle();
   if (placeError) throw placeError;
   if (!place) return errorResponse({code: 'NOT_FOUND', status: 404, message: '请先保存地点资料'});
-  if (place.legacy_shop_id) return errorResponse({code: 'CONFLICT', status: 409, message: '旧版地点请使用旧版图片管理入口'});
   let form: FormData;
   try {form = await request.formData();} catch {
     return errorResponse({code: 'VALIDATION_ERROR', status: 422, message: '请使用图片上传表单'});
@@ -50,9 +49,6 @@ export const DELETE = createAdminPlaceRoute(async (request, client, _auth, id) =
   if (!id || !postgresUuid.safeParse(id).success || !postgresUuid.safeParse(mediaId).success) {
     return errorResponse({code: 'NOT_FOUND', status: 404, message: '图片不存在'});
   }
-  const {data: place, error: placeError} = await client.from('places').select('legacy_shop_id').eq('id', id).maybeSingle();
-  if (placeError) throw placeError;
-  if (place?.legacy_shop_id) return errorResponse({code: 'CONFLICT', status: 409, message: '旧版地点请使用旧版图片管理入口'});
   const {data, error} = await client.from('place_media').select('id,bucket_id,storage_path').eq('id', mediaId).eq('place_id', id).maybeSingle();
   if (error) throw error;
   if (!data) return errorResponse({code: 'NOT_FOUND', status: 404, message: '图片不存在或不属于此地点'});
