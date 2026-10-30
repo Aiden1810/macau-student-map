@@ -3,7 +3,6 @@ import {placeSubmissionDraftSchema} from '../../../lib/domain/submission';
 import {prepareSubmissionForSubmit} from '../../../lib/services/submissions';
 import {prepareAdminPlaceInput} from '../../../lib/admin/place-editor';
 import {mapCanonicalPlaceToShop} from '../../../lib/mappers/canonical-shop';
-import {mergeLegacyAndCanonicalPlaces} from '../../../lib/data/canonical-places';
 
 const draft = {name: '楼下烤冷面', categorySlug: 'food' as const, longitude: 113.55, latitude: 22.16,
   tagIds: ['00000000-0000-0000-0000-000000000109']};
@@ -32,12 +31,12 @@ describe('manual location information across publication', () => {
   it('leaves omitted location details untouched for old editor clients', () => {
     expect(prepareAdminPlaceInput(admin)).not.toHaveProperty('locationDetails');
   });
-  it('retains public location details when a canonical place also has a legacy row', () => {
+  it('retains public directions and stall information in the unified place response', () => {
     const shop = mapCanonicalPlaceToShop({id: 'stall', name: draft.name, address: null, category_slug: 'food',
       region: null, longitude: 113.55, latitude: 22.16, price_per_person: null, rating_average: null,
       review_count: 0, status: 'published', legacy_image_urls: [], location_details: details});
     expect(shop.locationDetails).toMatchObject({businessForm: 'stall', accuracy: 'approximate'});
-    const [merged] = mergeLegacyAndCanonicalPlaces([{...shop, locationDetails: undefined}], [shop]);
-    expect(merged.locationDetails?.description).toBe('酒吧门口右侧的摊位');
+    expect(shop.features).toContain('小摊');
+    expect(shop.locationDetails?.description).toBe('酒吧门口右侧的摊位');
   });
 });

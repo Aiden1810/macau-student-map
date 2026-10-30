@@ -1,117 +1,34 @@
 'use client';
 
-import {FormEvent, useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import toast from 'react-hot-toast';
-import {getCanonicalTagsForAdminAndSubmit, migrateLegacyTagsForSubmission, toggleLegacyCanonicalTag} from '@/lib/tags/schema';
-import LaunchCategorySelector from '@/components/LaunchCategorySelector';
-import PrimaryTagSelector from '@/components/PrimaryTagSelector';
-import {getPlacePresentation, getLaunchTagOptions, isPrimaryTag, selectLaunchCategory, type LaunchCategoryKey} from '@/lib/domain/place-types';
-import {findTaxonomyTag, getTaxonomyTagLabelZhCN, resolveTagAlias} from '@/lib/domain/taxonomy';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {isPrimaryTag} from '@/lib/domain/place-types';
+import {findTaxonomyTag} from '@/lib/domain/taxonomy';
 import {Link} from '@/i18n/navigation';
-import {dedupeTrimmedList, deriveRegionFromCoordinates} from '@/lib/shops/normalization';
-import {buildNormalizedShopPayload, type ShopCategory} from '@/lib/shops/payload';
+import {type ShopCategory} from '@/lib/shops/payload';
 import {supabase} from '@/lib/supabase';
-import {notifyShopListChanged} from '@/lib/data/legacy-shops';
-import {toLegacyShopPoiFields, type AmapPoiOption} from '@/lib/amap/place-search';
-import AmapPoiSelector from '@/components/AmapPoiSelector';
 import SubmissionQueue, {type QueueStats} from '@/components/admin/SubmissionQueue';
 import PlacesManager, {type PlaceSummary} from '@/components/admin/PlacesManager';
 import AdminNavigation, {type AdminSection} from '@/components/admin/AdminNavigation';
 import PlatformDashboard from '@/components/admin/PlatformDashboard';
 import UsersManager from '@/components/admin/UsersManager';
 import UsageDashboard from '@/components/admin/UsageDashboard';
-import PlaceEditor from '@/components/admin/PlaceEditor';
+import PlaceEditor, {adminEditorRequest} from '@/components/admin/PlaceEditor';
+import type {AdminPlaceRecord} from '@/lib/admin/place-editor';
 import type {QualityFilter} from '@/lib/admin/operations';
 import FeedbackInbox, {type FeedbackStats} from '@/components/admin/FeedbackInbox';
 import ReviewInbox from '@/components/admin/ReviewInbox';
-import {summarizeTraffic, type TrafficRange} from '@/lib/admin/traffic';
-import {LEGACY_STATUS_LABELS} from '@/lib/admin/place-editor';
 
-type ShopStatus = 'pending' | 'verified' | 'rejected';
-type ShopType = '正餐' | '快餐小吃' | '饮品甜点' | '服务';
-type RatingLabel = '封神之作' | '强烈推荐' | '还行吧' | '建议避雷' | '暂无评分';
-type Feature = '有折扣' | '学生价' | '深夜营业' | '适合拍照' | '外卖可达';
+type ShopStatus = 'draft' | 'published' | 'archived';
 type ShopRegion = '澳门半岛' | '氹仔岛' | '路环岛' | '香洲区' | '横琴区' | '其它';
 
 type ShopRow = {
-  id: string;
-  name: string;
-  name_i18n: Record<string, string> | null;
-  address: string | null;
-  amap_poi_id: string | null;
-  longitude: number | null;
-  latitude: number | null;
-  category: ShopCategory | null;
-  tags: string[] | null;
-  tags_i18n: Record<string, string[]> | null;
-  features: Feature[] | null;
-  shop_type: ShopType | null;
-  rating_label: RatingLabel | null;
-  image_urls: string[] | null;
-  review_text: string | null;
-  review_text_i18n: Record<string, string> | null;
-  student_discount: string | null;
-  status: ShopStatus | null;
-  created_at: string | null;
-  main_category: string | null;
-  sub_tags: string[] | null;
-  price_per_person: number | null;
-  region: ShopRegion | null;
-  signature_dish: string | null;
-  sharp_review: string | null;
+  id: string; name: string; address: string | null; category: ShopCategory;
+  status: 'draft' | 'published' | 'archived'; created_at: string | null;
+  price_per_person: number | null; region: ShopRegion | null; shop_type: string | null;
 };
-
-type ShopFormValue = {
-  name: string;
-  address: string;
-  amap_poi_id: string;
-  longitude: string;
-  latitude: string;
-  category: ShopCategory;
-  shop_type: ShopType;
-  rating_label: RatingLabel;
-  features: Feature[];
-  tags: string[];
-  custom_tags: string;
-  name_en: string;
-  image_urls: string;
-  review_text: string;
-  review_text_en: string;
-  tags_en: string;
-  status: ShopStatus;
-  price_per_person: string;
-  region: ShopRegion | '';
+const ANALYTICS_REGIONS: Record<string, ShopRegion> = {
+  'macau-peninsula': '澳门半岛', taipa: '氹仔岛', coloane: '路环岛', hengqin: '横琴区', zhuhai: '香洲区', other: '其它'
 };
-
-type BusyActionType = 'approve' | 'reject' | 'delete';
-type ActionLoadingById = Record<string, BusyActionType | null>;
-
-type AdminAuditAction = 'approve' | 'reject' | 'delete' | 'create' | 'edit';
-
-type HealthStats = {
-  total: number;
-  pending: number;
-  verified: number;
-  rejected: number;
-  missingCategory: number;
-  missingShopType: number;
-  missingRatingLabel: number;
-  newShops24h: number;
-  newComments24h: number;
-};
-
-type AlertLevel = 'P1' | 'P2' | 'P3';
-
-type OpsAlert = {
-  id: string;
-  level: AlertLevel;
-  title: string;
-  reason: string;
-  action: string;
-};
-
-type TrafficRangeKey = TrafficRange;
-type ShopSortKey = 'created_desc' | 'created_asc' | 'status' | 'name';
 type AnalyticsRangeKey = '7d' | '30d' | 'custom';
 type AnalyticsSortKey = 'favorites' | 'clicks' | 'favorite_rate' | 'shares' | 'complaints' | 'conversion_rate';
 type AnalyticsPriceBand = 'all' | '0-50' | '51-100' | '101-200' | '200+';
@@ -143,7 +60,7 @@ type CommentMetricRow = {
 type AdminAuditLogRow = {
   id: string;
   actor_user_id: string | null;
-  action: AdminAuditAction;
+  action: string;
   target_shop_id: string | null;
   note: string | null;
   metadata: Record<string, unknown> | null;
@@ -193,134 +110,14 @@ function readAuditShopName(metadata: Record<string, unknown> | null): string | n
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-function readPayloadShopName(payload: Record<string, unknown>): string | null {
-  const value = payload.name;
-  return typeof value === 'string' && value.trim() ? value.trim() : null;
-}
-
-function mergeAdminShop(prev: ShopRow[], incoming: ShopRow): ShopRow[] {
-  const index = prev.findIndex((item) => item.id === incoming.id);
-  if (index === -1) return [incoming, ...prev];
-
-  const next = [...prev];
-  next[index] = incoming;
-  return next;
-}
-
-function mapAdminRealtimeRow(row: Record<string, unknown>): ShopRow {
-  const longitude = typeof row.longitude === 'number' ? row.longitude : null;
-  const latitude = typeof row.latitude === 'number' ? row.latitude : null;
-
-  return {
-    id: String(row.id ?? ''),
-    name: String(row.name ?? ''),
-    name_i18n: row.name_i18n && typeof row.name_i18n === 'object' ? (row.name_i18n as Record<string, string>) : null,
-    address: typeof row.address === 'string' ? row.address : null,
-    amap_poi_id: typeof row.amap_poi_id === 'string' ? row.amap_poi_id : null,
-    longitude,
-    latitude,
-    category: (row.category as ShopCategory | null) ?? null,
-    tags: Array.isArray(row.tags) ? (row.tags as string[]) : null,
-    tags_i18n: row.tags_i18n && typeof row.tags_i18n === 'object' ? (row.tags_i18n as Record<string, string[]>) : null,
-    features: Array.isArray(row.features) ? (row.features as Feature[]) : null,
-    shop_type: (row.shop_type as ShopType | null) ?? null,
-    rating_label: (row.rating_label as RatingLabel | null) ?? null,
-    image_urls: Array.isArray(row.image_urls) ? (row.image_urls as string[]) : null,
-    review_text: typeof row.review_text === 'string' ? row.review_text : null,
-    review_text_i18n: row.review_text_i18n && typeof row.review_text_i18n === 'object' ? (row.review_text_i18n as Record<string, string>) : null,
-    student_discount: typeof row.student_discount === 'string' ? row.student_discount : null,
-    status: (row.status as ShopStatus | null) ?? null,
-    created_at: typeof row.created_at === 'string' ? row.created_at : null,
-    main_category: typeof row.main_category === 'string' ? row.main_category : null,
-    sub_tags: Array.isArray(row.sub_tags) ? (row.sub_tags as string[]) : null,
-    price_per_person: typeof row.price_per_person === 'number' ? row.price_per_person : null,
-    region: (row.region as ShopRegion | null) ?? deriveRegionFromCoordinates(longitude, latitude),
-    signature_dish: typeof row.signature_dish === 'string' ? row.signature_dish : null,
-    sharp_review: typeof row.sharp_review === 'string' ? row.sharp_review : null
-  };
-}
-
 const CATEGORY_OPTIONS: Array<{value: ShopCategory; label: string}> = [
   {value: 'food', label: '美食'},
   {value: 'service', label: '生活服务'},
   {value: 'entertainment', label: '娱乐'},
-  {value: 'shopping', label: '购物（兼容旧数据）'},
-  {value: 'drink', label: '饮品'},
-  {value: 'vibe', label: '氛围'},
-  {value: 'deal', label: '优惠'}
+  {value: 'shopping', label: '购物'},
 ];
 
-const SHOP_TYPE_OPTIONS: ShopType[] = ['正餐', '快餐小吃', '饮品甜点', '服务'];
-const RATING_OPTIONS: RatingLabel[] = ['封神之作', '强烈推荐', '还行吧', '建议避雷', '暂无评分'];
-const FEATURE_OPTIONS: Feature[] = ['有折扣', '学生价', '深夜营业', '适合拍照', '外卖可达'];
 const REGION_OPTIONS: ShopRegion[] = ['澳门半岛', '氹仔岛', '路环岛', '香洲区', '横琴区', '其它'];
-
-function toFormValue(shop?: ShopRow | null): ShopFormValue {
-  if (!shop) {
-    return {
-      name: '',
-      address: '',
-      amap_poi_id: '',
-      longitude: '',
-      latitude: '',
-      category: 'food',
-      shop_type: '正餐',
-      rating_label: '暂无评分',
-      features: [],
-      tags: [],
-      custom_tags: '',
-      name_en: '',
-      image_urls: '',
-      review_text: '',
-      review_text_en: '',
-      tags_en: '',
-      status: 'verified',
-      price_per_person: '',
-      region: ''
-    };
-  }
-
-  return {
-    name: shop.name ?? '',
-    address: shop.address ?? '',
-    amap_poi_id: shop.amap_poi_id ?? '',
-    longitude: shop.longitude?.toString() ?? '',
-    latitude: shop.latitude?.toString() ?? '',
-    category: shop.category ?? 'food',
-    shop_type: shop.shop_type ?? '正餐',
-    rating_label: shop.rating_label ?? '暂无评分',
-    features: shop.features ?? [],
-    tags: shop.tags ?? [],
-    custom_tags: '',
-    name_en: shop.name_i18n?.en ?? '',
-    image_urls: (shop.image_urls ?? []).join('\n'),
-    review_text: shop.review_text ?? '',
-    review_text_en: shop.review_text_i18n?.en ?? '',
-    tags_en: (shop.tags_i18n?.en ?? []).join(', '),
-    status: shop.status ?? 'pending',
-    price_per_person: shop.price_per_person?.toString() ?? '',
-    region: shop.region ?? ''
-  };
-}
-
-function parseList(input: string): string[] {
-  return input
-    .split(/[\n,]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function parsePrice(value: string): number | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return null;
-  return Number(parsed.toFixed(2));
-}
-
-function isLikelyMacauArea(lng: number, lat: number): boolean {
-  return lng >= 113 && lng <= 114.2 && lat >= 21.8 && lat <= 22.6;
-}
 
 function inTimeRange(ts: string, startMs: number, endMs: number): boolean {
   const ms = new Date(ts).getTime();
@@ -333,298 +130,6 @@ function getPriceBand(price: number | null): AnalyticsPriceBand {
   if (price <= 100) return '51-100';
   if (price <= 200) return '101-200';
   return '200+';
-}
-
-const ADMIN_ALL_PRESET_TAGS: string[] = getCanonicalTagsForAdminAndSubmit()
-  .flatMap((group) => group.options.map((option) => option.tag_name));
-
-function AdminShopForm({
-  mode,
-  initial,
-  onSubmit,
-  onCancel,
-  submitting
-}: {
-  mode: 'create' | 'edit';
-  initial?: ShopRow | null;
-  onSubmit: (payload: Record<string, unknown>) => Promise<void>;
-  onCancel: () => void;
-  submitting: boolean;
-}) {
-  const [form, setForm] = useState<ShopFormValue>(toFormValue(initial));
-  const [selectedPoi, setSelectedPoi] = useState<AmapPoiOption | null>(null);
-  const [launchCategory, setLaunchCategory] = useState<LaunchCategoryKey | null>(() => initial ? getPlacePresentation({category: initial.category, tags: initial.tags ?? []}).launch : 'food');
-  const availableTags = useMemo(() => {
-    if (!launchCategory) return ADMIN_ALL_PRESET_TAGS;
-    const allowed = new Set(getLaunchTagOptions(launchCategory).map(tag => tag.slug));
-    return ADMIN_ALL_PRESET_TAGS.filter(name => resolveTagAlias(name).some(tag => !isPrimaryTag(tag) || allowed.has(tag.slug)));
-  }, [launchCategory]);
-
-  useEffect(() => {
-    setForm(toFormValue(initial));
-    setSelectedPoi(null);
-    setLaunchCategory(initial ? getPlacePresentation({category: initial.category, tags: initial.tags ?? []}).launch : 'food');
-  }, [initial]);
-
-  const toggleFeature = (feature: Feature) => {
-    setForm((prev) => ({
-      ...prev,
-      features: prev.features.includes(feature) ? prev.features.filter((f) => f !== feature) : [...prev.features, feature]
-    }));
-  };
-
-  const toggleTag = (tag: string) => {
-    setForm((prev) => ({
-      ...prev,
-      tags: prev.tags.includes(tag) ? prev.tags.filter((t) => t !== tag) : [...prev.tags, tag]
-    }));
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const name = form.name.trim();
-    if (!name) return toast.error('店名不能为空');
-
-    const lng = form.longitude.trim() ? Number(form.longitude.trim()) : null;
-    const lat = form.latitude.trim() ? Number(form.latitude.trim()) : null;
-
-    if (form.longitude.trim() && Number.isNaN(lng)) return toast.error('Longitude 必须是数字');
-    if (form.latitude.trim() && Number.isNaN(lat)) return toast.error('Latitude 必须是数字');
-
-    const customTags = parseList(form.custom_tags);
-    const englishTags = dedupeTrimmedList(parseList(form.tags_en), 5);
-    const imageUrls = dedupeTrimmedList(parseList(form.image_urls));
-    const pricePerPerson = parsePrice(form.price_per_person);
-
-    if (form.price_per_person.trim() && pricePerPerson === null) {
-      return toast.error('消费参考必须是有效数字');
-    }
-
-    if (lng !== null && lat !== null && !isLikelyMacauArea(lng, lat)) {
-      return toast.error('经纬度不在澳门/珠海范围内，请确认坐标是否正确');
-    }
-
-    if (launchCategory) {
-      const selectedIds = migrateLegacyTagsForSubmission([...form.tags, ...customTags]).tagIds;
-      if (!getLaunchTagOptions(launchCategory).some(tag => selectedIds.includes(tag.id))) return toast.error('请至少选择 1 个实际提供的地点类型标签');
-    }
-
-    try {
-      const payload = buildNormalizedShopPayload({
-        name,
-        nameEn: form.name_en.trim() || null,
-        address: form.address,
-        amapPoiId: form.amap_poi_id,
-        longitude: lng,
-        latitude: lat,
-        category: form.category,
-        selectedPresetTags: form.tags,
-        customTags,
-        ratingLabel: form.rating_label,
-        shopType: form.shop_type,
-        imageUrls,
-        reviewText: form.review_text,
-        reviewTextEn: form.review_text_en,
-        tagsEn: englishTags,
-        features: form.features,
-        status: form.status,
-        pricePerPerson,
-        region: form.region || deriveRegionFromCoordinates(lng, lat)
-      });
-
-      await onSubmit(payload);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '保存失败，请重试');
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
-      <div className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
-        <h3 className="text-lg font-bold text-slate-900">{mode === 'create' ? '新增店铺（管理员直发）' : '编辑店铺信息'}</h3>
-
-        <form onSubmit={handleSubmit} className="mt-4 grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <LaunchCategorySelector value={launchCategory} onChange={(key) => {
-              const next = selectLaunchCategory(key, migrateLegacyTagsForSubmission(form.tags).tagIds);
-              setLaunchCategory(key);
-              setForm(prev => ({...prev, category: next.category, shop_type: key === 'food' ? '正餐' : '服务', tags: [
-                ...next.tagIds.map(id => getTaxonomyTagLabelZhCN(id)!),
-                ...prev.tags.filter(name => resolveTagAlias(name).length === 0)
-              ]}));
-            }} />
-          </div>
-          {mode === 'create' && (
-            <div className="sm:col-span-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
-              <AmapPoiSelector
-                selectedPlace={selectedPoi}
-                onSelect={(option) => {
-                  const region = deriveRegionFromCoordinates(option.coordinates[0], option.coordinates[1]);
-                  setSelectedPoi(option);
-                  setForm((prev) => ({
-                    ...prev,
-                    ...toLegacyShopPoiFields(option, region)
-                  }));
-                }}
-                onClearSelection={() => setSelectedPoi(null)}
-                labels={{
-                  label: '搜索并绑定地图 POI',
-                  placeholder: '输入店名，从澳门或珠海候选中选择具体分店',
-                  searching: '正在搜索地图地点…',
-                  empty: '没有找到匹配地点，可继续手动填写下方信息。',
-                  searchFailed: '地图地点搜索失败，请稍后重试或手动填写。',
-                  unnamedPlace: '未命名地点',
-                  poiId: 'AMap POI ID'
-                }}
-              />
-              <p className="mt-2 text-xs text-slate-500">选择后会自动填写店名、地址、POI ID 和经纬度，所有字段仍可手动修改。</p>
-            </div>
-          )}
-
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">店名（中文）*</span>
-            <input required value={form.name} onChange={(e) => setForm((prev) => ({...prev, name: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">店名（英文）</span>
-            <input value={form.name_en} onChange={(e) => setForm((prev) => ({...prev, name_en: e.target.value}))} placeholder="e.g. Wong Chi Kei" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">地址</span>
-            <input value={form.address} onChange={(e) => setForm((prev) => ({...prev, address: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">主分类</span>
-            <select value={form.category} disabled={mode === 'create'} onChange={(e) => {
-              setLaunchCategory(null);
-              setForm((prev) => ({...prev, category: e.target.value as ShopCategory}));
-            }} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]">
-              {CATEGORY_OPTIONS.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">类型</span>
-            <select value={form.shop_type} onChange={(e) => setForm((prev) => ({...prev, shop_type: e.target.value as ShopType}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]">
-              {SHOP_TYPE_OPTIONS.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">AMap POI ID</span>
-            <input value={form.amap_poi_id} onChange={(e) => setForm((prev) => ({...prev, amap_poi_id: e.target.value}))} placeholder="可选，例如 B0FF..." className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">Longitude</span>
-            <input value={form.longitude} onChange={(e) => setForm((prev) => ({...prev, longitude: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">Latitude</span>
-            <input value={form.latitude} onChange={(e) => setForm((prev) => ({...prev, latitude: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <div className="sm:col-span-2">
-            <p className="mb-1 text-sm font-medium text-slate-700">口碑标签</p>
-            <div className="flex flex-wrap gap-2">
-              {RATING_OPTIONS.map((label) => (
-                <button key={label} type="button" onClick={() => setForm((prev) => ({...prev, rating_label: label}))} className={`rounded-full border px-3 py-1 text-xs font-medium ${form.rating_label === label ? 'border-[#006633] bg-[#006633] text-white' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="sm:col-span-2">
-            <p className="mb-1 text-sm font-medium text-slate-700">特色（多选）</p>
-            <div className="flex flex-wrap gap-2">
-              {FEATURE_OPTIONS.map((feature) => (
-                <button key={feature} type="button" onClick={() => toggleFeature(feature)} className={`rounded-full border px-3 py-1 text-xs font-medium ${form.features.includes(feature) ? 'border-[#006633] bg-[#006633] text-white' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
-                  {feature}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="sm:col-span-2">
-            <p className="mb-1 text-sm font-medium text-slate-700">类型与场景标签（最多8个）</p>
-            <PrimaryTagSelector
-              tags={migrateLegacyTagsForSubmission([...availableTags, ...form.tags]).tagIds.map(id => findTaxonomyTag(id)!)}
-              selected={form.tags.flatMap(label => {const matches = resolveTagAlias(label); return matches.length ? matches.map(tag => tag.id) : [label];})}
-              onToggle={id => setForm(previous => ({...previous, tags: toggleLegacyCanonicalTag(previous.tags, id)}))} />
-            <div className="mt-2 flex flex-wrap gap-2">{form.tags.filter(label => resolveTagAlias(label).length === 0).map(label => (
-              <button key={label} type="button" onClick={() => toggleTag(label)} className="rounded-full border border-[#006633] bg-[#006633] px-3 py-1 text-xs text-white">{label}</button>
-            ))}</div>
-          </div>
-
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">补充标签（中文，逗号/换行）</span>
-            <textarea rows={2} value={form.custom_tags} onChange={(e) => setForm((prev) => ({...prev, custom_tags: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">标签（英文，逗号/换行）</span>
-            <textarea rows={2} value={form.tags_en} onChange={(e) => setForm((prev) => ({...prev, tags_en: e.target.value}))} placeholder="e.g. Late Night, Student Discount" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">图片 URL（逗号/换行）</span>
-            <textarea rows={3} value={form.image_urls} onChange={(e) => setForm((prev) => ({...prev, image_urls: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">评论摘要（中文）</span>
-            <textarea rows={3} value={form.review_text} onChange={(e) => setForm((prev) => ({...prev, review_text: e.target.value}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-sm font-medium text-slate-700">评论摘要（英文）</span>
-            <textarea rows={3} value={form.review_text_en} onChange={(e) => setForm((prev) => ({...prev, review_text_en: e.target.value}))} placeholder="e.g. Great for late-night snacks" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">消费参考（人民币／人次；不填每小时或包场总价）</span>
-            <input value={form.price_per_person} onChange={(e) => setForm((prev) => ({...prev, price_per_person: e.target.value}))} placeholder="例如 68" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]" />
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">区域</span>
-            <select value={form.region} onChange={(e) => setForm((prev) => ({...prev, region: e.target.value as ShopRegion | ''}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]">
-              <option value="">未填写</option>
-              {REGION_OPTIONS.map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            <span className="mb-1 block text-sm font-medium text-slate-700">状态</span>
-            <select value={form.status} onChange={(e) => setForm((prev) => ({...prev, status: e.target.value as ShopStatus}))} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#006633]">
-              <option value="pending">待审核</option>
-              <option value="verified">已上线</option>
-              <option value="rejected">已驳回</option>
-            </select>
-          </label>
-
-          <div className="sm:col-span-2 mt-2 flex justify-end gap-2">
-            <button type="button" onClick={onCancel} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">取消</button>
-            <button type="submit" disabled={submitting} className="rounded-lg bg-[#006633] px-4 py-2 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60">
-              {submitting ? '保存中...' : mode === 'create' ? '发布' : '保存修改'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
 }
 
 export default function AdminModerationPage() {
@@ -640,23 +145,15 @@ export default function AdminModerationPage() {
   const [metricsUpdatedAt, setMetricsUpdatedAt] = useState(0);
   const [shops, setShops] = useState<ShopRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoadingById, setActionLoadingById] = useState<ActionLoadingById>({});
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [placeRefreshSignal, setPlaceRefreshSignal] = useState(0);
-  const [editingShop, setEditingShop] = useState<ShopRow | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [statusTab, setStatusTab] = useState<'pending' | 'verified' | 'rejected'>('pending');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortKey, setSortKey] = useState<ShopSortKey>('created_desc');
-  const [newComments24h, setNewComments24h] = useState(0);
   const [trafficEvents, setTrafficEvents] = useState<TrafficEventRow[]>([]);
   const [favoriteEvents, setFavoriteEvents] = useState<FavoriteEventRow[]>([]);
   const [shopActionEvents, setShopActionEvents] = useState<ShopActionEventRow[]>([]);
   const [commentMetrics, setCommentMetrics] = useState<CommentMetricRow[]>([]);
-  const [trafficRange] = useState<TrafficRangeKey>('24h');
   const [analyticsRange, setAnalyticsRange] = useState<AnalyticsRangeKey>('7d');
   const [analyticsCustomStart, setAnalyticsCustomStart] = useState<string>('');
   const [analyticsCustomEnd, setAnalyticsCustomEnd] = useState<string>('');
@@ -665,9 +162,8 @@ export default function AdminModerationPage() {
   const [analyticsCategory, setAnalyticsCategory] = useState<ShopCategory | 'all'>('all');
   const [analyticsPriceBand, setAnalyticsPriceBand] = useState<AnalyticsPriceBand>('all');
   const [analyticsOnlyNew, setAnalyticsOnlyNew] = useState(false);
-  const [analyticsStatus, setAnalyticsStatus] = useState<ShopStatus | 'all'>('verified');
+  const [analyticsStatus, setAnalyticsStatus] = useState<ShopStatus | 'all'>('published');
   const [selectedAnalyticsShopId, setSelectedAnalyticsShopId] = useState<string | null>(null);
-  const [backfilling, setBackfilling] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogRow[]>([]);
   const [missedQueryWindow, setMissedQueryWindow] = useState<'24h' | '7d' | '30d'>('7d');
   const [missedQueryLoading, setMissedQueryLoading] = useState(false);
@@ -685,18 +181,8 @@ export default function AdminModerationPage() {
     setError(null);
 
     try {
-      const since24hIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const readCommentCount = async () => {
-        const primary = await supabase.from('shop_comments').select('id', {count: 'exact', head: true}).gte('created_at', since24hIso);
-        return primary.error ? await supabase.from('comments').select('id', {count: 'exact', head: true}).gte('created_at', since24hIso) : primary;
-      };
-      const [shopsRes, commentsRes, trafficRes, favoritesRes, actionsRes, commentsMetricRes] = await Promise.all([
-        supabase
-          .from('shops')
-          .select('id,name,name_i18n,address,amap_poi_id,longitude,latitude,category,tags,tags_i18n,features,shop_type,rating_label,image_urls,review_text,review_text_i18n,student_discount,status,created_at,main_category,sub_tags,price_per_person,region,signature_dish,sharp_review')
-          .or('status.in.(pending,verified,rejected),status.is.null')
-          .order('created_at', {ascending: false}),
-        readCommentCount(),
+      const [placesResult, trafficRes, favoritesRes, actionsRes, commentsMetricRes] = await Promise.all([
+        adminEditorRequest<{items: AdminPlaceRecord[]}>('/api/admin/places', {cache: 'no-store'}),
         supabase
           .from('site_traffic_events')
           .select('created_at,session_id,path', {count: 'exact'})
@@ -714,28 +200,19 @@ export default function AdminModerationPage() {
           .order('created_at', {ascending: false})
           .limit(40000),
         supabase
-          .from('comments')
-          .select('shop_id,rating,created_at')
+          .from('reviews')
+          .select('place_id,rating,created_at').eq('status', 'published').is('deleted_at', null)
           .order('created_at', {ascending: false})
           .limit(40000)
       ]);
       if (requestId !== metricsRequestRef.current) return;
 
-      if (shopsRes.error) setError(shopsRes.error.message);
-
-      if (commentsRes.error) {
-        console.warn('Failed to fetch comment health metrics:', commentsRes.error.message);
-        setNewComments24h(0);
-      } else {
-        setNewComments24h(commentsRes.count ?? 0);
-      }
-
+      const unavailableMetrics = [trafficRes.error && '浏览', favoritesRes.error && '收藏', actionsRes.error && '操作', commentsMetricRes.error && '评价'].filter(Boolean);
+      setTrafficError(unavailableMetrics.length ? `${unavailableMetrics.join('、')}统计读取失败，请刷新重试。` : null);
       if (trafficRes.error) {
         console.warn('Failed to fetch traffic metrics:', trafficRes.error.message);
-        setTrafficError(trafficRes.error.message);
         setTrafficEvents([]);
       } else {
-        setTrafficError(null);
         setTrafficEvents((trafficRes.data ?? []) as TrafficEventRow[]);
       }
       setMetricsUpdatedAt(Date.now());
@@ -772,13 +249,18 @@ export default function AdminModerationPage() {
         setCommentMetrics([]);
       } else {
         setCommentMetrics(
-          ((commentsMetricRes.data ?? []) as Array<{shop_id: string | null; rating: number | null; created_at: string}>)
-            .filter((row) => Boolean(row.shop_id))
-            .map((row) => ({shop_id: String(row.shop_id), rating: Number(row.rating ?? 0), created_at: row.created_at}))
+          ((commentsMetricRes.data ?? []) as Array<{place_id: string | null; rating: number | null; created_at: string}>)
+            .filter((row) => Boolean(row.place_id))
+            .map((row) => ({shop_id: String(row.place_id), rating: Number(row.rating ?? 0), created_at: row.created_at}))
         );
       }
 
-      setShops((shopsRes.data ?? []).map((row) => ({...row, id: String(row.id)})) as ShopRow[]);
+      setShops(placesResult.items.map(place => ({
+        id: place.id, name: place.name, address: place.address, category: place.categorySlug,
+        status: place.status, created_at: place.createdAt ?? null, price_per_person: place.pricePerPerson,
+        region: place.region ? ANALYTICS_REGIONS[place.region] : null,
+        shop_type: place.tagIds.map(findTaxonomyTag).find(tag => tag && isPrimaryTag(tag))?.labelZhMO ?? null
+      })));
     } catch {
       if (requestId !== metricsRequestRef.current) return;
       setError('数据读取失败，请检查网络后重试。');
@@ -788,44 +270,6 @@ export default function AdminModerationPage() {
         setRefreshing(false);
         setLoading(false);
       }
-    }
-  }, []);
-
-  const logAdminAudit = useCallback(async ({
-    action,
-    targetShopId,
-    note,
-    metadata
-  }: {
-    action: AdminAuditAction;
-    targetShopId?: string | null;
-    note?: string | null;
-    metadata?: Record<string, unknown> | null;
-  }) => {
-    const {data: authData} = await supabase.auth.getUser();
-    const actorUserId = authData.user?.id ?? null;
-
-    const {error: logError} = await supabase.from('admin_audit_logs').insert({
-      actor_user_id: actorUserId,
-      action,
-      target_shop_id: targetShopId ?? null,
-      note: note ?? null,
-      metadata: metadata ?? null
-    });
-
-    if (logError) {
-      console.warn('admin_audit_logs insert skipped:', logError.message);
-      return;
-    }
-
-    const {data: latestLogs, error: logsError} = await supabase
-      .from('admin_audit_logs')
-      .select('id,actor_user_id,action,target_shop_id,note,metadata,created_at')
-      .order('created_at', {ascending: false})
-      .limit(8);
-
-    if (!logsError) {
-      setAuditLogs((latestLogs ?? []) as AdminAuditLogRow[]);
     }
   }, []);
 
@@ -901,42 +345,6 @@ export default function AdminModerationPage() {
     fetchMissedQueries();
   }, [isAdmin, missedQueryWindow]);
 
-  useEffect(() => {
-    if (!isAdmin) return;
-
-    const channel = supabase
-      .channel('shops-realtime-admin')
-      .on(
-        'postgres_changes',
-        {event: '*', schema: 'public', table: 'shops'},
-        (payload) => {
-          if (payload.eventType === 'DELETE') {
-            const oldRow = payload.old as Record<string, unknown> | null;
-            const deletedId = oldRow?.id ? String(oldRow.id) : null;
-            if (!deletedId) return;
-
-            setShops((prev) => prev.filter((shop) => shop.id !== deletedId));
-            return;
-          }
-
-          const row = payload.new as Record<string, unknown> | null;
-          if (!row) return;
-
-          const mapped = mapAdminRealtimeRow(row);
-          setShops((prev) => mergeAdminShop(prev, mapped));
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [isAdmin]);
-
-  const pendingCount = useMemo(() => shops.filter((item) => item.status === 'pending' || item.status === null).length, [shops]);
-  const verifiedCount = useMemo(() => shops.filter((item) => item.status === 'verified').length, [shops]);
-  const rejectedCount = useMemo(() => shops.filter((item) => item.status === 'rejected').length, [shops]);
-
   const shopNameById = useMemo(() => {
     const map = new Map<string, string>();
     shops.forEach((shop) => {
@@ -946,137 +354,6 @@ export default function AdminModerationPage() {
     });
     return map;
   }, [shops]);
-
-  const healthStats = useMemo<HealthStats>(() => {
-    const total = shops.length;
-    const pending = shops.filter((item) => item.status === 'pending' || item.status === null).length;
-    const verified = shops.filter((item) => item.status === 'verified').length;
-    const rejected = shops.filter((item) => item.status === 'rejected').length;
-
-    const missingCategory = shops.filter((item) => !item.category).length;
-    const missingShopType = shops.filter((item) => !item.shop_type).length;
-    const missingRatingLabel = shops.filter((item) => !item.rating_label).length;
-
-    const nowMs = Date.now();
-    const windowMs = 24 * 60 * 60 * 1000;
-    const newShops24h = shops.filter((item) => {
-      if (!item.created_at) return false;
-      const created = new Date(item.created_at).getTime();
-      return Number.isFinite(created) && nowMs - created <= windowMs;
-    }).length;
-
-    return {
-      total,
-      pending,
-      verified,
-      rejected,
-      missingCategory,
-      missingShopType,
-      missingRatingLabel,
-      newShops24h,
-      newComments24h
-    };
-  }, [newComments24h, shops]);
-
-  const visibleShops = useMemo(() => {
-    const tabFiltered =
-      statusTab === 'pending'
-        ? shops.filter((shop) => shop.status === 'pending' || shop.status === null)
-        : statusTab === 'verified'
-          ? shops.filter((shop) => shop.status === 'verified')
-          : shops.filter((shop) => shop.status === 'rejected');
-
-    const keyword = searchQuery.trim().toLowerCase();
-    const searched = keyword
-      ? tabFiltered.filter((shop) => {
-          const name = (shop.name ?? '').toLowerCase();
-          const address = (shop.address ?? '').toLowerCase();
-          return name.includes(keyword) || address.includes(keyword);
-        })
-      : tabFiltered;
-
-    const sorted = [...searched].sort((a, b) => {
-      if (sortKey === 'created_desc') {
-        const aTs = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bTs = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return bTs - aTs;
-      }
-      if (sortKey === 'created_asc') {
-        const aTs = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const bTs = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return aTs - bTs;
-      }
-      if (sortKey === 'status') {
-        const rank = (status: ShopStatus | null) => (status === 'pending' || status === null ? 0 : status === 'verified' ? 1 : 2);
-        return rank(a.status) - rank(b.status);
-      }
-      return (a.name || '').localeCompare(b.name || '', 'zh-CN');
-    });
-
-    return sorted;
-  }, [shops, statusTab, searchQuery, sortKey]);
-
-  const trafficSummary = useMemo(() => summarizeTraffic(trafficEvents, trafficRange, metricsUpdatedAt || Date.now()), [trafficEvents, trafficRange, metricsUpdatedAt]);
-
-  const opsAlerts = useMemo<OpsAlert[]>(() => {
-    const alerts: OpsAlert[] = [];
-
-    if (healthStats.pending >= 20) {
-      alerts.push({
-        id: 'pending-overload',
-        level: 'P1',
-        title: '待审核积压过高',
-        reason: `当前待审核 ${healthStats.pending} 条，可能影响内容上新时效。`,
-        action: '优先清理待审核队列，必要时先批量通过可信来源内容。'
-      });
-    } else if (healthStats.pending >= 8) {
-      alerts.push({
-        id: 'pending-growing',
-        level: 'P2',
-        title: '待审核队列增长',
-        reason: `当前待审核 ${healthStats.pending} 条。`,
-        action: '今天内完成一次审核清理，避免明日堆积。'
-      });
-    }
-
-    const dataQualityMissing =
-      healthStats.missingCategory + healthStats.missingShopType + healthStats.missingRatingLabel;
-
-    if (dataQualityMissing >= 10) {
-      alerts.push({
-        id: 'data-quality-high-risk',
-        level: 'P2',
-        title: '数据质量风险偏高',
-        reason: `分类/类型/口碑缺失累计 ${dataQualityMissing} 项。`,
-        action: '执行“补全缺失字段”，并在新增/编辑流程强制校验必填字段。'
-      });
-    }
-
-    if (!trafficError && trafficRange === '24h' && trafficSummary.pv > 0 && trafficSummary.uv > 0) {
-      const pvPerUv = trafficSummary.identifiedViews / trafficSummary.uv;
-      if (pvPerUv < 1.2) {
-        alerts.push({
-          id: 'retention-risk',
-          level: 'P3',
-          title: '每个浏览器的浏览页数偏低',
-          reason: `近24小时每个浏览器平均浏览 ${pvPerUv.toFixed(2)} 页，可能存在内容吸引力或路径问题。`,
-          action: '优先检查首页首屏内容与热门店铺卡片点击路径。'
-        });
-      }
-    }
-
-    if (healthStats.newShops24h === 0 && healthStats.newComments24h === 0 && trafficSummary.pv > 30) {
-      alerts.push({
-        id: 'supply-stagnation',
-        level: 'P3',
-        title: '内容供给停滞',
-        reason: '近24小时无新增店铺且无新增评论。',
-        action: '安排今日最少 1 家店铺新增或 3 条评论补充，保持内容新鲜度。'
-      });
-    }
-
-    return alerts;
-  }, [healthStats, trafficRange, trafficError, trafficSummary.pv, trafficSummary.uv, trafficSummary.identifiedViews]);
 
   const analyticsRangeWindow = useMemo(() => {
     const now = Date.now();
@@ -1094,6 +371,7 @@ export default function AdminModerationPage() {
   }, [analyticsCustomEnd, analyticsCustomStart, analyticsRange]);
 
   const analyticsRows = useMemo(() => {
+    if (trafficError) return [];
     const {startMs, endMs} = analyticsRangeWindow;
     const prevStartMs = startMs - (endMs - startMs);
     const prevEndMs = startMs;
@@ -1149,7 +427,7 @@ export default function AdminModerationPage() {
     const rows = shops
       .filter((shop) => {
         if (analyticsStatus !== 'all') {
-          const s = shop.status ?? 'pending';
+          const s = shop.status ?? 'draft';
           if (s !== analyticsStatus) return false;
         }
         if (analyticsRegion !== 'all' && shop.region !== analyticsRegion) return false;
@@ -1200,7 +478,7 @@ export default function AdminModerationPage() {
       });
 
     return rows;
-  }, [analyticsCategory, analyticsOnlyNew, analyticsPriceBand, analyticsRangeWindow, analyticsRegion, analyticsSort, analyticsStatus, commentMetrics, favoriteEvents, shopActionEvents, shops, trafficEvents]);
+  }, [analyticsCategory, analyticsOnlyNew, analyticsPriceBand, analyticsRangeWindow, analyticsRegion, analyticsSort, analyticsStatus, commentMetrics, favoriteEvents, shopActionEvents, shops, trafficEvents, trafficError]);
 
   const selectedAnalyticsShop = useMemo(() => {
     if (!selectedAnalyticsShopId) return analyticsRows[0] ?? null;
@@ -1225,154 +503,6 @@ export default function AdminModerationPage() {
       .sort((a, b) => b.count - a.count)
       .slice(0, 6);
   }, [analyticsRangeWindow, selectedAnalyticsShop, shopActionEvents]);
-
-  const updateStatus = async (shopId: string, nextStatus: ShopStatus, action: BusyActionType) => {
-    if (!isAdmin || actionLoadingById[shopId]) return;
-
-    const confirmed = window.confirm(nextStatus === 'verified' ? '确认通过审核并上线这家店铺吗？' : '确认驳回这家店铺吗？');
-    if (!confirmed) return;
-
-    setActionLoadingById((prev) => ({...prev, [shopId]: action}));
-
-    let updatePayload: Record<string, unknown> = {status: nextStatus};
-
-    if (nextStatus === 'verified') {
-      const currentShop = shops.find((shop) => shop.id === shopId);
-      const derivedRegion = deriveRegionFromCoordinates(currentShop?.longitude ?? null, currentShop?.latitude ?? null);
-      if (currentShop && !currentShop.region && derivedRegion) {
-        updatePayload = {
-          ...updatePayload,
-          region: derivedRegion
-        };
-      }
-    }
-
-    const {error: updateError} = await supabase.from('shops').update(updatePayload).eq('id', shopId);
-    if (updateError) {
-      setError(updateError.message);
-      toast.error(`操作失败：${updateError.message}`);
-      setActionLoadingById((prev) => ({...prev, [shopId]: null}));
-      return;
-    }
-
-    await notifyShopListChanged(supabase);
-
-    const targetShop = shops.find((shop) => shop.id === shopId);
-
-    await logAdminAudit({
-      action: nextStatus === 'verified' ? 'approve' : 'reject',
-      targetShopId: shopId,
-      note: nextStatus === 'verified' ? '审核通过并上线' : '审核驳回',
-      metadata: {
-        nextStatus,
-        shop_name: targetShop?.name ?? null
-      }
-    });
-
-    toast.success(nextStatus === 'verified' ? '店铺已通过并上线' : '店铺已驳回');
-    await fetchAllShops({silent: true});
-    setActionLoadingById((prev) => ({...prev, [shopId]: null}));
-  };
-
-  const hardDelete = async (shopId: string) => {
-    if (!isAdmin || actionLoadingById[shopId]) return;
-    if (!window.confirm('确定永久删除这家店铺吗？此操作不可恢复。')) return;
-
-    setActionLoadingById((prev) => ({...prev, [shopId]: 'delete'}));
-    const {error: deleteError} = await supabase.from('shops').delete().eq('id', shopId);
-    if (deleteError) {
-      setError(deleteError.message);
-      toast.error(`删除失败：${deleteError.message}`);
-      setActionLoadingById((prev) => ({...prev, [shopId]: null}));
-      return;
-    }
-
-    await notifyShopListChanged(supabase);
-
-    const targetShop = shops.find((shop) => shop.id === shopId);
-
-    await logAdminAudit({
-      action: 'delete',
-      targetShopId: shopId,
-      note: '管理员永久删除店铺',
-      metadata: {
-        shop_name: targetShop?.name ?? null
-      }
-    });
-
-    toast.success('店铺已永久删除');
-    await fetchAllShops({silent: true});
-    setActionLoadingById((prev) => ({...prev, [shopId]: null}));
-  };
-
-  const handleEdit = async (payload: Record<string, unknown>) => {
-    if (!editingShop) return;
-    setSaving(true);
-
-    const {error: updateError} = await supabase.from('shops').update(payload).eq('id', editingShop.id);
-    if (updateError) {
-      setError(updateError.message);
-      toast.error(`保存失败：${updateError.message}`);
-      setSaving(false);
-      return;
-    }
-
-    await notifyShopListChanged(supabase);
-
-    await logAdminAudit({
-      action: 'edit',
-      targetShopId: editingShop.id,
-      note: '管理员编辑店铺信息',
-      metadata: {
-        shop_name: readPayloadShopName(payload) ?? editingShop.name
-      }
-    });
-
-    toast.success('店铺信息已更新');
-    setEditingShop(null);
-    setSaving(false);
-    await fetchAllShops();
-  };
-
-  const handleBackfillMissingFields = async () => {
-    if (backfilling) return;
-
-    const confirmed = window.confirm('将批量补全缺失的 category / shop_type / rating_label，确定继续吗？');
-    if (!confirmed) return;
-
-    setBackfilling(true);
-    setError(null);
-
-    const updates = shops
-      .filter((shop) => !shop.category || !shop.shop_type || !shop.rating_label)
-      .map((shop) => ({
-        id: shop.id,
-        category: shop.category ?? 'food',
-        shop_type: shop.shop_type ?? '服务',
-        rating_label: shop.rating_label ?? '暂无评分'
-      }));
-
-    if (updates.length === 0) {
-      toast.success('没有需要补全的店铺');
-      setBackfilling(false);
-      return;
-    }
-
-    const {error: upsertError} = await supabase.from('shops').upsert(updates, {onConflict: 'id'});
-
-    if (upsertError) {
-      setError(upsertError.message);
-      toast.error(`批量补全失败：${upsertError.message}`);
-      setBackfilling(false);
-      return;
-    }
-
-    await notifyShopListChanged(supabase);
-
-    toast.success(`已补全 ${updates.length} 家店铺的缺失字段`);
-    setBackfilling(false);
-    await fetchAllShops({silent: true});
-  };
 
   if (loading) {
     return <div className="min-h-screen bg-slate-50 px-4 py-10"><div className="mx-auto max-w-6xl rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500 shadow-sm">加载管理员数据中...</div></div>;
@@ -1407,39 +537,13 @@ export default function AdminModerationPage() {
         {section==='users'&&<UsersManager/>}
         {section==='usage'&&<UsageDashboard/>}
         <div hidden={section !== 'tools'}>
-          <div className="mb-5 rounded-2xl border border-line bg-white p-5"><h2 className="text-lg font-semibold text-ink">更多工具</h2><p className="mt-1 text-sm text-muted">历史店铺、搜索分析和操作记录集中在这里，按需展开查看。</p>
-              <details className="w-full text-sm text-slate-600">
-                <summary className="cursor-pointer py-1">旧版筛选与维护工具</summary>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-              <button type="button" onClick={() => setStatusTab('pending')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'pending' ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-200' : 'bg-slate-100 text-slate-600'}`}>旧版店铺待审核：{pendingCount}</button>
-              <button type="button" onClick={() => setStatusTab('verified')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'verified' ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' : 'bg-slate-100 text-slate-600'}`}>旧版店铺已上线：{verifiedCount}</button>
-              <button type="button" onClick={() => setStatusTab('rejected')} className={`rounded-full px-3 py-1 text-sm font-semibold ${statusTab === 'rejected' ? 'bg-rose-100 text-rose-700 ring-1 ring-rose-200' : 'bg-slate-100 text-slate-600'}`}>旧版店铺已驳回：{rejectedCount}</button>
-
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="搜索店名 / 地址"
-                className="w-44 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#006633]"
-              />
-
-              <select
-                value={sortKey}
-                onChange={(e) => setSortKey(e.target.value as ShopSortKey)}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-[#006633]"
-              >
-                <option value="created_desc">最新创建</option>
-                <option value="created_asc">最早创建</option>
-                <option value="status">按状态</option>
-                <option value="name">按店名</option>
-              </select>
-
-              <button type="button" onClick={() => fetchAllShops({silent: true})} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700">{refreshing ? '刷新中...' : '刷新列表'}</button>
-              <button type="button" onClick={handleBackfillMissingFields} disabled={backfilling} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 disabled:opacity-60">{backfilling ? '补全中...' : '补全缺失字段'}</button>
-                </div>
-              </details>
+          <div className="mb-5 rounded-2xl border border-line bg-white p-5"><h2 className="text-lg font-semibold text-ink">更多工具</h2><p className="mt-1 text-sm text-muted">地点使用统计、搜索分析和操作记录集中在这里，按需展开查看。</p>
+            {metricsUpdatedAt > 0 && <p className="mt-2 text-xs text-muted">更新于 {new Date(metricsUpdatedAt).toLocaleString()}</p>}
+            {trafficError && <p role="alert" className="mt-2 text-sm text-rose-700">{trafficError}</p>}
+            <button type="button" onClick={() => void fetchAllShops({silent: true})} className="mt-3 rounded-lg border border-slate-300 px-3 py-2 text-sm">{refreshing ? '刷新中...' : '刷新统计'}</button>
           </div>
         <details className="rounded-2xl border border-slate-200 bg-white p-4">
-          <summary className="cursor-pointer py-1 font-medium text-slate-700">旧版统计与兼容管理（{shops.length} 条店铺）</summary>
+          <summary className="cursor-pointer py-1 font-medium text-slate-700">地点使用统计（{shops.length} 条店铺）</summary>
           <div className="mt-4">
         {error && (
           <div className="mb-4 flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -1465,58 +569,6 @@ export default function AdminModerationPage() {
             </div>
           </div>
         )}
-
-        <section className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold text-slate-500">旧版店铺总数</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.total}</p>
-            <p className="mt-1 text-xs text-slate-500">待审核 {healthStats.pending} / 已上线 {healthStats.verified} / 已驳回 {healthStats.rejected}</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold text-slate-500">最近 24 小时</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">+{healthStats.newShops24h}</p>
-            <p className="mt-1 text-xs text-slate-500">新增店铺，新增评论 {healthStats.newComments24h} 条</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold text-slate-500">字段缺失（分类）</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.missingCategory}</p>
-            <p className="mt-1 text-xs text-slate-500">category 为空的店铺数</p>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold text-slate-500">字段缺失（类型/口碑）</p>
-            <p className="mt-1 text-2xl font-bold text-slate-900">{healthStats.missingShopType + healthStats.missingRatingLabel}</p>
-            <p className="mt-1 text-xs text-slate-500">shop_type {healthStats.missingShopType}，rating_label {healthStats.missingRatingLabel}</p>
-          </div>
-        </section>
-
-        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">运营告警与处置建议</h2>
-              <p className="mt-1 text-xs text-slate-500">针对单人运营，自动给出今日最优先处理项（P1/P2/P3）</p>
-            </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">当前告警 {opsAlerts.length}</span>
-          </div>
-
-          <div className="mt-3 space-y-2">
-            {opsAlerts.length === 0 ? (
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">当前无显著运营风险，可按计划推进内容与质量优化。</div>
-            ) : (
-              opsAlerts.map((alert) => (
-                <div key={alert.id} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className={`rounded-full px-2 py-0.5 font-semibold ${alert.level === 'P1' ? 'bg-rose-100 text-rose-700' : alert.level === 'P2' ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-700'}`}>
-                      {alert.level}
-                    </span>
-                    <span className="font-semibold text-slate-900">{alert.title}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-600">原因：{alert.reason}</p>
-                  <p className="mt-1 text-xs font-medium text-slate-800">建议动作：{alert.action}</p>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
 
         <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -1569,9 +621,9 @@ export default function AdminModerationPage() {
 
             <select value={analyticsStatus} onChange={(e) => setAnalyticsStatus(e.target.value as ShopStatus | 'all')} className="rounded-lg border border-slate-300 px-3 py-2 text-xs">
               <option value="all">全部状态</option>
-              <option value="verified">已审核</option>
-              <option value="pending">待审核</option>
-              <option value="rejected">已驳回</option>
+              <option value="published">已上线</option>
+              <option value="draft">草稿</option>
+              <option value="archived">已下架</option>
             </select>
 
             <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700">
@@ -1773,134 +825,11 @@ export default function AdminModerationPage() {
           </div>
         </section>
 
-        {healthStats.total === 0 && (
-          <div className="mb-4 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-600">
-            旧版店铺表暂无记录。管理员新增和审核发布的地点，请在上方“地点资料管理”中查看。
-          </div>
-        )}
-
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">店铺</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">状态</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">分类信息</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">质量检查</th>
-                  <th className="px-4 py-3 text-left font-semibold text-slate-600">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {visibleShops.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
-                      当前筛选下暂无店铺记录。
-                    </td>
-                  </tr>
-                ) : (
-                  visibleShops.map((shop) => {
-                    const rowAction = actionLoadingById[shop.id];
-                    const isApproving = rowAction === 'approve';
-                    const isRejecting = rowAction === 'reject';
-                    const isDeleting = rowAction === 'delete';
-                    const isBusy = Boolean(rowAction);
-                    const missingFields = [
-                      !shop.category ? 'category' : null,
-                      !shop.shop_type ? 'shop_type' : null,
-                      !shop.rating_label ? 'rating_label' : null,
-                      !shop.address ? 'address' : null
-                    ].filter(Boolean) as string[];
-
-                    return (
-                      <tr key={shop.id} className="align-top hover:bg-slate-50/70">
-                        <td className="px-4 py-4">
-                          <p className="font-semibold text-slate-900">{shop.name || '未命名店铺'}</p>
-                          <p className="mt-1 max-w-xs truncate text-xs text-slate-500">{shop.address || '暂无地址'}</p>
-                          <p className="mt-1 text-xs text-slate-500">区域：{shop.region ?? '-'}</p>
-                        </td>
-                        <td className="px-4 py-4">
-                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                            (shop.status === 'pending' || shop.status === null)
-                              ? 'bg-amber-100 text-amber-800'
-                              : shop.status === 'verified'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : 'bg-rose-100 text-rose-800'
-                          }`}>
-                            {LEGACY_STATUS_LABELS[shop.status ?? 'pending']}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4 text-xs text-slate-600">
-                          <p>频道：<span className="font-medium text-slate-800">{shop.category ?? '-'}</span></p>
-                          <p className="mt-1">类型：<span className="font-medium text-slate-800">{shop.shop_type ?? '-'}</span></p>
-                          <p className="mt-1">口碑：<span className="font-medium text-slate-800">{shop.rating_label ?? '-'}</span></p>
-                          <p className="mt-1">标签：<span className="font-medium text-slate-800">{shop.tags?.length ? shop.tags.join('、') : '-'}</span></p>
-                        </td>
-                        <td className="px-4 py-4 text-xs text-slate-600">
-                          {missingFields.length > 0 ? (
-                            <span className="inline-flex rounded-md bg-rose-50 px-2 py-1 font-medium text-rose-700">缺失：{missingFields.join(', ')}</span>
-                          ) : (
-                            <span className="inline-flex rounded-md bg-emerald-50 px-2 py-1 font-medium text-emerald-700">字段完整</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-2">
-                            {shop.status !== 'verified' && (
-                              <button
-                                type="button"
-                                aria-label={`通过店铺 ${shop.name || shop.id}`}
-                                onClick={() => updateStatus(shop.id, 'verified', 'approve')}
-                                disabled={isBusy}
-                                className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-                              >
-                                {isApproving ? '处理中...' : '通过'}
-                              </button>
-                            )}
-                            {shop.status !== 'rejected' && (
-                              <button
-                                type="button"
-                                aria-label={`驳回店铺 ${shop.name || shop.id}`}
-                                onClick={() => updateStatus(shop.id, 'rejected', 'reject')}
-                                disabled={isBusy}
-                                className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-                              >
-                                {isRejecting ? '处理中...' : '驳回'}
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              aria-label={`编辑店铺 ${shop.name || shop.id}`}
-                              onClick={() => setEditingShop(shop)}
-                              disabled={isBusy}
-                              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 disabled:opacity-60"
-                            >
-                              编辑
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={`删除店铺 ${shop.name || shop.id}`}
-                              onClick={() => hardDelete(shop.id)}
-                              disabled={isBusy}
-                              className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-                            >
-                              {isDeleting ? '删除中...' : '删除'}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
           </div>
         </details>
         </div>
       </div>
 
-      {editingShop && <AdminShopForm mode="edit" initial={editingShop} submitting={saving} onSubmit={handleEdit} onCancel={() => setEditingShop(null)} />}
       {dashboardPlaceId && <PlaceEditor target={{kind: 'place', id: dashboardPlaceId}} onClose={() => setDashboardPlaceId(null)} onSaved={() => setPlaceRefreshSignal(value => value + 1)} />}
     </div>
   );

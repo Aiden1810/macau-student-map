@@ -8,7 +8,7 @@ import {ArrowLeft, Heart, ImagePlus, MapPin, MessageCirclePlus, Phone} from 'luc
 import {useParams} from 'next/navigation';
 import {useLocale, useTranslations} from 'next-intl';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import AdminImageManager from '@/components/AdminImageManager';
+import PlaceEditor from '@/components/admin/PlaceEditor';
 import ImageLightbox from '@/components/ImageLightbox';
 import MobileImageSlider from '@/components/MobileImageSlider';
 import PlaceNavigationActions from '@/components/PlaceNavigationActions';
@@ -21,9 +21,7 @@ import {loadAuthRole} from '@/lib/data/auth-role';
 import {loadComments} from '@/lib/data/comments';
 import type {ReviewRow} from '@/lib/data/comments';
 import ReviewForm from '@/components/reviews/ReviewForm';
-import {canManageLegacyImages, loadShopDetail} from '@/lib/data/shop-detail';
-import type {ShopSource} from '@/lib/data/shop-detail';
-import {mapSingleShop} from '@/lib/mappers/shop';
+import {loadShopDetail} from '@/lib/data/shop-detail';
 import {resolvePriceDisplay} from '@/lib/utils/price';
 import {useFavorites} from '@/lib/hooks/useFavorites';
 import {supabase} from '@/lib/supabase';
@@ -224,7 +222,6 @@ export default function ShopDetailPage() {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isAdminImageManagerOpen, setIsAdminImageManagerOpen] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [shopSource, setShopSource] = useState<ShopSource | null>(null);
 
   const shopRequestRef = useRef(createRequestGuard());
   const commentsRequestRef = useRef(createRequestGuard());
@@ -238,23 +235,10 @@ export default function ShopDetailPage() {
   const fetchShop = useCallback(async () => {
     setShopLoading(true);
     setShopError(null);
-    setShopSource(null);
 
     const decision = await runLatest(shopRequestRef.current, () =>
       loadShopDetail(
         shopId,
-        async (id) => {
-          const {data, error} = await supabase
-            .from('shops')
-            .select('id,name,address,phone,image_urls,category,student_discount,tags,features,shop_type,rating_label,latitude,longitude,status,rating,review_count,total_sum,rating_count,review_text')
-            .eq('id', id)
-            .maybeSingle();
-
-          return {
-            shop: data ? mapSingleShop(data as Record<string, unknown>) : null,
-            errorMessage: error?.message ?? null
-          };
-        },
         async (id) => {
           try {
             const response = await fetch(`/api/places/${id}`);
@@ -287,7 +271,6 @@ export default function ShopDetailPage() {
 
     if (decision.kind === 'use-shop') {
       setShop(decision.shop);
-      setShopSource(decision.source);
       return;
     }
 
@@ -406,7 +389,7 @@ export default function ShopDetailPage() {
     };
   }, [fetchShop, fetchComments, fetchAuthState]);
 
-  const canManageImages = canManageLegacyImages(userRole, shopSource);
+  const canManageImages = userRole === 'admin' && shop !== null;
 
   useEffect(() => {
     setIsAdminImageManagerOpen(false);
@@ -465,17 +448,9 @@ export default function ShopDetailPage() {
         <PlaceNavigationActions place={shop} variant="mobile-footer" />
       </div>
 
-      {canManageImages && (
-        <AdminImageManager
-          open={isAdminImageManagerOpen}
-          shopId={shop.id}
-          shopName={shop.name}
-          imageUrls={shop.imageUrls ?? []}
-          onClose={() => setIsAdminImageManagerOpen(false)}
-          onUpdated={async () => {
-            await fetchShop();
-          }}
-        />
+      {canManageImages && isAdminImageManagerOpen && (
+        <PlaceEditor target={{kind: 'place', id: shop.id}}
+          onClose={() => setIsAdminImageManagerOpen(false)} onSaved={fetchShop} />
       )}
     </>
   );

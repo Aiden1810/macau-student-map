@@ -24,7 +24,7 @@ export const adminPlaceSchema = z.object({
 
 export type AdminPlaceInput = z.infer<typeof adminPlaceSchema>;
 export type EditorMedia = {id: string; url: string | null; sortOrder: number; previewError?: string};
-export type AdminPlaceRecord = AdminPlaceInput & {id: string; updatedAt: string; media: EditorMedia[]; pendingSubmissionIds?: string[]; createdBy?: AdminAccount | null};
+export type AdminPlaceRecord = AdminPlaceInput & {id: string; createdAt?: string | null; updatedAt: string; media: EditorMedia[]; pendingSubmissionIds?: string[]; createdBy?: AdminAccount | null};
 export type SubmissionEditorRecord = AdminPlaceInput & {id: string; version: number; notes: string | null; media: EditorMedia[]};
 
 export function matchesAdminPlaceSearch(place: Pick<AdminPlaceInput, 'name' | 'nameEn' | 'address' | 'tagIds' | 'searchKeywords'>, query: string): boolean {

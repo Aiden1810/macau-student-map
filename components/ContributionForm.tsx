@@ -1,6 +1,6 @@
 'use client';
 
-import {FormEvent, useMemo, useState} from 'react';
+import {FormEvent, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslations} from 'next-intl';
 import {getCanonicalTagsForAdminAndSubmit} from '@/lib/tags/schema';
 import LaunchCategorySelector from '@/components/LaunchCategorySelector';
@@ -17,6 +17,7 @@ import type {PlaceCategorySlug} from '@/lib/domain/taxonomy';
 import {supabase} from '@/lib/supabase';
 
 interface ContributionFormProps {
+  onBusyChange?: (busy: boolean) => void;
   onSuccess: () => Promise<void> | void;
   onCancel: () => void;
   onRequestMapPick: () => void;
@@ -38,6 +39,7 @@ type SubmitResponse =
   | {submitted: false; duplicateCandidates: DuplicateCandidate[]};
 
 export default function ContributionForm({
+  onBusyChange,
   onSuccess,
   onCancel,
   onRequestMapPick,
@@ -71,6 +73,15 @@ export default function ContributionForm({
   const [uploadedMediaCount, setUploadedMediaCount] = useState(0);
   const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateCandidate[]>([]);
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [imageProcessing, setImageProcessing] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const imageProcessingRef = useRef(false);
+  const operationRef = useRef<'submit' | 'cancel' | null>(null);
+  const busy = submitLoading || imageProcessing || cancelLoading;
+  useEffect(() => {
+    onBusyChange?.(busy);
+    return () => {onBusyChange?.(false);};
+  }, [busy, onBusyChange]);
   const [contributeMessage, setContributeMessage] = useState<string | null>(null);
   const [contributeError, setContributeError] = useState<string | null>(null);
 
@@ -197,6 +208,7 @@ export default function ContributionForm({
   };
 
   const handleUploadImage = async (file: File) => {
+    if (operationRef.current) return;
     setContributeError(null);
     try {
       const {draft, accessToken} = await saveDraft();
@@ -221,7 +233,7 @@ export default function ContributionForm({
     const canSubmitFromSearch = !manualMode && !!selectedPlace;
     const canSubmitFromManual = manualMode && !!manualPoint && manualShopName.trim().length > 0;
 
-    if (submitLoading) return;
+    if (operationRef.current || imageProcessingRef.current) return;
     if (!canSubmitFromSearch && !canSubmitFromManual) {
       setContributeError('请填写地点名称，并选择地图位置或附近地标。'); return;
     }
@@ -234,6 +246,7 @@ export default function ContributionForm({
       return;
     }
 
+    operationRef.current = 'submit';
     setSubmitLoading(true);
     setContributeError(null);
     setContributeMessage(null);
@@ -265,16 +278,20 @@ export default function ContributionForm({
     } catch (error) {
       setContributeError(error instanceof Error ? error.message : '投稿提交失败。');
     } finally {
+      operationRef.current = null;
       setSubmitLoading(false);
     }
   };
 
   const handleCancel = async () => {
+    if (operationRef.current || imageProcessingRef.current) return;
     if (!draftId) {
       onCancel();
       return;
     }
 
+    operationRef.current = 'cancel';
+    setCancelLoading(true);
     setContributeError(null);
     try {
       const accessToken = await getAccessToken();
@@ -282,11 +299,15 @@ export default function ContributionForm({
       onCancel();
     } catch (error) {
       setContributeError(error instanceof Error ? error.message : '草稿清理失败，请稍后重试。');
+    } finally {
+      operationRef.current = null;
+      setCancelLoading(false);
     }
   };
 
   return (
     <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <fieldset disabled={busy} className="min-w-0">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">{tContribute('title')}</h2>
@@ -482,7 +503,10 @@ export default function ContributionForm({
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">图片（可选）</label>
-            <ImageUpload onUpload={handleUploadImage} />
+            <ImageUpload onUpload={handleUploadImage} disabled={busy} onProcessingChange={processing => {
+              imageProcessingRef.current = processing;
+              setImageProcessing(processing);
+            }} />
             {uploadedMediaCount > 0 && (
               <p className="mt-1 text-xs text-emerald-600">已安全上传 {uploadedMediaCount} 张图片到当前草稿</p>
             )}
@@ -490,7 +514,7 @@ export default function ContributionForm({
 
           <button
             type="submit"
-            disabled={submitLoading}
+            disabled={busy}
             className="inline-flex rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitLoading ? tContribute('submitting') : tContribute('submit')}
@@ -500,6 +524,7 @@ export default function ContributionForm({
 
       {contributeError && <p className="mt-4 text-sm text-rose-600">{contributeError}</p>}
       {contributeMessage && <p className="mt-4 text-sm text-emerald-600">{contributeMessage}</p>}
+      </fieldset>
     </section>
   );
 }

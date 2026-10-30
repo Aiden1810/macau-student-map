@@ -33,22 +33,38 @@ export async function parseJsonBody<T>(
     };
   }
 
-  const rawBody = await request.text();
-  if (new TextEncoder().encode(rawBody).byteLength > maxBytes) {
-    return {
-      ok: false,
-      error: {code: 'PAYLOAD_TOO_LARGE', message: 'Request body is too large.', status: 413}
-    };
-  }
-
   let json: unknown;
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   try {
+    reader = request.body?.getReader();
+    const decoder = new TextDecoder();
+    let rawBody = '';
+    let receivedBytes = 0;
+    if (reader) {
+      while (true) {
+        const {done, value} = await reader.read();
+        if (done) break;
+        receivedBytes += value.byteLength;
+        if (receivedBytes > maxBytes) {
+          // Stop consuming the stream even when Content-Length is absent or incorrect.
+          void reader.cancel().catch(() => {});
+          return {
+            ok: false,
+            error: {code: 'PAYLOAD_TOO_LARGE', message: 'Request body is too large.', status: 413}
+          };
+        }
+        rawBody += decoder.decode(value, {stream: true});
+      }
+    }
+    rawBody += decoder.decode();
     json = JSON.parse(rawBody);
   } catch {
     return {
       ok: false,
       error: {code: 'INVALID_JSON', message: 'Request body contains invalid JSON.', status: 400}
     };
+  } finally {
+    reader?.releaseLock();
   }
 
   const parsed = schema.safeParse(json);

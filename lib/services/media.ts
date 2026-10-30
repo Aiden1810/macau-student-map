@@ -1,5 +1,5 @@
 import type {SupabaseClient} from '@supabase/supabase-js';
-import {IMAGE_MIME_EXTENSIONS, type AllowedImageMime} from '../storage/object-path';
+import {assertOwnedObjectPath, IMAGE_MIME_EXTENSIONS, type AllowedImageMime} from '../storage/object-path';
 
 export type MediaTransferWarning = {mediaId: string; message: string};
 
@@ -34,8 +34,24 @@ export async function transferApprovedSubmissionMedia(
     .eq('bucket_id', 'submission-media');
 
   if (error) return [{mediaId: '*', message: error.message}];
+  if (!mediaRows?.length) return warnings;
+
+  const {data: submission, error: submissionError} = await client.from('place_submissions')
+    .select('submitted_by').eq('id', submissionId).maybeSingle();
+  if (submissionError || !submission?.submitted_by) {
+    return [{mediaId: '*', message: 'Unable to verify the submission image owner.'}];
+  }
 
   for (const media of mediaRows ?? []) {
+    // Historical metadata may predate the stricter RLS policies. Never let an
+    // administrator's transfer expose or delete a different account's object.
+    try {
+      if (media.uploaded_by !== submission.submitted_by) throw new Error('Image owner mismatch.');
+      assertOwnedObjectPath(media.storage_path, submission.submitted_by, submissionId);
+    } catch {
+      warnings.push({mediaId: media.id, message: 'Stored image ownership could not be verified.'});
+      continue;
+    }
     const mimeType = media.mime_type as AllowedImageMime;
     const extension = IMAGE_MIME_EXTENSIONS[mimeType];
     if (!extension) {

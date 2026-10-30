@@ -6,7 +6,7 @@ import {errorResponse, successResponse} from '@/lib/api/result';
 import {readAccountEmails} from '@/lib/admin/accounts';
 
 export const GET = createAdminPlaceRoute<Record<string, never>>(async (_request, client) => {
-  const {data, error} = await client.from('places').select(ADMIN_PLACE_COLUMNS).is('legacy_shop_id', null).order('updated_at', {ascending: false}).limit(500);
+  const {data, error} = await client.from('places').select(ADMIN_PLACE_COLUMNS).order('updated_at', {ascending: false}).limit(500);
   if (error) throw error;
   const accounts = await readAccountEmails(client, (data ?? []).map(row => row.created_by));
   const items = await Promise.all((data ?? []).map(row => mapAdminPlace(client, row as unknown as Parameters<typeof mapAdminPlace>[1], accounts)));

@@ -23,12 +23,12 @@ interface ShopListProps {
   activeFilterLabels: string[];
   onClearSearch: () => void;
   onClearAllFilters: () => void;
-  canApprove: boolean;
-  approvingShopId: Shop['id'] | null;
-  onApproveShop: (shopId: Shop['id']) => void;
-  canDelete: boolean;
-  deletingShopId: Shop['id'] | null;
-  onDeleteShop: (shopId: Shop['id']) => void;
+  canApprove?: boolean;
+  approvingShopId?: Shop['id'] | null;
+  onApproveShop?: (shopId: Shop['id']) => void;
+  canDelete?: boolean;
+  deletingShopId?: Shop['id'] | null;
+  onDeleteShop?: (shopId: Shop['id']) => void;
   collapseMobileSheetSignal?: number;
   mobileTopOffsetPx?: number;
   onToggleAssistant?: () => void;

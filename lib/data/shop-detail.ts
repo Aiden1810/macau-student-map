@@ -1,11 +1,6 @@
 import type {Shop} from '../../types/shop';
 
-export type ShopSource = 'legacy' | 'canonical';
-
-export type LegacyShopResult = {
-  shop: Shop | null;
-  errorMessage: string | null;
-};
+export type ShopSource = 'canonical';
 
 export type CanonicalPlaceResult = {
   ok: boolean;
@@ -20,7 +15,6 @@ export type ShopDetailDecision =
   | {kind: 'not-found'}
   | {kind: 'load-error'; message: string};
 
-export type LegacyShopLoader = (shopId: string) => Promise<LegacyShopResult>;
 export type CanonicalPlaceLoader = (shopId: string) => Promise<CanonicalPlaceResult>;
 
 /**
@@ -46,46 +40,15 @@ export function decideCanonicalDetailResult(canonical: CanonicalPlaceResult): Sh
   return {kind: 'load-error', message: canonical.errorMessage ?? '店铺加载失败'};
 }
 
-/**
- * Orchestrate reading the legacy `shops` row first, then the canonical place
- * fallback. The canonical loader is only invoked on an exact legacy miss
- * (data === null && error === null); a legacy hit or legacy query failure is
- * decided immediately without touching the canonical API.
- */
+/** Details use the same published-place source as discovery and reviews. */
 export async function loadShopDetail(
   shopId: string,
-  loadLegacyShop: LegacyShopLoader,
   loadCanonicalPlace: CanonicalPlaceLoader
 ): Promise<ShopDetailDecision> {
-  if (!shopId) {
-    return {kind: 'load-error', message: '店铺 ID 无效'};
-  }
-
+  if (!shopId) return {kind: 'load-error', message: '店铺 ID 无效'};
   try {
-    const legacy = await loadLegacyShop(shopId);
-
-    if (legacy.shop) {
-      return {kind: 'use-shop', shop: legacy.shop, source: 'legacy'};
-    }
-
-    if (legacy.errorMessage) {
-      return {kind: 'load-error', message: legacy.errorMessage};
-    }
-
-    const canonical = await loadCanonicalPlace(shopId);
-    return decideCanonicalDetailResult(canonical);
+    return decideCanonicalDetailResult(await loadCanonicalPlace(shopId));
   } catch {
-    // Transport errors must also end loading; only a confirmed empty legacy
-    // result permits the canonical fallback.
     return {kind: 'load-error', message: '店铺加载失败，请稍后再试'};
   }
-}
-
-/**
- * The legacy AdminImageManager writes to the `shops` table, so it must only be
- * reachable for legacy shops and requires the admin role. Canonical-only places
- * never get this entry point.
- */
-export function canManageLegacyImages(userRole: string | null, source: ShopSource | null): boolean {
-  return userRole === 'admin' && source === 'legacy';
 }

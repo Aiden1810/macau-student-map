@@ -149,7 +149,7 @@ This project was developed with an AI-assisted workflow. I was primarily respons
 
 ## Current Limitations / Future Improvements
 
-- The application still supports both the canonical **places** model and the legacy **shops** model, which increases mapping and maintenance complexity.
+- Place discovery, details, and administration now use **places** as their single source. The empty legacy **shops** table remains for recovery and older-release reads; `/api/shops` is a response-format compatibility adapter backed by places. See the [2026-10-30 migration and verification record](docs/place-data-unification-2026-10-30.md).
 - Search and ranking for the compatibility data path currently run mainly in the browser; larger datasets will need a clearer server-side search and pagination strategy.
 - Simplified Chinese is the current iteration priority. Traditional Chinese and English routes exist, but new taxonomy and interface changes need a later consistency review.
 - POI search covers Macau and Zhuhai, while strict server-side service-area and coordinate-boundary validation can be improved.
