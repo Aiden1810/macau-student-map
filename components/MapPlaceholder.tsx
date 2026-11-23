@@ -719,7 +719,7 @@ export default function MapPlaceholder({
     <div className="relative h-full w-full overflow-hidden rounded-none border-0 bg-transparent shadow-none md:rounded-2xl md:border md:border-slate-200/90 md:bg-white md:shadow-[0_10px_28px_rgba(2,30,18,0.08)] md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)]">
       <div ref={containerRef} className="h-full w-full" />
 
-      <div className={`pointer-events-none absolute right-4 z-20 flex flex-col items-center gap-2 ${discovery ? 'top-4' : 'top-[152px] md:hidden'}`}>
+      <div className={`pointer-events-none absolute right-4 z-20 flex flex-col items-center gap-2 ${discovery ? 'top-[var(--discovery-controls-top,1rem)] md:top-4' : 'top-[152px] md:hidden'}`}>
         <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_3px_14px_#193d3210]">
           <button type="button" aria-label="放大地图" onClick={handleZoomIn} className="pointer-events-auto flex h-11 w-11 items-center justify-center text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pine-700"><Plus size={19} aria-hidden="true" /></button>
           <div className="mx-3 border-t border-line" />
