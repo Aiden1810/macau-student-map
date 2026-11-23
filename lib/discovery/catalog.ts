@@ -1,7 +1,7 @@
 
 import type {Shop} from '@/types/shop';
 import type {PoiMetadata} from './business';
-import {coordinatesSchema, inDiscoveryScope, poiAsShop, type Bounds, type Poi, type SearchScope} from './search';
+import {PAGE_SIZE, coordinatesSchema, inDiscoveryScope, poiAsShop, type Bounds, type Poi, type SearchScope} from './search';
 
 export type CatalogPlace = {
   id: string; name: string; address: string | null; longitude: number; latitude: number; recommended: boolean
@@ -9,6 +9,11 @@ export type CatalogPlace = {
 export type DiscoveryEntry = {
   shop: Shop; poiId?: string; placeId?: string; category?: string
 };
+
+// The catalog RPC clamps its offset to 2,000. Never ask it to repeat that page.
+export function hasMoreCatalogRows(received: number, nextOffset: number) {
+  return received > PAGE_SIZE && nextOffset <= 2000;
+}
 
 export function catalogArgs(scope: SearchScope, offset: number) {
   let bounds: Bounds | null = null;

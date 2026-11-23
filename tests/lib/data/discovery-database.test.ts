@@ -1,9 +1,11 @@
 
 import {PGlite} from '@electric-sql/pglite';
-import {readFileSync} from 'node:fs';
+import {pg_trgm} from '@electric-sql/pglite/contrib/pg_trgm';
+import {pgcrypto} from '@electric-sql/pglite/contrib/pgcrypto';
+import {readFileSync, readdirSync} from 'node:fs';
 import {afterAll, beforeAll, describe, expect, it} from 'vitest';
 
-const db = new PGlite();
+const db = new PGlite({extensions: {pg_trgm, pgcrypto}});
 const alice = '10000000-0000-4000-8000-000000000001';
 const bob = '10000000-0000-4000-8000-000000000002';
 const admin = '10000000-0000-4000-8000-000000000003';
@@ -28,34 +30,38 @@ async function submit(who: string, id: string, target: string, hasImage = false)
 }
 
 beforeAll(async () => {
-  const source = readFileSync('supabase/migrations/20260830103144_canonical_local_life_model.sql', 'utf8');
-  const reviewStart = source.indexOf('create table if not exists public.reviews (');
-  const reviewEnd = source.indexOf('create table if not exists public.review_media (');
-  // Model the pre-existing tables and use the repository's actual reviews DDL and favorites migration.
+  // Only platform schemas are emulated. Apply all application migrations verbatim.
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
-    create schema auth; create schema private; create schema storage;
-    create table auth.users(id uuid primary key);
+    create schema auth; create schema storage; create schema extensions;
+    create table auth.users(id uuid primary key, email text, created_at timestamptz default now(), deleted_at timestamptz, is_anonymous boolean);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
-    create table public.profiles(id uuid primary key, role text);
-    create function private.current_user_is_admin() returns boolean language sql stable security definer set search_path='' as $$
-      select exists(select 1 from public.profiles where id=auth.uid() and role='admin')
-    $$;
-    create table public.places(id uuid primary key, legacy_shop_id uuid, name text, name_en text, address text,
-      latitude double precision, longitude double precision, category_slug text, region text, search_keywords_manual text[], status text);
     create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
     create table storage.objects(bucket_id text, name text, owner_id text, unique(bucket_id,name));
+    create function storage.foldername(text) returns text[] language sql immutable as $$
+      select (string_to_array($1, '/'))[1:cardinality(string_to_array($1, '/')) - 1]
+    $$;
     alter table storage.objects enable row level security;
     grant usage on schema auth, storage to authenticated, anon, service_role;
     grant insert, select, update, delete on storage.objects to authenticated;
-    insert into auth.users values ('${alice}'),('${bob}'),('${admin}');
-    insert into profiles values ('${admin}','admin');
-    insert into places(id,name,address,latitude,longitude,category_slug,status) values
-      ('${place}','同名店','澳门 A 街',22.18,113.54,'food','published'),
-      ('${otherPlace}','同名店','澳门 B 街',22.19,113.55,'food','published');
-    ${source.slice(reviewStart, reviewEnd)}
+    insert into auth.users(id) values ('${alice}'),('${bob}'),('${admin}');
   `);
-  await db.exec(readFileSync('supabase/migrations/20261022160000_canonical_favorites.sql', 'utf8'));
+  const migrations = 'supabase/migrations';
+  const p1 = '20261123120000_discovery_recommendations.sql';
+  await db.exec(readFileSync('supabase/fixtures/legacy-baseline.sql', 'utf8'));
+  for (const file of readdirSync(migrations).filter(file => file.endsWith('.sql') && file < p1).sort()) {
+    try {await db.exec(readFileSync(migrations + '/' + file, 'utf8'));}
+    catch (error) {throw new Error(file + ': ' + (error as Error).message, {cause: error});}
+  }
+  await db.exec(`
+    insert into profiles(id,role) values ('${admin}','admin');
+    insert into places(id,name,address,latitude,longitude,category_slug,status,published_at) values
+      ('${place}','同名店','澳门 A 街',22.18,113.54,'food','published',now()),
+      ('${otherPlace}','同名店','澳门 B 街',22.19,113.55,'food','published',now());
+    insert into place_media(id,place_id,uploaded_by,bucket_id,storage_path,mime_type,byte_size,lifecycle_status)
+      values ('${historic}','${place}','${alice}','place-media','historic.jpg','image/jpeg',100,'ready');
+    insert into storage.objects values ('place-media','historic.jpg','${alice}');
+  `);
   await db.query('insert into favorites(user_id,shop_id) values($1,$2)', [alice, place]);
   await db.query("insert into reviews(id,place_id,user_id,rating,content,status) values($1,$2,$3,5,'历史评价','published')",
     [historic, place, alice]);
@@ -76,8 +82,9 @@ describe('student recommendations and POI persistence in PostgreSQL', () => {
     await identity('authenticated', alice);
     await db.query("insert into storage.objects values('student-recommendation-media',$1,$2)", [first, alice]);
     await expect(db.query("insert into storage.objects values('student-recommendation-media',$1,$2)", [second, bob])).rejects.toMatchObject({code: '42501'});
-    expect((await db.query('select * from storage.objects')).rows).toEqual([]);
+    expect((await db.query("select * from storage.objects where bucket_id='student-recommendation-media'")).rows).toEqual([]);
 
+    await expect(submit(bob, first, poi, true)).rejects.toThrow('Image unavailable');
     expect((await submit(alice, first, poi, true)).rows).toEqual([{id: first}]);
     expect((await submit(alice, first, poi, true)).rows).toEqual([{id: first}]);
     await expect(submit(bob, first, poi)).rejects.toThrow('Recommendation ID already in use');
@@ -90,6 +97,10 @@ describe('student recommendations and POI persistence in PostgreSQL', () => {
     expect((await db.query('select student_recommendation_image($1) as path', [first])).rows).toEqual([{path: null}]);
 
     await identity('authenticated', bob);
+    await expect(db.query('select associate_verified_discovery_poi($1,$2)', [poi, place])).rejects.toMatchObject({code: '42501'});
+    await expect(db.query('select save_verified_discovery_favorite($1,$2,true)', [alice, poi])).rejects.toMatchObject({code: '42501'});
+    await expect(db.query('select * from admin_student_recommendations(true)')).rejects.toMatchObject({code: '42501'});
+    expect((await db.query('select student_recommendation_image($1) as path', [first])).rows).toEqual([{path: null}]);
     expect((await db.query('select * from my_student_recommendations(null,$1)', [poi])).rows).toMatchObject([{id: second, status: 'pending'}]);
     expect((await db.query('select remove_my_student_recommendation($1) as removed', [first])).rows).toEqual([{removed: false}]);
     await expect(db.query("select moderate_student_recommendation($1,'pending','approved')", [first])).rejects.toMatchObject({code: '42501'});
@@ -119,6 +130,8 @@ describe('student recommendations and POI persistence in PostgreSQL', () => {
     await identity('postgres');
     expect((await db.query('select id,place_id,content from reviews')).rows).toEqual([{id: historic, place_id: place, content: '历史评价'}]);
     expect((await db.query('select shop_id from favorites')).rows).toEqual([{shop_id: place}]);
+    expect((await db.query('select place_id,storage_path from place_media')).rows)
+      .toEqual([{place_id: place, storage_path: 'historic.jpg'}]);
     expect((await db.query('select id from places order by id')).rows).toEqual([{id: place}, {id: otherPlace}]);
   });
 

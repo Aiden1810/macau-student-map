@@ -74,7 +74,8 @@ export function createDiscoveryProvider(key: string | undefined, fetchUpstream: 
       const geocodes = z.object({geocodes: z.array(z.object({location: z.unknown()}))}).safeParse(response);
       if (!geocodes.success) throw new DiscoveryError('PROVIDER_FAILED', 502);
       const center = readCoordinates(geocodes.data.geocodes[0]?.location);
-      if (!center) return {items: [], hasMore: false};
+      if (geocodes.data.geocodes.length === 0) return {items: [], hasMore: false};
+      if (!center) throw new DiscoveryError('PROVIDER_FAILED', 502);
       resolvedScope = {kind: 'around', center, radius: 3000, page: 1};
       query = resolvedScope;
     }
@@ -111,7 +112,9 @@ export function createDiscoveryProvider(key: string | undefined, fetchUpstream: 
       if (poi && (query.kind !== 'detail' || query.id === poi.id)
         && (query.kind !== 'details' || query.ids.includes(poi.id))) items.set(poi.id, poi);
     }
-    const hasMore = query.kind !== 'detail' && query.kind !== 'details' && query.page < MAX_PAGE
+    const isSearch = query.kind !== 'detail' && query.kind !== 'details';
+    if (isSearch && parsed.data.pois.length > 0 && items.size === 0) throw new DiscoveryError('PROVIDER_FAILED', 502);
+    const hasMore = 'page' in query && query.page < MAX_PAGE
       && parsed.data.pois.length === PAGE_SIZE;
     return {items: [...items.values()], hasMore, resolvedScope};
   };

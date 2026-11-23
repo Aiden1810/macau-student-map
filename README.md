@@ -113,7 +113,7 @@ Configure these values in **.env.local**:
 | AMAP_JS_SECURITY_CODE | Server-only AMap JS security code |
 | AMAP_WEB_SERVICE_KEY | Server-only AMap Web Service key for live restaurant, area and POI lookups |
 | AMAP_ALLOW_POI_ID_PERSISTENCE | Enable only after confirming permission to store POI identifiers |
-| SUPABASE_SERVICE_ROLE_KEY | Server-only. Used for verified recommendation writes, live place favorites and private media signing |
+| SUPABASE_SERVICE_ROLE_KEY | Server-only. Used for verified recommendation writes, live place favorites and private media access |
 | DEEPSEEK_API_KEY | Server-only; required for real AI chat and place interpretation |
 | DEEPSEEK_MODEL | Optional model override; current default is deepseek-flash |
 

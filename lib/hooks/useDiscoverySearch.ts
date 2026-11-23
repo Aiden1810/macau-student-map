@@ -3,7 +3,7 @@
 
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {discover} from '@/lib/discovery/client';
-import {catalogArgs, type CatalogPlace} from '@/lib/discovery/catalog';
+import {catalogArgs, hasMoreCatalogRows, type CatalogPlace} from '@/lib/discovery/catalog';
 import type {PoiMetadata} from '@/lib/discovery/business';
 import {createLatestDiscoveryRequest} from '@/lib/discovery/latest-request';
 import {PAGE_SIZE, type DiscoveryQuery, type Poi, type SearchScope} from '@/lib/discovery/search';
@@ -14,6 +14,7 @@ type Results = {
   pois: Poi[]; catalog: CatalogPlace[]; metadata: PoiMetadata[]; metadataError: boolean;
   amapMore: boolean; catalogMore: boolean; scope: SearchScope | null; catalogOffset: number;
 };
+type SearchAttempt = {query: Search; previous: Results; sources: {amap: boolean; catalog: boolean}};
 const empty: Results = {pois: [], catalog: [], metadata: [], metadataError: false, amapMore: false, catalogMore: false, scope: null, catalogOffset: 0};
 
 export function useDiscoverySearch() {
@@ -21,6 +22,7 @@ export function useDiscoverySearch() {
   const [error, setError] = useState<string | null>(null);
   const [catalogError, setCatalogError] = useState(false);
   const [loading, setLoading] = useState(false);
+  const failedAttempt = useRef<SearchAttempt | null>(null);
   const latest = useRef(createLatestDiscoveryRequest());
   const lastSuccess = useRef<{key: string; at: number} | null>(null);
   useEffect(() => {
@@ -34,6 +36,7 @@ export function useDiscoverySearch() {
     const request = latest.current.begin(key);
     if (!request) return null;
     lastSuccess.current = null;
+    failedAttempt.current = null;
     const isNew = previous === empty;
     setLoading(true);
     setError(null);
@@ -77,15 +80,25 @@ export function useDiscoverySearch() {
         catalogOffset: previous.catalogOffset + nextCatalog.length,
         scope: amap.status === 'rejected' && !isNew ? previous.scope : scope,
         amapMore: amap.status === 'rejected' ? previous.amapMore : amap.value?.hasMore ?? previous.amapMore,
-        catalogMore: catalog.status === 'rejected' ? previous.catalogMore : (page ? page.length > PAGE_SIZE : previous.catalogMore)
+        catalogMore: catalog.status === 'rejected' ? previous.catalogMore
+          : (page ? hasMoreCatalogRows(page.length, previous.catalogOffset + nextCatalog.length) : previous.catalogMore)
       });
       if (amap.status === 'rejected') setError(amap.reason?.code ?? 'REQUEST_FAILED');
       if (catalog.status === 'rejected') setCatalogError(true);
-      if (amap.status === 'fulfilled' && catalog.status === 'fulfilled' && !metadataFailure) lastSuccess.current = {key, at: Date.now()};
+      if (amap.status === 'fulfilled' && catalog.status === 'fulfilled' && !metadataFailure) {
+        lastSuccess.current = {key, at: Date.now()};
+      } else {
+        // Replay the failed page with its original offsets. Advancing after a
+        // partial response can skip the first page of the failed source.
+        failedAttempt.current = {query, previous, sources};
+      }
       if (isNew && amap.status === 'fulfilled') return amap.value?.resolvedScope ?? scope;
       return null;
     } catch {
-      if (request.current()) setError('REQUEST_FAILED');
+      if (request.current()) {
+        failedAttempt.current = {query, previous, sources};
+        setError('REQUEST_FAILED');
+      }
       return null;
     } finally {
       if (request.current()) setLoading(false);
@@ -94,10 +107,16 @@ export function useDiscoverySearch() {
   }, []);
 
   const nextPage = () => {
-    if (loading || !result.scope) return;
+    if (loading || failedAttempt.current || !result.scope) return;
     const query = {...result.scope, page: result.scope.page + (result.amapMore ? 1 : 0)};
     void load(query, result, {amap: result.amapMore, catalog: result.catalogMore});
   };
 
-  return {result, error, catalogError, loading, load, nextPage};
+  const retry = async () => {
+    const current = failedAttempt.current;
+    if (current) return load(current.query, current.previous, current.sources);
+    return null;
+  };
+
+  return {result, error, catalogError, loading, load, nextPage, retry};
 }

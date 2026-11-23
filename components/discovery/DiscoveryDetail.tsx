@@ -18,11 +18,11 @@ import {discoveryErrorKey} from './copy';
 
 const action = 'inline-flex min-h-11 items-center gap-2 rounded-xl border border-line bg-white px-3 text-sm font-medium text-pine-800';
 
-export default function DiscoveryDetail({poiId}: {poiId: string}) {
-  return <DiscoveryAccountProvider><Detail poiId={poiId} /></DiscoveryAccountProvider>;
+export default function DiscoveryDetail({poiId, canPersistPoi}: {poiId: string; canPersistPoi: boolean}) {
+  return <DiscoveryAccountProvider><Detail poiId={poiId} canPersistPoi={canPersistPoi} /></DiscoveryAccountProvider>;
 }
 
-function Detail({poiId}: {poiId: string}) {
+function Detail({poiId, canPersistPoi}: {poiId: string; canPersistPoi: boolean}) {
   const t = useTranslations('Discovery');
   const [poi, setPoi] = useState<Poi | null>(null);
   const [known, setKnown] = useState<PoiMetadata | null>(null);
@@ -82,12 +82,13 @@ function Detail({poiId}: {poiId: string}) {
         </p>
         <p className="text-xs text-muted">{t('provider')}</p>
       </>}
+      {!canPersistPoi && poi && <p className="text-sm text-amber-900">{t('persistenceDisabled')}</p>}
       <div className="flex flex-wrap items-start gap-2">
         {nav && <a href={nav} className={action} target="_blank" rel="noopener noreferrer"><Navigation size={15} aria-hidden="true" />{t('navigate')}</a>}
-        {(poi || known?.available || favoriteState.saved(poiId)) && <DiscoveryFavorite poiId={poiId} state={favoriteState} returnPath={returnPath} />}
+        {(poi || known?.available || favoriteState.saved(poiId)) && <DiscoveryFavorite poiId={poiId} state={favoriteState} returnPath={returnPath} canSave={canPersistPoi && Boolean(poi)} />}
         {known?.place_id && <Link href={'/shop/' + known.place_id} className={action}>{t('platformDetails')}</Link>}
       </div>
     </section>
-    {(!loading && (poi || known?.available)) && <RecommendationPanel key={poiId} target={{poiId}} returnPath={returnPath} canSubmit={Boolean(poi)} />}
+    {(!loading && (poi || known?.available)) && <RecommendationPanel key={poiId} target={{poiId}} returnPath={returnPath} canSubmit={Boolean(poi) && canPersistPoi} />}
   </main>;
 }

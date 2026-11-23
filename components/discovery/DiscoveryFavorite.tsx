@@ -54,8 +54,8 @@ export function useDiscoveryFavoriteFlags(poiIds: string[]) {
   };
 }
 
-export default function DiscoveryFavorite({poiId, returnPath, state}: {
-  poiId: string; returnPath: string; state: ReturnType<typeof useDiscoveryFavoriteFlags>
+export default function DiscoveryFavorite({poiId, returnPath, state, canSave}: {
+  poiId: string; returnPath: string; canSave: boolean; state: ReturnType<typeof useDiscoveryFavoriteFlags>
 }) {
   const t = useTranslations('Discovery');
   const locale = useLocale();
@@ -69,13 +69,15 @@ export default function DiscoveryFavorite({poiId, returnPath, state}: {
     setError(null);
     return () => {pending.current?.abort(); pending.current = null;};
   }, [accountId, poiId]);
+  const saved = state.saved(poiId);
+  // Existing saves can still be removed when new associations are disabled.
+  if (!canSave && !saved && (session === null || state.ready)) return null;
   if (session === null) return <Link href={{pathname: '/login', query: {next: '/' + locale + returnPath}}} className={style}>
     <Heart size={15} aria-hidden="true" />{t('signInToSave')}
   </Link>;
-  const saved = state.saved(poiId);
 
   async function toggle() {
-    if (!session || pending.current || !state.ready) return;
+    if (!session || pending.current || !state.ready || (!canSave && !saved)) return;
     const controller = new AbortController();
     pending.current = controller;
     setSaving(true);
@@ -86,7 +88,10 @@ export default function DiscoveryFavorite({poiId, returnPath, state}: {
       });
       if (!controller.signal.aborted) state.update(poiId, result.saved);
     } catch (failure) {
-      if (!controller.signal.aborted) setError(discoveryErrorKey(failure instanceof DiscoveryError ? failure.code : null));
+      if (!controller.signal.aborted) {
+        state.retry();
+        setError(discoveryErrorKey(failure instanceof DiscoveryError ? failure.code : null));
+      }
     } finally {
       if (pending.current === controller) {
         pending.current = null;

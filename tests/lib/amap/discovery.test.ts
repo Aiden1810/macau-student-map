@@ -71,6 +71,26 @@ describe('AMap discovery', () => {
     await expect(search({kind: 'detail', id: 'B000000001'})).rejects.toMatchObject({code: 'TIMEOUT', status: 504});
   });
 
+  it('stops pagination at 200 raw POIs and rejects page 11 at the input boundary', async () => {
+    const upstream = vi.fn(async () => reply({status: '1', count: '20', pois: Array(20).fill(restaurant)}));
+    const search = createDiscoveryProvider('key', upstream);
+    await expect(search({kind: 'text', city: '澳门', page: 9})).resolves.toMatchObject({hasMore: true});
+    await expect(search({kind: 'text', city: '澳门', page: 10})).resolves.toMatchObject({hasMore: false});
+    expect(discoveryQuery.safeParse({kind: 'text', city: '澳门', page: 11}).success).toBe(false);
+  });
+
+  it('reports unusable provider records separately from an empty query', async () => {
+    const upstream = vi.fn()
+      .mockResolvedValueOnce(reply({status: '1', pois: [{...restaurant, location: 'invalid'}]}))
+      .mockResolvedValueOnce(reply({status: '1', geocodes: [{location: 'invalid'}]}))
+      .mockResolvedValueOnce(reply({status: '1', geocodes: []}));
+    const search = createDiscoveryProvider('key', upstream);
+    await expect(search({kind: 'text', city: '澳门', page: 1})).rejects.toMatchObject({code: 'PROVIDER_FAILED'});
+    const address = {kind: 'area', city: '澳门', address: '新马路'} as const;
+    await expect(search(address)).rejects.toMatchObject({code: 'PROVIDER_FAILED'});
+    await expect(search(address)).resolves.toMatchObject({items: [], hasMore: false});
+  });
+
   it('preserves homonymous branches and rejects wrong detail IDs and coordinates', async () => {
     const upstream = vi.fn()
       .mockResolvedValueOnce(reply({status: '1', count: '3', pois: [

@@ -111,6 +111,7 @@ function PrivatePreview({id, token}: {id: string; token: string}) {
   const [loading, setLoading] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
   useEffect(() => () => controllerRef.current?.abort(), []);
+  useEffect(() => () => {if (url) URL.revokeObjectURL(url);}, [url]);
 
   async function preview() {
     if (loading) return;
@@ -123,8 +124,8 @@ function PrivatePreview({id, token}: {id: string; token: string}) {
         headers: {Authorization: 'Bearer ' + token}, signal: AbortSignal.any([controller.signal, AbortSignal.timeout(10000)])
       });
       if (!response.ok) throw new Error('Preview unavailable');
-      const {url} = await response.json();
-      if (!controller.signal.aborted) setUrl(url);
+      const image = await response.blob();
+      if (!controller.signal.aborted) setUrl(URL.createObjectURL(image));
     } catch {if (!controller.signal.aborted) setFailed(true);}
     finally {if (!controller.signal.aborted) setLoading(false);}
   }

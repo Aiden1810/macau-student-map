@@ -6,11 +6,18 @@ import {queryAmap} from './server';
 import type {PoiMetadata} from './business';
 import type {SupabaseClient} from '@supabase/supabase-js';
 
+export function poiPersistenceEnabled() {
+  return process.env.AMAP_ALLOW_POI_ID_PERSISTENCE === 'true';
+}
+
 export function serviceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new DiscoveryError('NOT_CONFIGURED', 503);
-  return createClient(url, key, {auth: {persistSession: false, autoRefreshToken: false}});
+  return createClient(url, key, {
+    auth: {persistSession: false, autoRefreshToken: false},
+    global: {fetch: (input, init) => fetch(input, {...init, cache: 'no-store'})}
+  });
 }
 
 export async function discoveryActor(request: Request) {
@@ -20,10 +27,10 @@ export async function discoveryActor(request: Request) {
 }
 
 export async function verifyDiscoveryPoi(client: SupabaseClient, poiId: string, signal: AbortSignal) {
-  if (process.env.AMAP_ALLOW_POI_ID_PERSISTENCE !== 'true') {
+  if (!poiPersistenceEnabled()) {
     throw new DiscoveryError('POI_PERSISTENCE_DISABLED', 503);
   }
-  const {data, error} = await client.rpc('discovery_poi_metadata', {p_ids: [poiId]}).abortSignal(signal);
+  const {data, error} = await client.rpc('discovery_poi_metadata', {p_ids: [poiId]}).abortSignal(AbortSignal.any([signal, AbortSignal.timeout(5000)]));
   if (error) throw error;
   const [location] = (data ?? []) as PoiMetadata[];
   if (location) {

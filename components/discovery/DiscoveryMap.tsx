@@ -19,13 +19,13 @@ const startBounds: Bounds = [113.52, 22.11, 113.61, 22.23];
 const control = 'min-h-11 rounded-xl border border-line bg-white px-3 text-sm';
 const button = control + ' font-medium text-pine-800 disabled:opacity-50';
 
-export default function DiscoveryMap() {
-  return <DiscoveryAccountProvider><DiscoveryBrowser /></DiscoveryAccountProvider>;
+export default function DiscoveryMap({canPersistPoi}: {canPersistPoi: boolean}) {
+  return <DiscoveryAccountProvider><DiscoveryBrowser canPersistPoi={canPersistPoi} /></DiscoveryAccountProvider>;
 }
 
-function DiscoveryBrowser() {
+function DiscoveryBrowser({canPersistPoi}: {canPersistPoi: boolean}) {
   const t = useTranslations('Discovery');
-  const {result, loading, error, catalogError, load, nextPage} = useDiscoverySearch();
+  const {result, loading, error, catalogError, load, nextPage, retry} = useDiscoverySearch();
   const legacyFavorites = useFavorites();
   const [city, setCity] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -46,6 +46,7 @@ function DiscoveryBrowser() {
   const entries = useMemo(() => mergeDiscoveryEntries(
     result.pois, result.catalog, result.metadata, result.scope, recommendedOnly
   ), [result, recommendedOnly]);
+  const searchFailed = Boolean(error || catalogError || result.metadataError);
   const shops = useMemo(() => entries.map(entry => entry.shop), [entries]);
   const favoriteState = useDiscoveryFavoriteFlags(result.pois.map(poi => poi.id));
   const selected = shops.some(shop => shop.id === selectedId) ? selectedId : null;
@@ -124,9 +125,14 @@ function DiscoveryBrowser() {
         <button type="button" className={button + ' inline-flex items-center gap-1'} disabled={!position} onClick={() => void start({kind: 'around', center: position, radius})}><LocateFixed size={15} />{t('nearby')}</button>
       </div>
       {!position && !mapError && <p className="text-xs text-muted">{t('locationHint')}</p>}
+      {!canPersistPoi && <p className="text-xs text-muted">{t('persistenceDisabled')}</p>}
       {inputError && <p role="alert" className="text-sm text-rose-700">{t(inputError)}</p>}
       {error && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{t(discoveryErrorKey(error))}</p>}
       {(result.metadataError || catalogError) && <p role="alert" className="text-sm text-amber-900">{t('catalogFailed')}</p>}
+      {searchFailed && <button type="button" className={button} disabled={loading} onClick={async () => {
+        const scope = await retry();
+        if (scope?.kind === 'around') setFocusCoordinates(scope.center);
+      }}>{t('retry')}</button>}
 
       <div className="grid items-start gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="relative h-[36dvh] min-h-56 md:sticky md:top-4 md:h-[65dvh]">
@@ -148,8 +154,8 @@ function DiscoveryBrowser() {
               else entryNodes.current.delete(entry.shop.id);
             }}
             onSelect={() => {setSelectedId(entry.shop.id); setLocateSignal(old => old + 1);}}
-            legacyFavorites={legacyFavorites} favoriteState={favoriteState} />)}
-          {(result.amapMore || result.catalogMore) && <button type="button" disabled={loading} onClick={nextPage} className={button + ' w-full'}>{t('more')}</button>}
+            legacyFavorites={legacyFavorites} favoriteState={favoriteState} canPersistPoi={canPersistPoi} />)}
+          {!searchFailed && (result.amapMore || result.catalogMore) && <button type="button" disabled={loading} onClick={nextPage} className={button + ' w-full'}>{t('more')}</button>}
         </section>
       </div>
       <p className="text-xs text-muted">{t('provider')}</p>
@@ -157,9 +163,9 @@ function DiscoveryBrowser() {
   );
 }
 
-function DiscoveryRow({entry, active, position, onSelect, setNode, legacyFavorites, favoriteState}: {
+function DiscoveryRow({entry, active, position, onSelect, setNode, legacyFavorites, favoriteState, canPersistPoi}: {
   entry: DiscoveryEntry; active: boolean; position: Coordinates | null; onSelect: () => void;
-  setNode: (node: HTMLElement | null) => void; legacyFavorites: ReturnType<typeof useFavorites>; favoriteState: ReturnType<typeof useDiscoveryFavoriteFlags>
+  setNode: (node: HTMLElement | null) => void; legacyFavorites: ReturnType<typeof useFavorites>; favoriteState: ReturnType<typeof useDiscoveryFavoriteFlags>; canPersistPoi: boolean
 }) {
   const t = useTranslations('Discovery');
   const {shop, poiId, placeId, category} = entry;
@@ -180,8 +186,8 @@ function DiscoveryRow({entry, active, position, onSelect, setNode, legacyFavorit
       <div className="mt-1 flex flex-wrap gap-2">
         <Link href={detail} className={button + ' inline-flex items-center'}>{t('details')}</Link>
         {nav && <a href={nav} target="_blank" rel="noopener noreferrer" className={button + ' inline-flex items-center'}>{t('navigate')}</a>}
-        {poiId
-          ? <DiscoveryFavorite poiId={poiId} returnPath={detail} state={favoriteState} />
+        {poiId && (canPersistPoi || !placeId)
+          ? <DiscoveryFavorite poiId={poiId} returnPath={detail} state={favoriteState} canSave={canPersistPoi} />
           : <button type="button" className={button} disabled={!legacyFavorites.isLoaded} aria-pressed={legacyFavorites.favorites.includes(shop.id)}
               onClick={() => void legacyFavorites.toggleFavorite(shop.id)}>{t(legacyFavorites.favorites.includes(shop.id) ? 'saved' : 'save')}</button>}
       </div>
