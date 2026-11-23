@@ -71,7 +71,11 @@ if (-not (Test-Path .env.local)) {
 | `NEXT_PUBLIC_SUPABASE_URL` | 开发 Supabase 地址；与下面的 key 一起用于地点、登录、收藏、评价和投稿等功能。缺失时当前首页会抛错。 |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 对应项目的公开匿名／publishable key；不能使用 service_role key 替代。 |
 | `NEXT_PUBLIC_AMAP_WEB_KEY` | 高德 JS SDK key；缺失时不能验证地图、POI 搜索和真实路线。需符合高德控制台的开发来源限制。 |
-| `NEXT_PUBLIC_AMAP_SECURITY_CODE` | 仅当高德控制台要求安全密钥时配置。 |
+| `NEXT_PUBLIC_AMAP_USE_SECURITY_PROXY` | 当高德 JS Key 要求安全密钥时设为 `true`。 |
+| `AMAP_JS_SECURITY_CODE` | 服务端高德 JS 安全码。原公开安全码变量已停用。 |
+| `AMAP_WEB_SERVICE_KEY` | 独立高德 Web 服务 Key。验证动态地图的地点搜索、地理编码和详情时填写。 |
+| `AMAP_ALLOW_POI_ID_PERSISTENCE` | 获得 POI ID 持久化授权后，在隔离测试环境设为 `true`。 |
+| `SUPABASE_SERVICE_ROLE_KEY` | 仅服务端使用。验证动态地点收藏、推荐写入和私有图片读取时填写。 |
 | `DEEPSEEK_API_KEY` | 仅服务端使用；缺失时 AI 接口返回未配置，无法验证真实模型识别。不要添加 NEXT_PUBLIC_ 前缀。 |
 | `DEEPSEEK_MODEL` | 可选，当前代码默认 deepseek-flash；模型可用性须在实际配置的服务中确认。 |
 

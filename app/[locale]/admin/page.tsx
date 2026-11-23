@@ -16,6 +16,7 @@ import PlaceEditor, {adminEditorRequest} from '@/components/admin/PlaceEditor';
 import type {AdminPlaceRecord} from '@/lib/admin/place-editor';
 import type {QualityFilter} from '@/lib/admin/operations';
 import FeedbackInbox, {type FeedbackStats} from '@/components/admin/FeedbackInbox';
+import RecommendationInbox from '@/components/discovery/RecommendationInbox';
 import ReviewInbox from '@/components/admin/ReviewInbox';
 
 type ShopStatus = 'draft' | 'published' | 'archived';
@@ -533,7 +534,7 @@ export default function AdminModerationPage() {
           qualityFilter={qualityFilter} onQualityFilterChange={setQualityFilter} qualityFocusKey={qualityFocusKey} /></div>
         <div hidden={section !== 'submissions'}><SubmissionQueue onPublished={() => setPlaceRefreshSignal(value => value + 1)} onStatsChange={setQueueStats} /></div>
         <div hidden={section !== 'feedback'}><FeedbackInbox onStatsChange={setFeedbackStats} /></div>
-        {section==='reviews'&&<ReviewInbox/>}
+        {section==='reviews'&&<><RecommendationInbox/><ReviewInbox/></>}
         {section==='users'&&<UsersManager/>}
         {section==='usage'&&<UsageDashboard/>}
         <div hidden={section !== 'tools'}>

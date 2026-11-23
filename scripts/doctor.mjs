@@ -129,14 +129,26 @@ function run() {
       );
     }
 
-    const amapSecurityCode = env.get('NEXT_PUBLIC_AMAP_SECURITY_CODE')?.trim();
-    const securityPlaceholder = Boolean(amapSecurityCode && isExampleValue(amapSecurityCode));
-    addCheck(
-      'ENV: NEXT_PUBLIC_AMAP_SECURITY_CODE',
-      !securityPlaceholder,
-      securityPlaceholder ? '仍为示例占位值。' : amapSecurityCode ? '已填写；未验证服务连通性。' : '未配置；仅当高德控制台要求安全密钥时才需要。',
-      securityPlaceholder ? '仅当高德控制台要求安全密钥时填写有效配置，否则留空。' : undefined,
-    );
+    const legacyAmapCode = env.get('NEXT_PUBLIC_AMAP_SECURITY_CODE')?.trim();
+    if (legacyAmapCode) {
+      addCheck('ENV: NEXT_PUBLIC_AMAP_SECURITY_CODE', false,
+        isExampleValue(legacyAmapCode) ? '仍为示例占位值。' : '公开安全码变量已停用。',
+        '使用服务端 AMAP_JS_SECURITY_CODE，并将 NEXT_PUBLIC_AMAP_USE_SECURITY_PROXY 设为 true。');
+    }
+    const proxyEnabled = env.get('NEXT_PUBLIC_AMAP_USE_SECURITY_PROXY') === 'true';
+    const jsCode = env.get('AMAP_JS_SECURITY_CODE')?.trim();
+    const validJsCode = Boolean(jsCode && !isExampleValue(jsCode));
+    addCheck('ENV: AMAP_JS_SECURITY_CODE', proxyEnabled ? validJsCode : !jsCode,
+      proxyEnabled ? (validJsCode ? '已填写；未验证服务连通性。' : '代理已启用，服务端安全码缺失或仍为占位值。')
+        : jsCode ? '已填写服务端安全码，代理开关尚未启用。' : '代理未启用。');
+    const serviceKey = env.get('AMAP_WEB_SERVICE_KEY')?.trim();
+    addCheck('ENV: AMAP_WEB_SERVICE_KEY', !serviceKey || !isExampleValue(serviceKey),
+      serviceKey ? (isExampleValue(serviceKey) ? '仍为示例占位值。' : '已填写；未验证服务连通性。') : '未配置；无法验证真实动态搜索。');
+    if (env.get('AMAP_ALLOW_POI_ID_PERSISTENCE') === 'true') {
+      const roleKey = env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim();
+      addCheck('ENV: SUPABASE_SERVICE_ROLE_KEY', Boolean(roleKey && !isExampleValue(roleKey)),
+        roleKey && !isExampleValue(roleKey) ? '已填写；未验证服务连通性。' : '已启用高德地点持久化，服务端密钥缺失或仍为占位值。');
+    }
 
     const deepseekKey = env.get('DEEPSEEK_API_KEY')?.trim();
     const aiPlaceholder = Boolean(deepseekKey && isExampleValue(deepseekKey));

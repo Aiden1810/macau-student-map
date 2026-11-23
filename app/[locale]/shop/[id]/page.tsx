@@ -1,5 +1,7 @@
 'use client';
 
+import StudentRecommendations from '@/components/discovery/StudentRecommendations';
+import {placeIdSchema} from '@/lib/discovery/search';
 import PlaceLocationInfo from '@/components/PlaceLocationInfo';
 
 import Image from 'next/image';
@@ -428,6 +430,8 @@ export default function ShopDetailPage() {
           onOpenAdminManager={() => setIsAdminImageManagerOpen(true)}
           canManageImages={canManageImages}
         />
+
+        {placeIdSchema.safeParse(shop.id).success && <StudentRecommendations key={shop.id} target={{placeId: shop.id}} returnPath={'/shop/' + shop.id} />}
 
         <section className="space-y-2">
           <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold text-ink">{t('reviews')}</h2><Link href={`/${locale}/shop/${shop.id}/review/new`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-pine-700"><MessageCirclePlus size={17} aria-hidden="true" />{t('writeReview')}</Link></div>

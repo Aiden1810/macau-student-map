@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import {Crosshair, LoaderCircle, Minus, Plus} from 'lucide-react';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Shop} from '@/types/shop';
+import type {Bounds, Coordinates} from '@/lib/discovery/search';
 import {buildPlacePinHtml} from '@/lib/amap/place-marker';
 import {loadAmapPlaceSdk} from '@/lib/amap/place-search';
 import {formatPlacePrice, getPlacePresentation} from '@/lib/domain/place-types';
@@ -13,6 +14,11 @@ interface MapPlaceholderProps {
   activeL1?: string;
   selectedShopId: Shop['id'] | null;
   locateSignal?: number;
+  discovery?: boolean;
+  focusCoordinates?: Coordinates | null;
+  onViewportBoundsChange?: (bounds: Bounds) => void;
+  onMapError?: () => void;
+  onLocationFailure?: () => void;
   onSelectShop: (shopId: Shop['id']) => void;
   contributionPickMode?: boolean;
   onPickCoordinates?: (coords: [number, number]) => void;
@@ -93,13 +99,16 @@ type AMapNamespace = {
     showMarker: boolean;
     showCircle: boolean;
     zoomToAccuracy: boolean;
+    convert?: boolean;
+    noIpLocate?: number;
+    GeoLocationFirst?: boolean;
+    getCityWhenFail?: boolean;
   }) => AMapGeolocation;
   plugin: (name: string | string[], callback: () => void) => void;
 };
 
 type AMapWindow = Window & {
   AMap?: AMapNamespace;
-  _AMapSecurityConfig?: {securityJsCode?: string};
 };
 
 type MarkerStore = {
@@ -252,6 +261,11 @@ export default function MapPlaceholder({
   activeL1 = 'all',
   selectedShopId,
   locateSignal = 0,
+  discovery = false,
+  focusCoordinates = null,
+  onViewportBoundsChange,
+  onMapError,
+  onLocationFailure,
   onSelectShop,
   contributionPickMode = false,
   onPickCoordinates,
@@ -267,6 +281,7 @@ export default function MapPlaceholder({
   const selectedShopPinRef = useRef<AMapMarker | null>(null);
   const hoveredShopPinRef = useRef<AMapMarker | null>(null);
   const myLocationPinRef = useRef<AMapMarker | null>(null);
+  const geolocationPending = useRef<(() => void) | null>(null);
 
   const [mapReady, setMapReady] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
@@ -324,18 +339,17 @@ export default function MapPlaceholder({
   }, [onPickCoordinates]);
 
   useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !focusCoordinates || !map) return;
+    map.setZoomAndCenter(13, focusCoordinates, true);
+  }, [focusCoordinates, mapReady]);
+
+  useEffect(() => {
     const amapKey = process.env.NEXT_PUBLIC_AMAP_WEB_KEY;
 
     if (!containerRef.current || !amapKey) {
+      if (!amapKey) onMapError?.();
       return;
-    }
-
-    if (typeof window !== 'undefined') {
-      const w = window as AMapWindow;
-      const securityCode = process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE;
-      if (securityCode && !w._AMapSecurityConfig) {
-        w._AMapSecurityConfig = {securityJsCode: securityCode};
-      }
     }
 
     let cancelled = false;
@@ -375,7 +389,17 @@ export default function MapPlaceholder({
           setShouldAutoFitFilteredMarkers(false);
         });
 
+        const reportBounds = () => {
+          const bounds = map.getBounds?.();
+          if (!bounds) return;
+          const sw = bounds.getSouthWest();
+          const ne = bounds.getNorthEast();
+          onViewportBoundsChange?.([sw.getLng(), sw.getLat(), ne.getLng(), ne.getLat()]);
+        };
+        reportBounds();
+        map.on('zoomend', reportBounds);
         map.on('moveend', () => {
+          reportBounds();
           const currentZoom = map.getZoom?.() ?? 14;
           const currentCenter = map.getCenter?.();
           const nextCenter = currentCenter ? [currentCenter.getLng(), currentCenter.getLat()] as [number, number] : null;
@@ -386,7 +410,9 @@ export default function MapPlaceholder({
         mapRef.current = map;
         setMapReady(true);
       } catch {
+        if (cancelled) return;
         setMapReady(false);
+        onMapError?.();
       }
     };
 
@@ -394,6 +420,7 @@ export default function MapPlaceholder({
 
     return () => {
       cancelled = true;
+      geolocationPending.current?.();
       if (mapRef.current) {
         mapRef.current.destroy();
         mapRef.current = null;
@@ -405,7 +432,7 @@ export default function MapPlaceholder({
       hoveredShopPinRef.current = null;
       myLocationPinRef.current = null;
     };
-  }, [onViewportCenterChange]);
+  }, [onViewportCenterChange, onViewportBoundsChange, onMapError]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -539,7 +566,7 @@ export default function MapPlaceholder({
       zIndex: 320,
       // The mobile drawer already shows the details; a second popup would
       // overlap its edge and the floating assistant entry.
-      content: window.matchMedia('(max-width: 767px)').matches
+      content: discovery || window.matchMedia('(max-width: 767px)').matches
         ? buildPlacePinHtml(selectedShop, 'selected')
         : buildSelectedShopMarkerHtml(selectedShop)
     });
@@ -550,7 +577,7 @@ export default function MapPlaceholder({
     if (shouldRefocus || selectionChanged) {
       flyToLocation(selectedShop.coordinates[0], selectedShop.coordinates[1]);
     }
-  }, [selectedShop, locateSignal, flyToLocation, mapReady]);
+  }, [selectedShop, locateSignal, flyToLocation, mapReady, discovery]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -606,54 +633,72 @@ export default function MapPlaceholder({
   const handleLocateMe = () => {
     const map = mapRef.current;
     const AMap = getAMapFromWindow();
-    if (!map || !AMap || geoLoading) return;
+    if (!map || !AMap || geolocationPending.current) return;
 
     setGeoLoading(true);
+    let settled = false;
+    const stop = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      geolocationPending.current = null;
+    };
+    const fail = (message: string) => {
+      if (settled) return;
+      stop();
+      setGeoLoading(false);
+      if (discovery) {
+        myLocationPinRef.current?.setMap(null);
+        myLocationPinRef.current = null;
+        onLocationFailure?.();
+      }
+      toast.error(message);
+    };
+    const unavailable = '定位失败，请检查定位权限是否已开启';
+    const timer = setTimeout(() => fail(unavailable), 12000);
+    geolocationPending.current = stop;
 
-    AMap.plugin('AMap.Geolocation', () => {
-      const geolocation = new AMap.Geolocation({
-        enableHighAccuracy: true,
-        timeout: 10000,
-        showMarker: false,
-        showCircle: false,
-        zoomToAccuracy: false
-      });
-
-      geolocation.getCurrentPosition((status, result) => {
-        setGeoLoading(false);
-
-        if (status !== 'complete') {
-          toast.error('定位失败，请检查定位权限是否已开启');
-          return;
-        }
-
-        const lng = result.position?.lng;
-        const lat = result.position?.lat;
-        if (typeof lng === 'number' && typeof lat === 'number') {
-          if (myLocationPinRef.current) {
-            myLocationPinRef.current.setMap(null);
-            myLocationPinRef.current = null;
-          }
-
-          const myMarker = new AMap.Marker({
-            position: [lng, lat],
-            offset: new AMap.Pixel(0, 0),
-            zIndex: 330,
-            content: buildUserPinHtml(true)
+    try {
+      AMap.plugin('AMap.Geolocation', () => {
+        if (settled) return;
+        try {
+          const geolocation = new AMap.Geolocation({
+            enableHighAccuracy: true,
+            timeout: 10000,
+            showMarker: false,
+            showCircle: false,
+            zoomToAccuracy: false,
+            convert: true,
+            ...(discovery ? {noIpLocate: 3, GeoLocationFirst: true, getCityWhenFail: false} : {})
           });
-
-          myMarker.setMap(map);
-          myLocationPinRef.current = myMarker;
-
-          onUserLocationChange?.([lng, lat]);
-          flyToLocation(lng, lat);
-          toast.success('已定位到你当前位置');
-          return;
-        }
-
-        toast.error('定位结果无效，请稍后重试');
+          geolocation.getCurrentPosition((status, result) => {
+            if (settled) return;
+            if (status !== 'complete') {fail(unavailable); return;}
+            const lng = result.position?.lng;
+            const lat = result.position?.lat;
+            if (typeof lng !== 'number' || typeof lat !== 'number'
+              || !Number.isFinite(lng) || !Number.isFinite(lat) || Math.abs(lng) > 180 || Math.abs(lat) > 90) {
+              fail('定位结果无效，请稍后重试');
+              return;
+            }
+            stop();
+            setGeoLoading(false);
+            myLocationPinRef.current?.setMap(null);
+            const myMarker = new AMap.Marker({
+              position: [lng, lat],
+              offset: new AMap.Pixel(0, 0),
+              zIndex: 330,
+              content: buildUserPinHtml(true)
+            });
+            myMarker.setMap(map);
+            myLocationPinRef.current = myMarker;
+            onUserLocationChange?.([lng, lat]);
+            flyToLocation(lng, lat);
+            toast.success('已定位到你当前位置');
+          });
+        } catch {fail(unavailable);}
       });
-    });
+    } catch {fail(unavailable);}
   };
 
   const handleZoomIn = () => {
@@ -674,7 +719,7 @@ export default function MapPlaceholder({
     <div className="relative h-full w-full overflow-hidden rounded-none border-0 bg-transparent shadow-none md:rounded-2xl md:border md:border-slate-200/90 md:bg-white md:shadow-[0_10px_28px_rgba(2,30,18,0.08)] md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)]">
       <div ref={containerRef} className="h-full w-full" />
 
-      <div className="pointer-events-none absolute right-4 top-[152px] z-20 flex flex-col items-center gap-2 md:hidden">
+      <div className={`pointer-events-none absolute right-4 z-20 flex flex-col items-center gap-2 ${discovery ? 'top-[var(--discovery-controls-top,1rem)] md:top-4' : 'top-[152px] md:hidden'}`}>
         <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_3px_14px_#193d3210]">
           <button type="button" aria-label="放大地图" onClick={handleZoomIn} className="pointer-events-auto flex h-11 w-11 items-center justify-center text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pine-700"><Plus size={19} aria-hidden="true" /></button>
           <div className="mx-3 border-t border-line" />
