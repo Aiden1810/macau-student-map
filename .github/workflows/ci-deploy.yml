@@ -41,6 +41,53 @@ jobs:
       - name: Build
         run: npm run build
 
+  check-production-config:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    env:
+      VERCEL_ORG_ID: team_HPaY82QThdACpL6Yt4V8Zfhq
+      VERCEL_PROJECT_ID: prj_Hpu3ocNgDefJ7ATF2juPvL45J30l
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Vercel CLI
+        run: npm i -g vercel@64.3.1
+
+      - name: Pull Vercel Environment
+        run: vercel pull --yes --environment=production --scope="$VERCEL_ORG_ID"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Check required production settings
+        run: |
+          node --env-file=.vercel/.env.production.local --input-type=module <<'NODE'
+          const required = [
+            'NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY',
+            'NEXT_PUBLIC_AMAP_WEB_KEY', 'AMAP_WEB_SERVICE_KEY'
+          ];
+          const missing = required.filter(name => !process.env[name]?.trim());
+          const problems = missing.map(name => 'Missing production setting ' + name);
+          if (process.env.NEXT_PUBLIC_AMAP_USE_SECURITY_PROXY === 'true' && !process.env.AMAP_JS_SECURITY_CODE?.trim()) {
+            problems.push('Missing production setting AMAP_JS_SECURITY_CODE');
+          }
+          if (process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE?.trim() && process.env.NEXT_PUBLIC_AMAP_USE_SECURITY_PROXY !== 'true') {
+            problems.push('Move the legacy AMap security code to the server-only proxy configuration');
+          }
+          if (process.env.AMAP_ALLOW_POI_ID_PERSISTENCE === 'true') {
+            problems.push('Disable AMap POI persistence until its license has been verified');
+          }
+          if (problems.length) {
+            for (const problem of problems) console.error(problem);
+            process.exitCode = 1;
+          }
+          NODE
+
   deploy-vercel:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: lint-and-build
