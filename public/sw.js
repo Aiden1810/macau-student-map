@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'macau-pulse-v5';
+const CACHE_VERSION = 'macau-pulse-v6';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
 
@@ -41,7 +41,7 @@ self.addEventListener('fetch', event => {
 
   // API responses contain live shop, submission, and account data. Serving
   // them cache-first can keep an old empty response visible indefinitely.
-  if (requestUrl.pathname.startsWith('/api/')) {
+  if (requestUrl.pathname.startsWith('/api/') || requestUrl.pathname.startsWith('/_AMapService/')) {
     event.respondWith(fetch(request, {cache: 'no-store'}));
     return;
   }

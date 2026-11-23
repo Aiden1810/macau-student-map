@@ -13,7 +13,7 @@ const ICON_PATHS: Record<PlaceIconKey, string> = {
   pin: '<path d="M12 22S4 14 4 9a8 8 0 1 1 16 0c0 5-8 13-8 13Z"/><circle cx="12" cy="9" r="2"/>'
 };
 
-export function buildPlacePinHtml(place: PlaceTypeInput, size: 'default' | 'selected' = 'default', anchored = true): string {
+export function buildPlacePinHtml(place: PlaceTypeInput & {studentRecommended?: boolean}, size: 'default' | 'selected' = 'default', anchored = true): string {
   const {icon, label} = getPlacePresentation(place);
   const width = size === 'selected' ? 44 : 36;
   const height = size === 'selected' ? 54 : 46;
@@ -21,6 +21,7 @@ export function buildPlacePinHtml(place: PlaceTypeInput, size: 'default' | 'sele
     <svg width="${width}" height="${height}" viewBox="0 0 44 54" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${label}">
       <path d="M22 52S5 37 5 24a17 17 0 1 1 34 0c0 13-17 28-17 28Z" fill="white"/>
       <circle cx="22" cy="24" r="14" fill="#245b49"/>
+      ${place.studentRecommended ? '<circle cx="35" cy="12" r="9" fill="#f9da78" stroke="white" stroke-width="2"/><path d="m32 12 2 2 4-4" fill="none" stroke="#245b49" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>' : ''}
       <g transform="translate(12 14) scale(.8333)" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[icon]}</g>
     </svg>
   </div>`;

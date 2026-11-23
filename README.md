@@ -109,11 +109,17 @@ Configure these values in **.env.local**:
 | NEXT_PUBLIC_SUPABASE_URL | Supabase project URL |
 | NEXT_PUBLIC_SUPABASE_ANON_KEY | Supabase publishable/anonymous key |
 | NEXT_PUBLIC_AMAP_WEB_KEY | AMap Web JavaScript API key |
-| NEXT_PUBLIC_AMAP_SECURITY_CODE | Optional AMap security code, when enabled in the AMap console |
+| NEXT_PUBLIC_AMAP_USE_SECURITY_PROXY | Set to `true` when the AMap JS Key requires the security proxy |
+| AMAP_JS_SECURITY_CODE | Server-only AMap JS security code |
+| AMAP_WEB_SERVICE_KEY | Server-only AMap Web Service key for live restaurant, area and POI lookups |
+| AMAP_ALLOW_POI_ID_PERSISTENCE | Enable only after confirming permission to store POI identifiers |
+| SUPABASE_SERVICE_ROLE_KEY | Server-only. Used for verified recommendation writes, live place favorites and private media signing |
 | DEEPSEEK_API_KEY | Server-only; required for real AI chat and place interpretation |
 | DEEPSEEK_MODEL | Optional model override; current default is deepseek-flash |
 
 Variables prefixed with **NEXT_PUBLIC_** are included in browser code. Do not place a Supabase **service_role** key, administrator password, or another private secret in them.
+
+See [P1 setup and acceptance](docs/discovery-p1.md) for migration, signing and coverage details.
 
 Useful checks:
 

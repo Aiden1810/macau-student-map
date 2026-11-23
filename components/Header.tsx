@@ -1,4 +1,4 @@
-import {ChevronDown, Globe, LogOut, MessageCircle, Search, UserRound, X} from 'lucide-react';
+import {ChevronDown, Compass, Globe, LogOut, MessageCircle, Search, UserRound, X} from 'lucide-react';
 import {useLocale, useTranslations} from 'next-intl';
 import {type CSSProperties, useEffect, useRef, useState} from 'react';
 import {Link, usePathname} from '@/i18n/navigation';
@@ -52,6 +52,7 @@ export default function Header({
   const tCommon = useTranslations('Common');
   const tHome = useTranslations('Home');
   const tAuth = useTranslations('Auth');
+  const tDiscovery = useTranslations('Discovery');
   const locale = useLocale();
   const pathname = usePathname();
   const [isCompact, setIsCompact] = useState(false);
@@ -138,6 +139,9 @@ export default function Header({
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
+          <Link href="/discover" aria-label={tDiscovery('title')} className="inline-flex h-[52px] w-11 items-center justify-center gap-1.5 rounded-full border border-line bg-white text-sm font-semibold text-pine-700 focus-visible:ring-2 focus-visible:ring-pine-700 md:h-10 md:w-auto md:px-3">
+            <Compass size={19} aria-hidden="true" /><span className="hidden md:inline">{tDiscovery('title')}</span>
+          </Link>
           <button type="button" onClick={onToggleAssistant} aria-haspopup="dialog" aria-expanded={assistantOpen} aria-controls="home-ai-dialog" className="hidden min-h-10 items-center rounded-xl bg-pine-700 md:inline-flex px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 sm:text-sm">
             {assistantCopy(locale).nav}
           </button>

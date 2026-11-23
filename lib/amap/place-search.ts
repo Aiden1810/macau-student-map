@@ -60,7 +60,7 @@ type AmapNamespace = {
 type AmapWindow = Window & {
   AMap?: AmapNamespace;
   __amapPlaceLoadingPromise?: Promise<AmapNamespace>;
-  _AMapSecurityConfig?: {securityJsCode?: string};
+  _AMapSecurityConfig?: {serviceHost: string};
 };
 
 function inferAmapPoiCity(poi: AmapPlaceSearchPoi, fallbackCity?: string): AmapPoiCity {
@@ -167,10 +167,8 @@ export function loadAmapPlaceSdk(key: string): Promise<AmapNamespace> {
   }
 
   const amapWindow = window as AmapWindow;
-  const securityCode = process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE;
-
-  if (securityCode && !amapWindow._AMapSecurityConfig) {
-    amapWindow._AMapSecurityConfig = {securityJsCode: securityCode};
+  if (process.env.NEXT_PUBLIC_AMAP_USE_SECURITY_PROXY === 'true') {
+    amapWindow._AMapSecurityConfig = {serviceHost: window.location.origin + '/_AMapService'};
   }
   if (amapWindow.AMap) return Promise.resolve(amapWindow.AMap);
   if (amapWindow.__amapPlaceLoadingPromise) return amapWindow.__amapPlaceLoadingPromise;

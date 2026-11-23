@@ -63,6 +63,7 @@ export interface Shop {
   rating: number;
   reviews: number;
   recommendStatus: RecommendStatus;
+  studentRecommended?: boolean;
   reviewText?: string | null;
   status: ShopStatus;
   pricePerPerson?: number | null;
