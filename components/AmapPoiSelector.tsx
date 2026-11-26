@@ -87,10 +87,10 @@ export default function AmapPoiSelector({
       .then((options) => {
         if (!cancelled) setResults(options);
       })
-      .catch((searchError) => {
+      .catch(() => {
         if (cancelled) return;
         setResults([]);
-        setError(searchError instanceof Error ? searchError.message : labels.searchFailed);
+        setError(labels.searchFailed);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

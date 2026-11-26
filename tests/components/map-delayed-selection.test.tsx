@@ -5,6 +5,8 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import MapPlaceholder from '../../components/MapPlaceholder';
 import type {Shop} from '../../types/shop';
 
+vi.mock('next-intl', () => ({useTranslations: () => (key: string) => key}));
+
 let host: HTMLDivElement;
 let root: Root;
 const shop: Shop = {
@@ -37,6 +39,7 @@ afterEach(async () => {
 describe('selection made while the map is loading', () => {
   it('places the selected marker and focuses the shop once the SDK is ready', async () => {
     const markerOptions: Array<{zIndex?: number; position: [number, number]}> = [];
+    const setExternalPinMap = vi.fn();
     const move = vi.fn();
     const sdk = {
       plugin(_name: string, ready: () => void) {ready();},
@@ -47,8 +50,9 @@ describe('selection made while the map is loading', () => {
         setZoomAndCenter = move;
       },
       Marker: class {
-        constructor(options: typeof markerOptions[number]) {markerOptions.push(options);}
-        on() {} setMap() {}
+        constructor(private options: typeof markerOptions[number]) {markerOptions.push(options);}
+        on() {}
+        setMap(map: unknown) {if (this.options.zIndex === 340) setExternalPinMap(map);}
       },
       Pixel: class {}, Scale: class {},
       MarkerCluster: class {setMap() {}},
@@ -62,6 +66,14 @@ describe('selection made while the map is loading', () => {
     });
     expect(markerOptions.some(options => options.zIndex === 320)).toBe(true);
     expect(move).toHaveBeenCalledWith(16, [113.6, 22.2], true, {duration: 800});
+
+    await act(async () => root.render(<MapPlaceholder shops={[shop]} selectedShopId={null}
+      highlightedLocation={{longitude: 113.55, latitude: 22.16}} onSelectShop={() => {}} />));
+    expect(markerOptions).toContainEqual(expect.objectContaining({zIndex: 340, position: [113.55, 22.16]}));
+    expect(move).toHaveBeenLastCalledWith(16, [113.55, 22.16], true, {duration: 800});
+    await act(async () => root.render(<MapPlaceholder shops={[shop]} selectedShopId={null}
+      highlightedLocation={null} onSelectShop={() => {}} />));
+    expect(setExternalPinMap).toHaveBeenLastCalledWith(null);
   });
 });
 

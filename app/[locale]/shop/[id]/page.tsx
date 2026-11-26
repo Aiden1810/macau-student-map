@@ -4,7 +4,7 @@ import PlaceLocationInfo from '@/components/PlaceLocationInfo';
 
 import Image from 'next/image';
 import Link from 'next/link';
-import {ArrowLeft, Heart, ImagePlus, MapPin, MessageCirclePlus, Phone} from 'lucide-react';
+import {ArrowLeft, BookOpen, Heart, ImagePlus, MapPin, MessageCirclePlus, Phone} from 'lucide-react';
 import {useParams} from 'next/navigation';
 import {useLocale, useTranslations} from 'next-intl';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -13,7 +13,8 @@ import ImageLightbox from '@/components/ImageLightbox';
 import MobileImageSlider from '@/components/MobileImageSlider';
 import PlaceNavigationActions from '@/components/PlaceNavigationActions';
 import PlaceTypeBadge from '@/components/PlaceTypeBadge';
-import {formatPlacePrice} from '@/lib/domain/place-types';
+import {formatPlacePrice, matchesLaunchCategory} from '@/lib/domain/place-types';
+import {mealHistoryEnabled} from '@/lib/meal-history/model';
 import StarRating from '@/components/StarRating';
 import ReviewInvitation from '@/components/reviews/ReviewInvitation';
 import {createRequestGuard, runLatest} from '@/lib/data/async-request';
@@ -121,11 +122,18 @@ function ShopHero({
   canManageImages: boolean;
 }) {
   const t = useTranslations('ShopDetail');
+  const locale = useLocale();
   const price = resolvePriceDisplay(shop.pricePerPerson);
   const branch = /^(.*?)\s*[（(]([^（）()]+)[）)]$/.exec(shop.name);
   const phone = shop.phone?.trim();
   const hasRating = shop.reviews > 0 && shop.rating > 0;
   const tags = [...new Set(shop.tags.map(tag => tag.trim()).filter(Boolean))];
+  const canRecordMeal = mealHistoryEnabled && matchesLaunchCategory(shop, 'food');
+  const recordCuisine = (shop.subTags?.[0] ?? tags[0] ?? '').trim();
+  const recordHref = `/${locale}/meal-history?${new URLSearchParams({
+    restaurant: shop.name,
+    ...(recordCuisine ? {cuisine: recordCuisine} : {})
+  }).toString()}`;
   return (
     <section>
       <div className="md:hidden"><MobileImageSlider images={shop.imageUrls ?? []} onOpenLightbox={onOpenLightbox} /></div>
@@ -147,6 +155,13 @@ function ShopHero({
           <PlaceLocationInfo details={shop.locationDetails} />
           {phone && <a href={`tel:${phone.replace(/\s+/g, '')}`} className="mt-3 inline-flex min-h-11 items-center gap-2 border-t border-line pt-3 text-sm font-medium text-pine-700"><Phone size={16} aria-hidden="true" />{phone}</a>}
           <div className="mt-4 hidden border-t border-line pt-4 md:block"><PlaceNavigationActions key={shop.id} place={shop} /></div>
+          {canRecordMeal && (
+            <div className="mt-3 border-t border-line pt-3">
+              <Link href={recordHref} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-pine-200 bg-pine-50 px-3 text-sm font-medium text-pine-800 hover:bg-pine-100">
+                <BookOpen size={16} aria-hidden="true" />{t('recordMeal')}
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </section>

@@ -28,9 +28,11 @@ export const routeChoiceSchema = z.discriminatedUnion("status", [
       status: z.enum([
         "no_route",
         "timeout",
+        "rate_limited",
         "error",
         "missing_coordinates",
         "unknown_city",
+        "not_queried",
       ]),
     })
     .strict(),
@@ -74,6 +76,7 @@ export const assistantIntentSchema = z
     excludedFoods: z.array(z.string().trim().min(1).max(30)).max(8),
     priority: z.enum(["fastest", "cheapest", "balanced"]),
     transport: z.enum(["taxi", "transit", "walking", "either"]),
+    maxWalkingMinutes: z.number().finite().positive().max(2880).nullable().optional(),
   })
   .strict();
 export type AssistantIntent = z.infer<typeof assistantIntentSchema>;
@@ -102,6 +105,7 @@ export type AssistantDecision = {
     | "recommended"
     | "no_match"
     | "missing_routes"
+    | "walking_limit"
     | "currency"
     | "party_size"
     | "travel_times"

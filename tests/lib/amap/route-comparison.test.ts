@@ -72,6 +72,64 @@ describe("AMap route comparison", () => {
     expect(result[0].transit).toEqual({ status: "unknown_city" });
     expect(transfer).not.toHaveBeenCalled();
   });
+  it("loads and queries only the walking plugin for a walking-only request", async () => {
+    const plugin = vi.fn((_names: string[], done: () => void) => done());
+    const drive = vi.fn();
+    const transfer = vi.fn();
+    vi.mocked(loadAmapPlaceSdk).mockResolvedValue({
+      plugin, Driving: drive, Transfer: transfer,
+      Walking: class {
+        search(_from: unknown, _to: unknown, done: (status: string, result: unknown) => void) {
+          done("complete", {routes: [{time: 900, distance: 1100}]});
+        }
+      }
+    } as unknown as Awaited<ReturnType<typeof loadAmapPlaceSdk>>);
+    const [result] = await compareAmapRoutes(
+      "test-key", {coordinates: [113.53, 22.13], label: "Campus", city: "澳门"},
+      [{id: "test", coordinates: [113.54, 22.14], city: "澳门"}], "walking"
+    );
+    expect(plugin).toHaveBeenCalledExactlyOnceWith(["AMap.Walking"], expect.any(Function));
+    expect(result).toMatchObject({
+      taxi: {status: "not_queried"}, transit: {status: "not_queried"},
+      walking: {status: "ok", durationSeconds: 900}
+    });
+    expect(drive).not.toHaveBeenCalled();
+    expect(transfer).not.toHaveBeenCalled();
+  });
+  it("retries a rate-limited walking search once and preserves a different successful route", async () => {
+    vi.useFakeTimers();
+    let attempts = 0;
+    vi.mocked(loadAmapPlaceSdk).mockResolvedValue({
+      plugin: (_names: string[], done: () => void) => done(),
+      Walking: class {
+        search(_from: unknown, to: number[], done: (status: string, result: unknown) => void) {
+          if (to[0] === 113.55) {
+            attempts += 1;
+            done("error", attempts === 1 ? "CUQPS_HAS_EXCEEDED_THE_LIMIT" : {infocode: "10021"});
+          } else {
+            done("complete", {routes: [{time: 900, distance: 1100}]});
+          }
+        }
+      }
+    } as unknown as Awaited<ReturnType<typeof loadAmapPlaceSdk>>);
+    try {
+      const comparison = compareAmapRoutes(
+        "test-key", {coordinates: [113.53, 22.13], label: "Campus", city: "澳门"},
+        [{id: "ok", coordinates: [113.54, 22.14], city: null}, {id: "busy", coordinates: [113.55, 22.14], city: null}],
+        "walking"
+      );
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(attempts).toBe(1);
+      await vi.runAllTimersAsync();
+      expect(attempts).toBe(2);
+      expect(await comparison).toMatchObject([
+        {placeId: "ok", walking: {status: "ok", durationSeconds: 900}},
+        {placeId: "busy", walking: {status: "rate_limited"}},
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("resolves destination cities from explicit evidence without defaulting to Macau", () => {
     expect(
       resolveRouteCity({ region: null, address: "珠海市香洲区北山正街78号" }),

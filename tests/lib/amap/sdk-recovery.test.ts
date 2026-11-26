@@ -25,6 +25,9 @@ describe('AMap SDK recovery', () => {
   it('shares one script between simultaneous callers', async () => {
     const first = loadAmapPlaceSdk('local-test-key');
     const second = loadAmapPlaceSdk('local-test-key');
+    expect(window).toHaveProperty('_AMapSecurityConfig', {
+      serviceHost: window.location.origin + '/_AMapService'
+    });
     expect(document.querySelectorAll('script[data-amap="true"]')).toHaveLength(1);
     const sdk = {plugin() {}};
     testWindow.AMap = sdk;

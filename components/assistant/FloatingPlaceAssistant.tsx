@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 import { useLocale } from "next-intl";
 import { chatCopy } from "@/lib/assistant/chat-copy";
+import type { AssistantPlace } from "@/lib/assistant/contracts";
 
 const PlaceAssistant = dynamic(() => import("./PlaceAssistant"), {
   ssr: false,
@@ -14,10 +15,14 @@ function FloatingPlaceAssistant({
   open,
   hasOpened,
   onClose,
+  pagePlaceId,
+  onSendToWheel,
 }: {
   open: boolean;
   hasOpened: boolean;
   onClose: () => void;
+  pagePlaceId?: string;
+  onSendToWheel?: (places: AssistantPlace[]) => void;
 }) {
   const locale = useLocale();
   const [mounted, setMounted] = useState(false);
@@ -100,7 +105,7 @@ function FloatingPlaceAssistant({
       }}
       className="fixed inset-auto bottom-0 left-0 right-0 z-[180] m-0 h-[88dvh] max-h-none w-full max-w-none overflow-hidden rounded-t-[24px] border border-line bg-canvas p-0 text-ink shadow-[0_12px_60px_rgba(15,23,42,0.22)] backdrop:bg-slate-950/25 md:bottom-5 md:left-auto md:right-5 md:h-[min(740px,calc(100dvh-6rem))] md:w-[min(520px,calc(100vw-2.5rem))] md:rounded-[24px]"
     >
-      {hasOpened && <PlaceAssistant visible={open} onMinimize={onClose} />}
+      {hasOpened && <PlaceAssistant visible={open} onMinimize={onClose} pagePlaceId={pagePlaceId} onSendToWheel={onSendToWheel} />}
     </dialog>,
     document.body,
   );

@@ -10,9 +10,11 @@ import ContributionForm from '@/components/ContributionForm';
 import {getL2ValuesByCategory} from '@/lib/search/filter-options';
 import {selectSecondaryFilter} from '@/lib/search/filter-selection';
 import Header from '@/components/Header';
-import FloatingPlaceAssistant from '@/components/assistant/FloatingPlaceAssistant';
+import {useAssistantPanel} from '@/components/assistant/GlobalAssistant';
 import MapPlaceholder from '@/components/MapPlaceholder';
+import MealDecision from '@/components/MealDecision';
 import MobileCategoryNav from '@/components/MobileCategoryNav';
+import NearbyPlaceSearch from '@/components/NearbyPlaceSearch';
 import ShopList from '@/components/ShopList';
 import {
   buildSearchResponse,
@@ -27,7 +29,7 @@ import {filterFoodPlaces} from '@/lib/search/food-filters';
 import {filterRecommendedPlaces} from '@/lib/search/recommendation-filters';
 import {parseDiscoveryUrlState, updateDiscoverySearchParams} from '@/lib/search/url-state';
 import {rankCompatibilityPlaces} from '@/lib/services/search-places';
-import type {AmapPoiSearchOrigin} from '@/lib/amap/place-search';
+import type {AmapPoiOption, AmapPoiSearchOrigin} from '@/lib/amap/place-search';
 import {supabase} from '@/lib/supabase';
 import {useFavorites} from '@/lib/hooks/useFavorites';
 import {shouldTrackVisit} from '@/lib/analytics/traffic-policy';
@@ -38,6 +40,9 @@ const DEFAULT_DRAWER_FILTERS: DrawerFiltersState = {
   ratingLabel: null,
   features: []
 };
+
+const nearbySearchEnabled = process.env.NEXT_PUBLIC_NEARBY_SEARCH_ENABLED === 'true' &&
+  Boolean(process.env.NEXT_PUBLIC_AMAP_WEB_KEY);
 
 const L1_KEYS: ShopCategoryKey[] = [
   'all',
@@ -115,6 +120,9 @@ export default function Page() {
   const t = useTranslations('Common');
   const tContribute = useTranslations('Contribute');
   const tHome = useTranslations('Home');
+  const tNearby = useTranslations('NearbyDiscovery');
+  const tMealDecision = useTranslations('MealDecision');
+  const tChooseMeal = useTranslations('ChooseMeal');
   const locale = useLocale() as 'zh-CN' | 'zh-MO' | 'en';
 
   const [, setViewMode] = useState<ViewMode>('list');
@@ -129,19 +137,27 @@ export default function Page() {
   const [selectedShopId, setSelectedShopId] = useState<Shop['id'] | null>(null);
   const [collapseMobileSheetSignal, setCollapseMobileSheetSignal] = useState(0);
   const [locateSignal, setLocateSignal] = useState(0);
-  const [assistantPanel, setAssistantPanel] = useState({open: false, hasOpened: false});
-  const toggleAssistant = useCallback(() => setAssistantPanel(previous => ({open: !previous.open, hasOpened: true})), []);
-  const closeAssistant = useCallback(() => setAssistantPanel(previous => ({...previous, open: false})), []);
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('assistant') !== 'open') return;
-    setAssistantPanel({open: true, hasOpened: true});
-    params.delete('assistant');
-    const query = params.toString();
-    window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
-  }, []);
+  const {open: assistantOpen, toggle: toggleAssistant} = useAssistantPanel();
   const [poiUserCoordinates, setPoiUserCoordinates] = useState<[number, number] | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
+  const desktopMapCenter = useRef<[number, number] | null>(null);
+  const mobileMapCenter = useRef<[number, number] | null>(null);
+  const [nearbyOpen, setNearbyOpen] = useState(false);
+  const [mealDecisionOpen, setMealDecisionOpen] = useState(false);
+  const [nearbyCenter, setNearbyCenter] = useState<[number, number] | null>(null);
+  const [nearbyPin, setNearbyPin] = useState<{longitude: number; latitude: number} | null>(null);
+  const updateMobileMapCenter = useCallback((center: [number, number]) => {
+    mobileMapCenter.current = center;
+    if (!window.matchMedia('(min-width: 768px)').matches) setMapCenter(center);
+  }, []);
+  const updateDesktopMapCenter = useCallback((center: [number, number]) => {
+    desktopMapCenter.current = center;
+    if (window.matchMedia('(min-width: 768px)').matches) setMapCenter(center);
+  }, []);
+  const selectMapShop = useCallback((id: Shop['id']) => {
+    setNearbyPin(null);
+    setSelectedShopId(id);
+  }, []);
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -480,12 +496,42 @@ export default function Page() {
       return false;
     }
 
-    setSelectedShopId(shopId);
+    selectMapShop(shopId);
     setViewMode('map');
     setCollapseMobileSheetSignal((prev) => prev + 1);
     setLocateSignal((prev) => prev + 1);
     return true;
   };
+
+  const openNearbySearch = () => {
+    setNearbyCenter(window.matchMedia('(min-width: 768px)').matches
+      ? desktopMapCenter.current : mobileMapCenter.current);
+    setNearbyOpen(true);
+  };
+
+  const locateNearbyPlace = ({coordinates: [longitude, latitude]}: AmapPoiOption) => {
+    setNearbyPin({longitude, latitude});
+    setSelectedShopId(null);
+    setCollapseMobileSheetSignal((previous) => previous + 1);
+    setNearbyOpen(false);
+  };
+
+  const nearbySearchButton = nearbySearchEnabled && (
+    <button type="button" aria-haspopup="dialog" aria-controls="nearby-place-search" onClick={openNearbySearch}
+      className="min-h-10 rounded-xl border border-emerald-200 bg-white px-3 text-sm font-medium text-emerald-800 shadow-sm hover:bg-emerald-50">
+      {tNearby('title')}
+    </button>
+  );
+  const discoveryActions = !mapPickMode && <>
+    <Link href="/choose" className="inline-flex min-h-10 items-center rounded-xl bg-pine-800 px-3 text-sm font-semibold text-white shadow-sm hover:bg-pine-900">
+      {tChooseMeal('title')}
+    </Link>
+    {nearbySearchButton}
+    <button type="button" aria-haspopup="dialog" aria-controls="meal-decision" onClick={() => setMealDecisionOpen(true)}
+      className="min-h-10 rounded-xl border border-emerald-200 bg-white px-3 text-sm font-medium text-emerald-800 shadow-sm hover:bg-emerald-50">
+      {tMealDecision('title')}
+    </button>
+  </>;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -501,13 +547,14 @@ export default function Page() {
             activeL1={activeL1}
             selectedShopId={selectedShopId}
             locateSignal={locateSignal}
-            onSelectShop={setSelectedShopId}
+            onSelectShop={selectMapShop}
+            highlightedLocation={mapPickMode ? null : nearbyPin}
             contributionPickMode={mapPickMode}
             onPickCoordinates={(coords) => {
               setManualCoordinates(coords);
               setMapPickMode(false);
             }}
-            onViewportCenterChange={setMapCenter}
+            onViewportCenterChange={updateMobileMapCenter}
             onUserLocationChange={setPoiUserCoordinates}
           />
         </div>
@@ -515,7 +562,7 @@ export default function Page() {
         <div className="pointer-events-none fixed inset-x-0 top-0 z-[80] flex flex-col">
           <div ref={mobileHeaderRef} className="pointer-events-auto px-4 pt-[max(env(safe-area-inset-top),16px)]">
             <Header
-              assistantOpen={assistantPanel.open}
+              assistantOpen={assistantOpen}
               onToggleAssistant={toggleAssistant}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -537,6 +584,7 @@ export default function Page() {
               mySubmissionsLabel={tContribute('mySubmissions')}
             />
             <MobileCategoryNav active={activeL1} onChange={handleL1Change} />
+            {discoveryActions && <div className="mt-2 flex flex-wrap gap-2">{discoveryActions}</div>}
           </div>
 
         </div>
@@ -600,7 +648,7 @@ export default function Page() {
 
       <div className="hidden md:block md:bg-slate-50">
         <Header
-          assistantOpen={assistantPanel.open}
+          assistantOpen={assistantOpen}
           onToggleAssistant={toggleAssistant}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -680,43 +728,47 @@ export default function Page() {
                 activeL1={activeL1}
                 selectedShopId={selectedShopId}
                 locateSignal={locateSignal}
-                onSelectShop={setSelectedShopId}
+                onSelectShop={selectMapShop}
+                highlightedLocation={mapPickMode ? null : nearbyPin}
                 contributionPickMode={mapPickMode}
                 onPickCoordinates={(coords) => {
                   setManualCoordinates(coords);
                   setMapPickMode(false);
                 }}
-                onViewportCenterChange={setMapCenter}
+                onViewportCenterChange={updateDesktopMapCenter}
                 onUserLocationChange={setPoiUserCoordinates}
               />
             </div>
 
-            <div className="order-2 min-h-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:order-1 md:col-span-4 md:p-3.5 lg:col-span-4">
-              <ShopList
-                filteredShops={displayedShops}
-                loading={loading}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                onLocateShop={handleLocateShop}
-                mobileSearchPlaceholder={t('mobileSearchPlaceholder')}
-                emptyText={t('emptyResult')}
-                hasAnyShops={visibleShops.length > 0}
-                hasActiveFilters={hasActiveFilters}
-                activeFilterLabels={activeFilterLabels}
-                onClearSearch={() => setSearchQuery('')}
-                onClearAllFilters={resetAllFiltersAndSearch}
-                                                    collapseMobileSheetSignal={collapseMobileSheetSignal}
-                drawerFilters={drawerFilters}
-                onChangeDrawerFilters={setDrawerFilters}
-                activeL1={activeL1}
-                activeL2={activeL2}
-                onL1Change={handleL1Change}
-                onL2Change={handleL2Change}
-                showFavorites={showFavorites}
-                setShowFavorites={setShowFavorites}
-                favorites={favorites}
-                onToggleFavorite={toggleFavorite}
-              />
+            <div className="order-2 flex min-h-0 flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:order-1 md:col-span-4 md:p-3.5 lg:col-span-4">
+              {discoveryActions && <div className="mb-2 flex flex-wrap gap-2">{discoveryActions}</div>}
+              <div className="min-h-0 flex-1">
+                <ShopList
+                  filteredShops={displayedShops}
+                  loading={loading}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  onLocateShop={handleLocateShop}
+                  mobileSearchPlaceholder={t('mobileSearchPlaceholder')}
+                  emptyText={t('emptyResult')}
+                  hasAnyShops={visibleShops.length > 0}
+                  hasActiveFilters={hasActiveFilters}
+                  activeFilterLabels={activeFilterLabels}
+                  onClearSearch={() => setSearchQuery('')}
+                  onClearAllFilters={resetAllFiltersAndSearch}
+                  collapseMobileSheetSignal={collapseMobileSheetSignal}
+                  drawerFilters={drawerFilters}
+                  onChangeDrawerFilters={setDrawerFilters}
+                  activeL1={activeL1}
+                  activeL2={activeL2}
+                  onL1Change={handleL1Change}
+                  onL2Change={handleL2Change}
+                  showFavorites={showFavorites}
+                  setShowFavorites={setShowFavorites}
+                  favorites={favorites}
+                  onToggleFavorite={toggleFavorite}
+                />
+              </div>
             </div>
           </div>
         </main>
@@ -756,7 +808,13 @@ export default function Page() {
         <p className="mt-1 text-xs text-slate-600">不知道具体位置，可以返回填写并搜索附近地标。</p>
         <button type="button" onClick={() => setMapPickMode(false)} className="mt-2 min-h-10 rounded-lg border border-slate-300 px-3 text-emerald-800">返回填写／搜索地标</button>
       </div>}
-      <FloatingPlaceAssistant open={assistantPanel.open} hasOpened={assistantPanel.hasOpened} onClose={closeAssistant} />
+      {nearbySearchEnabled && (
+        <NearbyPlaceSearch open={nearbyOpen} mapCenter={nearbyCenter} userCoordinates={poiUserCoordinates}
+          onClose={() => setNearbyOpen(false)} onLocate={locateNearbyPlace} />
+      )}
+      <MealDecision open={mealDecisionOpen} matchingPlaces={displayedShops}
+        catalogLoading={loading || searchQuery.trim() !== debouncedSearchQuery.trim()}
+        onClose={() => setMealDecisionOpen(false)} />
     </div>
   );
 }

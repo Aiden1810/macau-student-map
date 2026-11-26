@@ -32,6 +32,7 @@ export const chatRequestSchema = z
           )
           .max(4),
         originLabel: z.string().max(160).nullable(),
+        pagePlaceId: z.uuid().optional(),
       })
       .strict(),
   })
@@ -42,7 +43,21 @@ export type ChatPlan = {
   mode: "ai";
   understanding: ChatUnderstanding;
   groups: ChatPlaceGroup[];
+  catalogCandidates?: AssistantPlace[];
 };
+
+export function assistantPagePlaceId(pathname: string) {
+  const match = /^\/shop\/([^/]+)\/?$/.exec(pathname);
+  const parsed = z.uuid().safeParse(match?.[1]);
+  return parsed.data;
+}
+
+export function referencedPagePlace(input: ChatRequest, catalog: readonly AssistantPlace[]) {
+  const placeId = input.context.pagePlaceId;
+  const message = input.messages.at(-1) ?? '';
+  if (!placeId || !/这[家间間]|這[家間]|该餐厅|該餐廳|\bthis (?:place|restaurant|cafe|shop)\b/i.test(message)) return null;
+  return catalog.find(place => place.id === placeId) ?? null;
+}
 
 export function chooseKnownChatPlace(
   group: ChatPlaceGroup,
@@ -100,6 +115,26 @@ export function resolveChatOrigin(
 
 export const normalizePlaceName = (name: string) =>
   normalizeSearchText(name).replace(/[\s\p{P}\p{S}]+/gu, "");
+
+export function selectCatalogForModel(catalog: AssistantPlace[], mentions: string[]) {
+  const text = normalizePlaceName(mentions.join(" "));
+  if (!text) return [];
+  return catalog.flatMap(place => {
+    const name = normalizePlaceName(place.name);
+    if (name.length < 2) return [];
+    let score = text.includes(name) ? name.length : 0;
+    for (let size = Math.min(name.length - 1, 12); !score && size >= 2; size--) {
+      for (let index = 0; index + size <= name.length; index++) {
+        if (!text.includes(name.slice(index, index + size))) continue;
+        score = size;
+        break;
+      }
+    }
+    return score ? [{place, score}] : [];
+  }).sort((left, right) => right.score - left.score)
+    .slice(0, 40).map(({place}) => place);
+}
+
 export function resolveChatPlaces(
   names: string[],
   catalog: AssistantPlace[],

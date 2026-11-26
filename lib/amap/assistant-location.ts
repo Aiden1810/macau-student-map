@@ -20,7 +20,7 @@ export function mapLocatedOrigin(
   const city =
     text.includes('珠海') || address?.adcode?.startsWith('4404')
       ? '珠海'
-      : text.includes('澳门') || address?.adcode?.startsWith('82')
+      : /澳门|澳門/.test(text) || address?.adcode?.startsWith('82')
         ? '澳门'
         : null;
   return coordinates.success && city
@@ -58,6 +58,7 @@ export async function locateAssistantOrigin(
               enableHighAccuracy: true,
               timeout: 10000,
               convert: true,
+              needAddress: true,
             }).getCurrentPosition((status, result) =>
               finish(
                 status === 'complete' ? mapLocatedOrigin(result, label) : null,

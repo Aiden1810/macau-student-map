@@ -3,6 +3,7 @@ import {getMessages} from 'next-intl/server';
 import {notFound} from 'next/navigation';
 import {Toaster} from 'react-hot-toast';
 import TrafficTracker from '@/components/TrafficTracker';
+import GlobalAssistant from '@/components/assistant/GlobalAssistant';
 import {routing} from '@/i18n/routing';
 import type {Metadata} from 'next';
 import {brandName, BRAND_MANIFEST_VERSION} from '@/lib/brand';
@@ -36,7 +37,7 @@ export default async function LocaleLayout({
   return (
     <NextIntlClientProvider messages={messages}>
       <TrafficTracker />
-      {children}
+      <GlobalAssistant>{children}</GlobalAssistant>
       <Toaster
         position="bottom-center"
         containerStyle={{top: 'max(16px, env(safe-area-inset-top))'}}

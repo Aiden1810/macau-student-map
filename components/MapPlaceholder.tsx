@@ -2,6 +2,7 @@
 
 import toast from 'react-hot-toast';
 import {Crosshair, LoaderCircle, Minus, Plus} from 'lucide-react';
+import {useTranslations} from 'next-intl';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Shop} from '@/types/shop';
 import {buildPlacePinHtml} from '@/lib/amap/place-marker';
@@ -99,7 +100,6 @@ type AMapNamespace = {
 
 type AMapWindow = Window & {
   AMap?: AMapNamespace;
-  _AMapSecurityConfig?: {securityJsCode?: string};
 };
 
 type MarkerStore = {
@@ -259,11 +259,11 @@ export default function MapPlaceholder({
   onViewportCenterChange,
   onUserLocationChange
 }: MapPlaceholderProps) {
+  const tLocation = useTranslations('MapLocation');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<AMapMapInstance | null>(null);
   const markersRef = useRef<Map<string, MarkerStore>>(new Map());
   const clusterRef = useRef<{setMap: (map: AMapMapInstance | null) => void} | null>(null);
-  const selectedPinRef = useRef<AMapMarker | null>(null);
   const selectedShopPinRef = useRef<AMapMarker | null>(null);
   const hoveredShopPinRef = useRef<AMapMarker | null>(null);
   const myLocationPinRef = useRef<AMapMarker | null>(null);
@@ -330,14 +330,6 @@ export default function MapPlaceholder({
       return;
     }
 
-    if (typeof window !== 'undefined') {
-      const w = window as AMapWindow;
-      const securityCode = process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE;
-      if (securityCode && !w._AMapSecurityConfig) {
-        w._AMapSecurityConfig = {securityJsCode: securityCode};
-      }
-    }
-
     let cancelled = false;
     const markers = markersRef.current;
 
@@ -400,7 +392,6 @@ export default function MapPlaceholder({
       }
       markers.clear();
       clusterRef.current = null;
-      selectedPinRef.current = null;
       selectedShopPinRef.current = null;
       hoveredShopPinRef.current = null;
       myLocationPinRef.current = null;
@@ -584,24 +575,19 @@ export default function MapPlaceholder({
     const map = mapRef.current;
     const AMap = getAMapFromWindow();
 
-    if (!map || !AMap || !highlightedLocation) return;
-
-    if (selectedPinRef.current) {
-      selectedPinRef.current.setMap(null);
-      selectedPinRef.current = null;
-    }
+    if (!mapReady || !map || !AMap || !highlightedLocation) return;
 
     const marker = new AMap.Marker({
       position: [highlightedLocation.longitude, highlightedLocation.latitude],
+      zIndex: 340,
       content:
         '<div style="width:16px;height:16px;border-radius:9999px;background:#ef4444;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.2);transform:translate(-50%,-100%);"></div>'
     });
 
     marker.setMap(map);
-    selectedPinRef.current = marker;
-
     flyToLocation(highlightedLocation.longitude, highlightedLocation.latitude);
-  }, [highlightedLocation, flyToLocation]);
+    return () => marker.setMap(null);
+  }, [highlightedLocation, flyToLocation, mapReady]);
 
   const handleLocateMe = () => {
     const map = mapRef.current;
@@ -623,7 +609,7 @@ export default function MapPlaceholder({
         setGeoLoading(false);
 
         if (status !== 'complete') {
-          toast.error('定位失败，请检查定位权限是否已开启');
+          toast.error(tLocation('failed'));
           return;
         }
 
@@ -647,11 +633,11 @@ export default function MapPlaceholder({
 
           onUserLocationChange?.([lng, lat]);
           flyToLocation(lng, lat);
-          toast.success('已定位到你当前位置');
+          toast.success(tLocation('success'));
           return;
         }
 
-        toast.error('定位结果无效，请稍后重试');
+        toast.error(tLocation('invalid'));
       });
     });
   };
@@ -674,13 +660,15 @@ export default function MapPlaceholder({
     <div className="relative h-full w-full overflow-hidden rounded-none border-0 bg-transparent shadow-none md:rounded-2xl md:border md:border-slate-200/90 md:bg-white md:shadow-[0_10px_28px_rgba(2,30,18,0.08)] md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)]">
       <div ref={containerRef} className="h-full w-full" />
 
-      <div className="pointer-events-none absolute right-4 top-[152px] z-20 flex flex-col items-center gap-2 md:hidden">
-        <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_3px_14px_#193d3210]">
+      <div className="pointer-events-none absolute right-4 top-[152px] z-20 flex flex-col items-center gap-2 md:top-4">
+        <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_3px_14px_#193d3210] md:hidden">
           <button type="button" aria-label="放大地图" onClick={handleZoomIn} className="pointer-events-auto flex h-11 w-11 items-center justify-center text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pine-700"><Plus size={19} aria-hidden="true" /></button>
           <div className="mx-3 border-t border-line" />
           <button type="button" aria-label="缩小地图" onClick={handleZoomOut} className="pointer-events-auto flex h-11 w-11 items-center justify-center text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pine-700"><Minus size={19} aria-hidden="true" /></button>
         </div>
-        <button type="button" onClick={handleLocateMe} disabled={geoLoading} aria-label="使用当前位置" className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-line bg-white text-pine-700 shadow-[0_3px_14px_#193d3210] focus-visible:ring-2 focus-visible:ring-pine-700 disabled:opacity-60">
+        <button type="button" onClick={handleLocateMe} disabled={!mapReady || geoLoading}
+          aria-label={tLocation('action')} title={tLocation('action')}
+          className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-full border border-line bg-white text-pine-700 shadow-[0_3px_14px_#193d3210] focus-visible:ring-2 focus-visible:ring-pine-700 disabled:opacity-60">
           {geoLoading ? <LoaderCircle size={19} className="animate-spin" aria-hidden="true" /> : <Crosshair size={20} aria-hidden="true" />}
         </button>
       </div>

@@ -23,7 +23,7 @@ vi.mock('../../../components/ContributionForm', () => ({default: ({onSuccess, on
 </div>}));
 vi.mock('../../../components/Header', () => ({default: ({onToggleContribute}: {onToggleContribute: () => void}) =>
   <button data-contribute onClick={onToggleContribute}>contribute</button>}));
-vi.mock('../../../components/assistant/FloatingPlaceAssistant', () => ({default: () => null}));
+vi.mock('../../../components/assistant/GlobalAssistant', () => ({useAssistantPanel: () => ({open: false, toggle() {}})}));
 vi.mock('../../../components/MapPlaceholder', () => ({default: () => null}));
 vi.mock('../../../components/MobileCategoryNav', () => ({default: () => null}));
 vi.mock('../../../components/ShopList', () => ({default: ({filteredShops, loading}: {filteredShops: {name: string}[]; loading: boolean}) =>
