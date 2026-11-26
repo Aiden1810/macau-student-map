@@ -16,6 +16,8 @@ import {
   X,
 } from "lucide-react";
 import { chatCopy } from "@/lib/assistant/chat-copy";
+import type { AssistantPlace } from "@/lib/assistant/contracts";
+import { useFavorites } from "@/lib/hooks/useFavorites";
 import { usePlaceChat } from "./usePlaceChat";
 import ConversationHistory from "./ConversationHistory";
 import ChatOriginPicker from "./ChatOriginPicker";
@@ -25,13 +27,18 @@ import AssistantAnswer from "./AssistantAnswer";
 export default function PlaceAssistant({
   visible = true,
   onMinimize,
+  pagePlaceId,
+  onSendToWheel,
 }: {
   visible?: boolean;
   onMinimize: () => void;
+  pagePlaceId?: string;
+  onSendToWheel?: (places: AssistantPlace[]) => void;
 }) {
   const locale = useLocale();
   const copy = useMemo(() => chatCopy(locale), [locale]);
-  const chat = usePlaceChat(copy);
+  const chat = usePlaceChat(copy, pagePlaceId);
+  const { favorites, toggleFavorite } = useFavorites();
   const [showHistory, setShowHistory] = useState(false);
   const [showOrigin, setShowOrigin] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null),
@@ -48,6 +55,12 @@ export default function PlaceAssistant({
   useEffect(() => {
     if (visible && !showHistory) inputRef.current?.focus({ preventScroll: true });
   }, [visible, showHistory]);
+  useEffect(() => {
+    // A focused confirmation button can disappear when its result arrives.
+    if (visible && !showHistory && !chat.busy && document.activeElement === document.body &&
+        window.matchMedia("(min-width: 768px)").matches)
+      inputRef.current?.focus({ preventScroll: true });
+  }, [visible, showHistory, chat.busy]);
   useEffect(() => {
     if (!inputRef.current) return;
     inputRef.current.style.height = "auto";
@@ -218,7 +231,16 @@ export default function PlaceAssistant({
                           {copy.title}
                         </p>
                         {message.historical && <p className="mb-1 text-xs text-muted">{copy.historyAnswer}</p>}
-                        <AssistantAnswer message={message} copy={copy} />
+                        <AssistantAnswer
+                          message={message}
+                          copy={copy}
+                          locale={locale}
+                          favorites={favorites}
+                          onToggleFavorite={(placeId) => void toggleFavorite(placeId)}
+                          onAskAnother={() => void chat.send(copy.tryAnotherPrompt)}
+                          onSendToWheel={onSendToWheel}
+                          busy={chat.busy}
+                        />
                         {message.error && (
                           <button
                             type="button"

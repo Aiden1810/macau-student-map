@@ -4,6 +4,7 @@ import {
   validateRouteSnapshots,
 } from "../../../lib/assistant/decision";
 import {
+  assistantIntentSchema,
   assistantRequestSchema,
   type AssistantIntent,
   type AssistantPlace,
@@ -39,7 +40,7 @@ const origin = {
   label: "出发地",
   city: "珠海" as const,
 };
-const snapshot: RouteSnapshot = {
+const snapshot = {
   placeId: ids[0],
   origin: origin.coordinates,
   destination: places[0].coordinates!,
@@ -53,7 +54,7 @@ const snapshot: RouteSnapshot = {
     walkingMeters: null,
   },
   transit: { status: "no_route" },
-};
+} satisfies RouteSnapshot;
 
 describe("selected-place decisions", () => {
   it("keeps services out of dining recommendations even without a cuisine constraint", () => {
@@ -126,6 +127,48 @@ describe("selected-place decisions", () => {
     expect(result.recommendedPlaceId).toBe(ids[0]);
     expect(result.rows[0].groupTotal).toBe(112);
     expect(result.rows[1].budget).toBe("over");
+  });
+  it("applies budget and walking limits together using exact walking seconds", () => {
+    const candidates = [
+      places[0],
+      {...places[1], pricePerPerson: 20},
+      {...places[1], id: "over-budget"},
+    ];
+    const walking = {...snapshot.taxi, durationSeconds: 900};
+    const result = comparePlaces(candidates, {...intent, maxWalkingMinutes: 15}, [
+      {...snapshot, walking: {...walking, durationSeconds: 901}},
+      {...snapshot, placeId: ids[1], walking},
+      {...snapshot, placeId: "over-budget", walking: {...walking, durationSeconds: 300}},
+    ]);
+
+    expect(result.recommendedPlaceId).toBe(ids[1]);
+  });
+  it("cannot use driving time or a missing walking route to meet a walking limit", () => {
+    const limited = {...intent, maxWalkingMinutes: 15};
+    for (const walking of [undefined, {status: "timeout"} as const]) {
+      const result = comparePlaces(places, limited, [{...snapshot, walking}]);
+      expect(result.recommendedPlaceId).toBeNull();
+      expect(result.reason).toBe("walking_limit");
+      expect(result.partialRoutes).toBe(true);
+    }
+  });
+  it("ranks eligible places by walking time when a walking limit is active and the user wants fastest", () => {
+    const candidates = [places[0], {...places[1], pricePerPerson: 30}];
+    const fastTaxi = {...snapshot.taxi, durationSeconds: 60};
+    const slowWalk = {...snapshot.taxi, durationSeconds: 880};
+    const fastWalk = {...snapshot.taxi, durationSeconds: 780};
+    const result = comparePlaces(candidates, {...intent, maxWalkingMinutes: 15, priority: "fastest"}, [
+      {...snapshot, taxi: fastTaxi, walking: slowWalk},
+      {...snapshot, placeId: ids[1], walking: fastWalk},
+    ]);
+    expect(result.recommendedPlaceId).toBe(ids[1]);
+  });
+  it("preserves previous intent payloads and validates an explicit walking limit", () => {
+    expect(assistantIntentSchema.parse(intent)).toEqual(intent);
+    expect(assistantIntentSchema.parse({...intent, maxWalkingMinutes: 15}).maxWalkingMinutes).toBe(15);
+    expect(assistantIntentSchema.parse({...intent, maxWalkingMinutes: null}).maxWalkingMinutes).toBeNull();
+    expect(assistantIntentSchema.safeParse({...intent, maxWalkingMinutes: -1}).success).toBe(false);
+    expect(assistantIntentSchema.safeParse({...intent, maxWalkingMinutes: "15"}).success).toBe(false);
   });
   it("does not choose a winner when everyone exceeds the budget", () => {
     expect(

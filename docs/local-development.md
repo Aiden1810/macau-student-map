@@ -71,15 +71,21 @@ if (-not (Test-Path .env.local)) {
 | `NEXT_PUBLIC_SUPABASE_URL` | 开发 Supabase 地址；与下面的 key 一起用于地点、登录、收藏、评价和投稿等功能。缺失时当前首页会抛错。 |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 对应项目的公开匿名／publishable key；不能使用 service_role key 替代。 |
 | `NEXT_PUBLIC_AMAP_WEB_KEY` | 高德 JS SDK key；缺失时不能验证地图、POI 搜索和真实路线。需符合高德控制台的开发来源限制。 |
-| `NEXT_PUBLIC_AMAP_SECURITY_CODE` | 仅当高德控制台要求安全密钥时配置。 |
+| `NEXT_PUBLIC_NEARBY_SEARCH_ENABLED` | 默认关闭。在本地或测试环境设为 `true`，重启开发服务器或重新构建，首页会显示「附近找店」。 |
+| `NEXT_PUBLIC_MEAL_HISTORY_ENABLED` | 默认关闭。先在隔离数据库应用 `20261125111704_private_meal_history.sql`，再设为 `true` 并重启或重新构建。在首页「我的」打开饮食记录与口味档案。 |
+| `AMAP_JS_SECURITY_CODE` | 服务端高德 JS 安全码，由同源 `/_AMapService` 代理使用。与公开 JS Key 配套配置。 |
 | `DEEPSEEK_API_KEY` | 仅服务端使用；缺失时 AI 接口返回未配置，无法验证真实模型识别。不要添加 NEXT_PUBLIC_ 前缀。 |
 | `DEEPSEEK_MODEL` | 可选，当前代码默认 deepseek-flash；模型可用性须在实际配置的服务中确认。 |
 
 `NEXT_PUBLIC_` 变量会进入浏览器代码。环境文件已被 Git 忽略；不要使用 `git add -f` 提交它。只报告变量“已配置／缺失／仍为占位值”，不要输出值。修改配置后重启开发服务。
 
+如果商家搜索或定位请求已通过本地代理，高德仍返回 `10006 / INVALID_USER_DOMAIN`，请核对开发用 Web 端 JS API Key 的域名白名单是否包含实际访问的主机，例如 `127.0.0.1` 或 `localhost`。采用独立开发 Key 时，把成对的 JS Key 和安全码填入上表对应变量，再重启本地服务。[高德错误码说明](https://lbs.amap.com/api/webservice/guide/tools/info)
+
 普通本地熟悉不需要生产用量采集令牌 `API_USAGE_INGEST_TOKEN`。没有独立数据库、账号或服务配置时，记录阻塞范围，不能用生产写入或付费批量调用补验收。
 
 ## 4. 执行检查，再启动页面
+
+启动后可从首页打开「帮我选」，或访问 `/zh-CN/choose`。可先只填人数和人民币预算，验证商家目录筛选与抽签。加上步行上限后，通过搜索地点或定位确认出发地，再核对比较结果、未命中原因和导航链接。步行路线只对本次至多四家候选查询。
 
 依次执行并分别记录退出结果；前一项失败时，不要把后续成功当作全部通过：
 
@@ -116,6 +122,14 @@ npm run dev
 ## 5. 数据库测试边界
 
 `npm test` 中的 PGlite 测试创建独立的进程内数据库。本轮已核对相关测试实现后执行；没有连接远端数据库。
+
+单独检查全量迁移顺序以及评价和用餐记录权限，可以运行：
+
+```powershell
+npm test -- tests/lib/data/beta-migration-chain.test.ts tests/lib/reviews/database.test.ts tests/lib/meal-history/database.test.ts
+```
+
+全量迁移回归使用 [legacy-baseline.sql](../supabase/fixtures/legacy-baseline.sql) 补齐空测试库的旧 `shops` 表，随后按文件名顺序执行现有迁移。该基线仅用于一次性测试库。独立 Supabase 验收需要测试账号及测试地点，再验证 Auth、PostgREST 和 Storage。隔离浏览器构建的覆盖范围见[测试版验收](chengmi-2.0/product-roadmap.md#2026-11-25-测试版验收)。
 
 `supabase/tests/` 的 CLI 数据库测试是另一层验证，需要 Docker 和独立本地 Supabase。开始前必须确认目标、端口、环境变量和已有本地数据；当前任务若没有批准初始化／重置本地数据库，先记录未验证。不要把 README 中的 `db reset --local` 当作普通启动步骤，它会删除并重建目标本地数据库。不要运行远端迁移、远端重置或操作生产数据。
 

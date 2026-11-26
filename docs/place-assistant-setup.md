@@ -18,6 +18,8 @@ AI解析店名和起点；已上线目录的唯一门店可以直接识别。同
 >
 > 改成两个人，人均30元。
 
+2.0 开发分支也可直接问「今天吃什么？人均 40 元，步行 15 分钟以内」。未指定餐厅时，先从已发布目录按已知价格和菜品筛选，再比较最多四家。助手在需要时先请用户确认出发地，步行上限以高德返回的一程步行秒数核对。候选缺步行路线时显示待确认。人均价格沿用人民币口径。用户页面共享同一个助手，餐厅详情上的「这家」可按页面的已发布分店解析。
+
 追问沿用已确认门店、出发地以及最近6条用户问题。点“新对话”先保存旧对话及草稿，再开启独立上下文；点“停止回答”取消当前结果写入。点“收起聊天”或按Esc只隐藏浮窗，草稿、对话和正在处理的回答仍会保留，重新打开即可继续。Enter发送，Shift+Enter换行，中文输入法确认候选字不会误发送。
 
 标题栏的历史图标打开“历史对话”：按第一条问题自动生成标题，可以继续或删除对话。记录仅保存在当前浏览器（最多20段，每段保留最近80条消息），刷新或离开首页后仍可恢复最近一段和各自草稿。恢复后标注“历史回答”，重新提问会读取最新资料；路线只保留带查询时间的文字摘要，精确出发地坐标不持久化，需要重新确认。浏览器禁止保存、记录损坏或空间不足时会提示，聊天仍可继续。当前版本没有登录账号同步；清除浏览器数据会移除记录。具体边界见 [本地历史对话说明](assistant-history-2026-10-18.md)。
@@ -33,7 +35,7 @@ DEEPSEEK_API_KEY=你自己的DeepSeek官方APIKey
 DEEPSEEK_MODEL=deepseek-flash
 ```
 
-不要添加 `NEXT_PUBLIC_` 前缀或把真实Key写入文档。该文件已被Git忽略。模型与官方协议：[模型列表](https://api-docs.deepseek.com/api/list-models/)、[JSON输出](https://api-docs.deepseek.com/guides/json_mode/)。现有 `NEXT_PUBLIC_AMAP_WEB_KEY`、`NEXT_PUBLIC_AMAP_SECURITY_CODE` 继续使用，不需要换成REST Key。
+不要添加 `NEXT_PUBLIC_` 前缀或把真实Key写入文档。该文件已被Git忽略。模型与官方协议：[模型列表](https://api-docs.deepseek.com/api/list-models/)、[JSON输出](https://api-docs.deepseek.com/guides/json_mode/)。保留公开的 `NEXT_PUBLIC_AMAP_WEB_KEY`，配套 JS 安全码放入服务端变量 `AMAP_JS_SECURITY_CODE`，由同源 `/_AMapService` 代理使用。移除旧的 `NEXT_PUBLIC_AMAP_SECURITY_CODE` 配置后重新构建。JS Key 不需要换成 REST Key。上线前核对代理限流及高德控制台设置，见 [P0 审查笔记](chengmi-2.0/P0-audit-notes.md)。
 
 Windows PowerShell：
 

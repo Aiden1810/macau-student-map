@@ -174,7 +174,7 @@ export default function ReviewForm({
         setMessage('评价已删除，不再展示或计入评分。');
       } else
         setMessage(
-          review.status === 'published' ? '评价已保存并展示。' : '评价已保存，待管理员重新审核后展示。'
+          review.status === 'published' ? '评价已保存并展示。' : '评价已保存，待管理员审核通过后展示。'
         );
       await refreshAfterSave(current);
     } catch (failure) {
@@ -227,10 +227,10 @@ export default function ReviewForm({
                 {mine.status === 'published'
                   ? mine.moderationStatus === 'approved'
                     ? '已通过审核'
-                    : '已展示，待审核'
+                    : '待审核'
                   : mine.status === 'rejected'
                     ? '已隐藏'
-                    : '已隐藏，待重新审核'}
+                    : '待审核，暂未展示'}
               </p>
               <p className="mt-2 whitespace-pre-wrap break-words text-ink">
                 {mine.content || '仅评分，未填写文字。'}
@@ -241,7 +241,9 @@ export default function ReviewForm({
               {mine.status !== 'published' && (
                 <p className="mt-2 text-amber-900">
                   {mine.moderationReason ? `隐藏原因：${mine.moderationReason}。` : ''}
-                  修改后需要管理员重新审核，通过后才会展示。
+                  {mine.status === 'rejected'
+                    ? '修改后需要管理员重新审核，通过后才会展示。'
+                    : '管理员审核通过后才会展示。'}
                 </p>
               )}
             </div>
@@ -281,7 +283,7 @@ export default function ReviewForm({
                 </label>
               </fieldset>
               <p className="mt-2 text-xs leading-5 text-muted">
-                每个账号对一家店只保留一条评价。首次发布立即展示，管理员审核不通过后会隐藏。
+                每个账号对一家店只保留一条评价。提交或修改后，审核通过才会公开并计入评分。
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button

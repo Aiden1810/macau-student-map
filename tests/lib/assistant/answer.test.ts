@@ -66,4 +66,15 @@ describe("evidence-bound answer text", () => {
       ),
     ).toBe(assistantCopy("en").chooseOrigin);
   });
+  it("explains unconfirmed routes when no candidate satisfies the walking limit", () => {
+    const next = {...intent, maxWalkingMinutes: 15};
+    const text = formatAssistantAnswer(
+      comparePlaces([place], next, [route]),
+      next,
+      assistantCopy("en"),
+      true,
+    );
+    expect(text).toContain("15");
+    expect(text).toContain("without a walking route");
+  });
 });

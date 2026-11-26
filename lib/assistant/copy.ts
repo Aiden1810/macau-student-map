@@ -118,6 +118,7 @@ export function assistantCopy(locale: string) {
       "No available route returned",
     ),
     timeout: text("查询超时，可重试", "查詢逾時，可重試", "Timed out; retry"),
+    rate_limited: text("高德请求过于频繁，请稍后重试", "高德請求過於頻繁，請稍後重試", "AMap is rate limiting requests. Try again shortly."),
     unknown_city: text(
       "目的城市待确认，暂不能查公交",
       "目的城市待確認，暫不能查巴士",
@@ -134,6 +135,7 @@ export function assistantCopy(locale: string) {
       "Place has no coordinates",
     ),
     notQueried: text("待查询", "待查詢", "Not queried"),
+    not_queried: text("未查询", "未查詢", "Not queried"),
     routeError: text(
       "暂时无法查询路线，请重试；仍可按价格和品类比较。",
       "暫時無法查詢路線，請重試；仍可按價格和品類比較。",
@@ -257,6 +259,13 @@ export function assistantCopy(locale: string) {
       "Reference food total for the group",
     ),
     budget: text("人均预算", "人均預算", "Budget per person"),
+    walkingLimit: text("步行上限", "步行上限", "Walking limit"),
+    noWalkingMatch: text(
+      "没有可确认同时满足预算、菜品和步行上限的候选。缺少步行路线的店铺暂无法确认。",
+      "沒有可確認同時符合預算、菜式和步行上限的候選店舖。缺少步行路線的店舖暫時無法確認。",
+      "No candidate could be confirmed to meet the budget, food preferences and walking limit. Places without a walking route remain unconfirmed.",
+    ),
+    walkingUnconfirmed: text("步行时间待确认", "步行時間待確認", "Walking time unconfirmed"),
     food: text("想吃", "想吃", "Food preference"),
     people: text("人数", "人數", "Group size"),
     cheapest: text(
@@ -279,6 +288,16 @@ export function assistantCopy(locale: string) {
       "餐費為參考，不含交通費；座位、營業時間、輪候和多人套餐適用性尚未確認。過敏或飲食禁忌請向商家核實。",
       "Food totals are indicative and exclude transport. Seats, opening hours, queues and group-menu suitability are unconfirmed. Confirm allergies or dietary restrictions with the venue.",
     ),
+    viewDetails: text("查看详情", "查看詳情", "Details"),
+    favorite: text("收藏", "收藏", "Save"),
+    favorited: text("已收藏", "已收藏", "Saved"),
+    tryAnother: text("换一家", "換一家", "Try another"),
+    tryAnotherPrompt: text(
+      "换一家其他合适的餐厅推荐",
+      "換一家其他合適的餐廳推薦",
+      "Recommend a different matching restaurant",
+    ),
+    sendToWheel: text("放进转盘", "放進轉盤", "Send to wheel"),
   };
 }
 export type AssistantCopy = ReturnType<typeof assistantCopy>;

@@ -35,4 +35,23 @@ describe('structured recommendation answer', () => {
     expect(html).not.toContain('aria-label="更推荐"');
     expect(html).toContain(message.text);
   });
+  it('renders detail links, favorite toggles, try-another and wheel actions when callbacks are provided', () => {
+    const html = renderToStaticMarkup(
+      <AssistantAnswer
+        message={message}
+        copy={copy}
+        locale="zh-CN"
+        favorites={['0']}
+        onToggleFavorite={() => {}}
+        onAskAnother={() => {}}
+        onSendToWheel={() => {}}
+      />
+    );
+    expect(html).toContain('/zh-CN/shop/0');
+    expect(html).toContain('查看详情');
+    expect(html).toContain('已收藏');
+    expect(html).toContain('收藏');
+    expect(html).toContain('换一家');
+    expect(html).toContain('放进转盘');
+  });
 });

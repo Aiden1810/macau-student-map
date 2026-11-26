@@ -38,6 +38,10 @@ export function normalizeRouteResult(
   status: string,
   result: unknown,
 ): RouteChoice {
+  const errorCodes = [result, record(result).info, record(result).infocode];
+  if (status !== "complete" && errorCodes.some(code =>
+    code === 10021 || code === "10021" || code === "CUQPS_HAS_EXCEEDED_THE_LIMIT"
+  )) return { status: "rate_limited" };
   if (status === "no_data") return { status: "no_route" };
   if (status !== "complete") return { status: "error" };
   const raw = record(result)[mode === "transit" ? "plans" : "routes"];
@@ -116,6 +120,14 @@ type RouteSdk = {
   };
 };
 
+async function searchWalkingRoute(sdk: RouteSdk, origin: Coordinates, destination: Coordinates, retryRateLimit: boolean) {
+  const search = () => queryRoute("walking", callback => new sdk.Walking({}).search(origin, destination, callback));
+  const route = await search();
+  if (!retryRateLimit || route.status !== "rate_limited") return route;
+  await new Promise(resolve => setTimeout(resolve, 1100));
+  return search();
+}
+
 export async function compareAmapRoutes(
   key: string,
   origin: AssistantOrigin,
@@ -124,6 +136,7 @@ export async function compareAmapRoutes(
     coordinates: Coordinates | null;
     city: string | null;
   }>,
+  mode: "all" | "walking" = "all",
 ): Promise<RouteSnapshot[]> {
   if (places.length > 4) throw new Error("最多比较4家店铺");
   const sdk = await new Promise<RouteSdk>((resolve, reject) => {
@@ -134,7 +147,8 @@ export async function compareAmapRoutes(
     void loadAmapPlaceSdk(key)
       .then((amap) => {
         const sdk = amap as unknown as RouteSdk;
-        sdk.plugin(["AMap.Driving", "AMap.Transfer", "AMap.Walking"], () => {
+        const plugins = mode === "walking" ? ["AMap.Walking"] : ["AMap.Driving", "AMap.Transfer", "AMap.Walking"];
+        sdk.plugin(plugins, () => {
           clearTimeout(timer);
           resolve(sdk);
         });
@@ -156,7 +170,7 @@ export async function compareAmapRoutes(
           return null;
         const destination = place.coordinates;
         const [taxi, transit, walking] = await Promise.all([
-          queryRoute("taxi", (callback) =>
+          mode === "walking" ? Promise.resolve<RouteChoice>({ status: "not_queried" }) : queryRoute("taxi", (callback) =>
             new sdk.Driving({ policy: 0, extensions: "all" }).search(
               origin.coordinates,
               destination,
@@ -164,7 +178,7 @@ export async function compareAmapRoutes(
               callback,
             ),
           ),
-          place.city
+          mode === "walking" ? Promise.resolve<RouteChoice>({ status: "not_queried" }) : place.city
             ? queryRoute("transit", (callback) =>
                 new sdk.Transfer({
                   city: origin.city,
@@ -174,13 +188,7 @@ export async function compareAmapRoutes(
                 }).search(origin.coordinates, destination, callback),
               )
             : Promise.resolve<RouteChoice>({ status: "unknown_city" }),
-          queryRoute("walking", (callback) =>
-            new sdk.Walking({}).search(
-              origin.coordinates,
-              destination,
-              callback,
-            ),
-          ),
+          searchWalkingRoute(sdk, origin.coordinates, destination, mode === "walking"),
         ]);
         return {
           placeId: place.id,

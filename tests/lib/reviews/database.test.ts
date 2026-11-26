@@ -54,6 +54,9 @@ beforeAll(async () => {
   // Reuse actual repository DDL for reviews, policies, timestamps and ranking.
   const source = readFileSync('supabase/migrations/20260830103144_canonical_local_life_model.sql', 'utf8');
   await db.exec(`create role anon; create role authenticated; create schema auth; create schema private;
+    create schema storage;
+    create table storage.buckets(id text primary key, public boolean not null);
+    insert into storage.buckets values ('submission-media',false),('place-media',true);
     create table auth.users(id uuid primary key);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     create table public.profiles(id uuid primary key references auth.users, role text);
@@ -104,6 +107,39 @@ beforeAll(async () => {
     )
   );
   await db.exec(readFileSync('supabase/migrations/20261019110033_review_post_moderation.sql', 'utf8'));
+  // Simulate old production data before applying the forward migration.
+  const historical = await save(alice, 2);
+  expect(historical.status).toBe('published');
+  expect(await stats()).toEqual({average: 2, count: 1});
+  await identity(null, 'postgres');
+  const migration = readFileSync('supabase/migrations/20261123103000_require_review_approval.sql', 'utf8');
+  await db.query(
+    "insert into public.review_media(review_id,uploaded_by,bucket_id,storage_path,mime_type,byte_size) values($1,$2,'place-media','legacy.webp','image/webp',100)",
+    [historical.id, alice]
+  );
+  await expect(db.exec(migration)).rejects.toThrow('public storage');
+  await db.exec('rollback');
+  await db.exec("update public.review_media set bucket_id='submission-media' where storage_path='legacy.webp'");
+  // Fail after the migration switches policies and disables the rating trigger.
+  await db.exec("alter table public.reviews add constraint fixture_reject_pending check (status <> 'pending')");
+  await expect(db.exec(migration)).rejects.toMatchObject({code: '23514'});
+  await db.exec('rollback');
+  expect(await stats()).toEqual({average: 2, count: 1});
+  expect((await db.query('select id,status from public.reviews')).rows)
+    .toEqual([{id: historical.id, status: 'published'}]);
+  await identity(null, 'postgres');
+  expect((await db.query("select tgenabled from pg_trigger where tgname='reviews_refresh_place_rating'")).rows)
+    .toEqual([{tgenabled: 'O'}]);
+  await db.exec('alter table public.reviews drop constraint fixture_reject_pending');
+  await db.exec(migration);
+  expect(await stats()).toEqual({average: null, count: 0});
+  expect((await db.query('select id from public.reviews')).rows).toEqual([]);
+  await identity(alice);
+  expect((await db.query('select id,status from public.reviews')).rows)
+    .toEqual([{id: historical.id, status: 'pending'}]);
+  await identity(null, 'postgres');
+  await db.query('delete from public.reviews where id=$1', [historical.id]);
+  await db.exec('delete from private.review_write_limits');
 }, 30000);
 afterAll(async () => {
   await db.close();
@@ -112,23 +148,39 @@ afterAll(async () => {
 describe.sequential('real PostgreSQL review lifecycle', () => {
   let a: Row;
   let b: Row;
-  it('publishes immediately for an ordinary user and updates the aggregate despite place RLS', async () => {
+  it('keeps a new review private and uncounted until approval', async () => {
     a = await save(alice, 5);
-    expect(a.status).toBe('published');
+    expect(a.status).toBe('pending');
     expect(a.moderation_status).toBe('pending');
-    expect(await stats()).toEqual({average: 5, count: 1});
+    expect(await stats()).toEqual({average: null, count: 0});
+    expect((await db.query('select id from public.reviews')).rows).toEqual([]);
+    await identity(bob);
+    expect((await db.query('select id from public.reviews')).rows).toEqual([]);
+    for (const user of [alice, admin]) {
+      await identity(user);
+      expect((await db.query('select id from public.reviews')).rows).toEqual([{id: a.id}]);
+    }
     await identity(null, 'postgres');
     await db.query(
       "insert into public.review_media(review_id,uploaded_by,storage_path,mime_type,byte_size) values($1,$2,'test.webp','image/webp',100)",
       [a.id, alice]
     );
     await identity(null, 'anon');
+    expect((await db.query('select id from public.review_media')).rows).toHaveLength(0);
+    a = await moderate(a, 'approved');
+    expect(await stats()).toEqual({average: 5, count: 1});
     expect((await db.query('select id from public.review_media')).rows).toHaveLength(1);
+    await identity(null, 'postgres');
+    await db.exec("update private.review_write_limits set last_write_at=now()-interval '1 minute'");
+    a = await save(alice, 4, a.updated_at);
+    expect(a.moderation_status).toBe('pending');
+    expect(await stats()).toEqual({average: null, count: 0});
   });
   it('counts each account once and retries do not duplicate a review', async () => {
     b = await save(bob, 3);
-    expect((await save(alice, 5, a.updated_at)).id).toBe(a.id);
-    expect(await stats()).toEqual({average: 4, count: 2});
+    expect((await save(alice, 4, a.updated_at)).id).toBe(a.id);
+    b = await moderate(b, 'approved');
+    expect(await stats()).toEqual({average: 3, count: 1});
   });
   it('rejects direct writes that could forge approval or bypass ownership', async () => {
     await identity(bob);
@@ -161,7 +213,7 @@ describe.sequential('real PostgreSQL review lifecycle', () => {
         '2000-01-01T00:00:00Z'
       ])
     ).rejects.toMatchObject({code: '40001'});
-    await expect(save(alice, 4, '2000-01-01T00:00:00Z')).rejects.toMatchObject({code: '40001'});
+    await expect(save(alice, 3, '2000-01-01T00:00:00Z')).rejects.toMatchObject({code: '40001'});
   });
   it('rolls the visibility and aggregate back when writing the audit record fails', async () => {
     await identity(null, 'postgres');
@@ -183,7 +235,7 @@ describe.sequential('real PostgreSQL review lifecycle', () => {
   it('keeps rejected edits hidden and applies the same rule after deletion and reposting', async () => {
     await identity(null, 'postgres');
     await db.exec("update private.review_write_limits set last_write_at=now()-interval '1 minute'");
-    a = await save(alice, 4, a.updated_at);
+    a = await save(alice, 3, a.updated_at);
     expect(a.status).toBe('pending');
     expect(a.moderation_status).toBe('pending');
     expect(await stats()).toEqual({average: 3, count: 1});
@@ -208,6 +260,8 @@ describe.sequential('real PostgreSQL review lifecycle', () => {
     expect((await db.query('select id from public.review_media')).rows).toHaveLength(1);
     await identity(null, 'postgres');
     expect((await db.query('select action from public.admin_audit_logs order by created_at')).rows).toEqual([
+      {action: 'review.approve'},
+      {action: 'review.approve'},
       {action: 'review.reject'},
       {action: 'review.approve'}
     ]);

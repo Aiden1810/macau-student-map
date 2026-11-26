@@ -11,6 +11,8 @@ export function formatAssistantAnswer(
   if (decision.reason === "party_size") return copy.partySize;
   if (decision.reason === "clarify") return copy.clarify;
   if (decision.reason === "missing_routes") return copy.missingRoutes;
+  if (decision.reason === "walking_limit")
+    return `${copy.walkingLimit}：${intent.maxWalkingMinutes} ${copy.minutes}\n${copy.noWalkingMatch}`;
   if (decision.reason === "no_match") return copy.noMatch;
   if (decision.reason === "travel_times")
     return hasOrigin
@@ -32,6 +34,8 @@ export function formatAssistantAnswer(
     );
   if (intent.foods.length)
     lines.push(`${copy.food}：${intent.foods.join(" / ")}`);
+  if (intent.maxWalkingMinutes != null)
+    lines.push(`${copy.walkingLimit}：${intent.maxWalkingMinutes} ${copy.minutes}`);
   if (winner.place.pricePerPerson !== null)
     lines.push(`${copy.reference}：CNY ${winner.place.pricePerPerson}`);
   if (winner.groupTotal !== null)
