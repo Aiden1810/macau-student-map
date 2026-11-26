@@ -124,6 +124,7 @@ export async function compareAmapRoutes(
     coordinates: Coordinates | null;
     city: string | null;
   }>,
+  mode: "all" | "walking" = "all",
 ): Promise<RouteSnapshot[]> {
   if (places.length > 4) throw new Error("最多比较4家店铺");
   const sdk = await new Promise<RouteSdk>((resolve, reject) => {
@@ -134,7 +135,8 @@ export async function compareAmapRoutes(
     void loadAmapPlaceSdk(key)
       .then((amap) => {
         const sdk = amap as unknown as RouteSdk;
-        sdk.plugin(["AMap.Driving", "AMap.Transfer", "AMap.Walking"], () => {
+        const plugins = mode === "walking" ? ["AMap.Walking"] : ["AMap.Driving", "AMap.Transfer", "AMap.Walking"];
+        sdk.plugin(plugins, () => {
           clearTimeout(timer);
           resolve(sdk);
         });
@@ -156,7 +158,7 @@ export async function compareAmapRoutes(
           return null;
         const destination = place.coordinates;
         const [taxi, transit, walking] = await Promise.all([
-          queryRoute("taxi", (callback) =>
+          mode === "walking" ? Promise.resolve<RouteChoice>({ status: "not_queried" }) : queryRoute("taxi", (callback) =>
             new sdk.Driving({ policy: 0, extensions: "all" }).search(
               origin.coordinates,
               destination,
@@ -164,7 +166,7 @@ export async function compareAmapRoutes(
               callback,
             ),
           ),
-          place.city
+          mode === "walking" ? Promise.resolve<RouteChoice>({ status: "not_queried" }) : place.city
             ? queryRoute("transit", (callback) =>
                 new sdk.Transfer({
                   city: origin.city,

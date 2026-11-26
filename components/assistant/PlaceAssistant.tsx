@@ -25,13 +25,15 @@ import AssistantAnswer from "./AssistantAnswer";
 export default function PlaceAssistant({
   visible = true,
   onMinimize,
+  pagePlaceId,
 }: {
   visible?: boolean;
   onMinimize: () => void;
+  pagePlaceId?: string;
 }) {
   const locale = useLocale();
   const copy = useMemo(() => chatCopy(locale), [locale]);
-  const chat = usePlaceChat(copy);
+  const chat = usePlaceChat(copy, pagePlaceId);
   const [showHistory, setShowHistory] = useState(false);
   const [showOrigin, setShowOrigin] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null),
@@ -48,6 +50,12 @@ export default function PlaceAssistant({
   useEffect(() => {
     if (visible && !showHistory) inputRef.current?.focus({ preventScroll: true });
   }, [visible, showHistory]);
+  useEffect(() => {
+    // A focused confirmation button can disappear when its result arrives.
+    if (visible && !showHistory && !chat.busy && document.activeElement === document.body &&
+        window.matchMedia("(min-width: 768px)").matches)
+      inputRef.current?.focus({ preventScroll: true });
+  }, [visible, showHistory, chat.busy]);
   useEffect(() => {
     if (!inputRef.current) return;
     inputRef.current.style.height = "auto";

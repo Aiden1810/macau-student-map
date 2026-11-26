@@ -92,4 +92,36 @@ describe("chat recognition API", () => {
     const { data } = await (await createPlaceChatHandler(d)(request())).json();
     expect(data.groups).toEqual([{ query: "未收录面馆", candidates: [] }]);
   });
+  it("uses the current published branch for an explicit reference to this restaurant", async () => {
+    const currentId = "10000000-0000-4000-8000-000000000001";
+    const otherId = "10000000-0000-4000-8000-000000000002";
+    const first = {...(await deps().loadPlaces())[0], name: "南湾茶餐厅"};
+    const handler = createPlaceChatHandler({
+      ...deps(),
+      loadPlaces: async () => [{...first, id: otherId}, {...first, id: currentId, address: "澳门"}],
+      interpret: async () => ({...understanding, placeNames: [first.name]}),
+    });
+    const context = {...body.context, pagePlaceId: currentId};
+    const referred = await handler(request({messages: ["从学校到这家怎么走？"], context}));
+    expect(referred.status).toBe(200);
+    expect((await referred.json()).data.groups[0].candidates.map((place: {id: string}) => place.id)).toEqual([currentId]);
+
+    const byName = await handler(request({messages: ["从学校到南湾茶餐厅怎么走？"], context}));
+    expect((await byName.json()).data.groups[0].candidates).toHaveLength(2);
+  });
+  it("returns only catalog candidates with verified budget facts when a recommendation has no named places", async () => {
+    const d = deps();
+    const candidate = (await d.loadPlaces())[0];
+    const handler = createPlaceChatHandler({
+      ...d,
+      loadPlaces: async () => [candidate, {...candidate, id: "unknown", pricePerPerson: null}, {...candidate, id: "over", pricePerPerson: 41}],
+      interpret: async () => ({...understanding, placeNames: [],
+        intent: {...understanding.intent, intent: "recommend", budgetPerPerson: 40, maxWalkingMinutes: 15}
+      }),
+    });
+    const response = await handler(request({messages: ["人均40，步行15分钟以内，吃什么？"], context: body.context}));
+    const {data} = await response.json();
+    expect(data.groups).toEqual([]);
+    expect(data.catalogCandidates.map((place: {id: string}) => place.id)).toEqual([candidate.id]);
+  });
 });

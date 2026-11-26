@@ -29,7 +29,7 @@ function startNext(args) {
   const child = spawn(process.execPath, [path.join(root,'node_modules/next/dist/bin/next'), ...args], {
     cwd:copy, env:{...process.env, NODE_ENV:'production', NEXT_TELEMETRY_DISABLED:'1', CITYU_BUILD_DIR:'.next',
       NEXT_PUBLIC_SUPABASE_URL:fixtureOrigin, NEXT_PUBLIC_SUPABASE_ANON_KEY:'capacity-fixture-public-key',
-      DEEPSEEK_API_KEY:'', NEXT_PUBLIC_AMAP_KEY:'', NEXT_PUBLIC_AMAP_SECURITY_CODE:''},
+      DEEPSEEK_API_KEY:'', NEXT_PUBLIC_AMAP_KEY:'', AMAP_JS_SECURITY_CODE:''},
     stdio:['ignore','pipe','pipe'], windowsHide:true
   });
   children.push(child);

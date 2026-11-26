@@ -130,7 +130,7 @@ export default function ReviewInbox() {
         <div>
           <h2 className="text-xl font-semibold text-ink">用户评价</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-            评价首次发布立即展示。审核不通过后隐藏，同时移除对应分数；被隐藏内容修改后需要重新审核。低评分本身不构成隐藏理由。
+            评价审核通过后公开并计分。修改后暂时隐藏并移除对应分数，复审通过后恢复。低评分本身不构成隐藏理由。
           </p>
         </div>
         <button

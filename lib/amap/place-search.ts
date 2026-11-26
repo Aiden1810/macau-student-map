@@ -12,11 +12,36 @@ export type AmapPoiOption = {
   fullAddress: string;
   coordinates: [number, number];
   city: AmapPoiCity;
+  rating?: number;
   distanceMeters?: number;
   distanceSource?: AmapPoiDistanceSource;
 };
 
 export type AmapSearchScope = 'all' | 'macau' | 'zhuhai';
+
+const discoveryCategories = {food: '餐饮服务', service: '生活服务', shopping: '购物服务'} as const;
+const discoveryRadiusMeters = 2000;
+export type AmapDiscoveryCity = Exclude<AmapSearchScope, 'all'>;
+export type AmapDiscoveryCategory = keyof typeof discoveryCategories;
+
+// Use equivalent AMap POI categories only. Chengmi-specific facets stay in the site directory.
+const nearbyDiningTypes = new Map([
+  ['chinese-cuisine', '050100'],
+  ['portuguese-cuisine', '050213'],
+  ['japanese-cuisine', '050202'],
+  ['korean-cuisine', '050203'],
+  ['indian-cuisine', '050209'],
+  ['hot-pot', '050117'],
+  ['cha-chaan-teng', '050305'],
+  ['fast-food', '050300'],
+  ['coffee', '050500']
+]);
+
+export function amapDiningTypeForFilters(filters: readonly string[]): string | null {
+  if (filters.length === 0) return '050000';
+  const types = filters.map(filter => nearbyDiningTypes.get(filter));
+  return types.includes(undefined) ? null : Array.from(new Set(types)).join('|');
+}
 
 export type AmapPlaceSearchPoi = {
   id?: string;
@@ -26,6 +51,9 @@ export type AmapPlaceSearchPoi = {
   cityname?: string;
   adname?: string;
   adcode?: string;
+  rating?: unknown;
+  biz_ext?: {rating?: unknown};
+  bizExt?: {rating?: unknown};
   location?: {
     lng?: number;
     lat?: number;
@@ -44,6 +72,12 @@ type AmapPlaceSearchInstance = {
     keyword: string,
     callback: (status: string, result: AmapPlaceSearchResult) => void
   ) => void;
+  searchNearBy: (
+    keyword: string,
+    center: [number, number],
+    radius: number,
+    callback: (status: string, result: AmapPlaceSearchResult) => void
+  ) => void;
 };
 
 type AmapNamespace = {
@@ -54,30 +88,36 @@ type AmapNamespace = {
     pageSize: number;
     pageIndex: number;
     extensions: 'base' | 'all';
+    type?: string;
   }) => AmapPlaceSearchInstance;
 };
 
 type AmapWindow = Window & {
   AMap?: AmapNamespace;
   __amapPlaceLoadingPromise?: Promise<AmapNamespace>;
-  _AMapSecurityConfig?: {securityJsCode?: string};
+  _AMapSecurityConfig?: {serviceHost: string};
 };
 
 function inferAmapPoiCity(poi: AmapPlaceSearchPoi, fallbackCity?: string): AmapPoiCity {
   const adcode = String(poi.adcode ?? '');
-  const administrativeText = [poi.pname, poi.cityname, poi.adname, fallbackCity]
+  const administrativeText = [poi.pname, poi.cityname, poi.adname]
     .filter(Boolean)
     .join(' ');
 
-  if (adcode.startsWith('82') || administrativeText.includes('澳门')) return 'macau';
+  if (adcode.startsWith('82')) return 'macau';
+  if (adcode.startsWith('4404')) return 'zhuhai';
+  if (administrativeText.includes('澳门')) return 'macau';
   if (
-    adcode.startsWith('4404') ||
     ['珠海', '香洲', '斗门', '金湾', '横琴'].some(name => administrativeText.includes(name))
   ) return 'zhuhai';
+  if (!adcode && !administrativeText) {
+    if (fallbackCity === '澳门') return 'macau';
+    if (fallbackCity === '珠海') return 'zhuhai';
+  }
   return 'unknown';
 }
 
-function distanceMeters(from: [number, number], to: [number, number]): number {
+export function distanceMeters(from: [number, number], to: [number, number]): number {
   const earthRadius = 6_371_000;
   const radians = (value: number) => (value * Math.PI) / 180;
   const latitudeDelta = radians(to[1] - from[1]);
@@ -124,16 +164,28 @@ export function mapAmapPois(
 
       const region = [poi.pname, poi.cityname, poi.adname].filter(Boolean).join(' ') || fallbackCity;
       const fullAddress = [region, poi.address].filter(Boolean).join(' ').trim();
+      const rating = [poi.rating, poi.biz_ext?.rating, poi.bizExt?.rating]
+        .map(value => typeof value === 'string' || typeof value === 'number' ? Number(value) : NaN)
+        .find(value => Number.isFinite(value) && value > 0 && value <= 5);
 
       return {
         placeId: String(poi.id),
         name: String(poi.name || '').trim() || unnamedPlaceLabel,
         fullAddress,
         coordinates: [longitude, latitude] as [number, number],
-        city: inferAmapPoiCity(poi, fallbackCity)
+        city: inferAmapPoiCity(poi, fallbackCity),
+        ...(rating !== undefined && {rating})
       };
     })
     .filter((option): option is AmapPoiOption => option !== null);
+}
+
+export function rankNearbyDining(options: readonly AmapPoiOption[], origin: AmapPoiSearchOrigin) {
+  return rankAmapPoiOptions(options, origin).sort((left, right) =>
+    Math.floor(left.distanceMeters! / 200) - Math.floor(right.distanceMeters! / 200)
+    || (right.rating ?? -1) - (left.rating ?? -1)
+    || left.distanceMeters! - right.distanceMeters!
+  );
 }
 
 export function mergeUniqueAmapPoiOptions(
@@ -167,11 +219,7 @@ export function loadAmapPlaceSdk(key: string): Promise<AmapNamespace> {
   }
 
   const amapWindow = window as AmapWindow;
-  const securityCode = process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE;
-
-  if (securityCode && !amapWindow._AMapSecurityConfig) {
-    amapWindow._AMapSecurityConfig = {securityJsCode: securityCode};
-  }
+  amapWindow._AMapSecurityConfig = {serviceHost: window.location.origin + '/_AMapService'};
   if (amapWindow.AMap) return Promise.resolve(amapWindow.AMap);
   if (amapWindow.__amapPlaceLoadingPromise) return amapWindow.__amapPlaceLoadingPromise;
 
@@ -214,7 +262,8 @@ async function searchCity(
   amap: AmapNamespace,
   city: string,
   keyword: string,
-  unnamedPlaceLabel: string
+  unnamedPlaceLabel: string,
+  discovery?: {category: AmapDiscoveryCategory | 'businesses'; origin?: AmapPoiSearchOrigin; page?: number; diningType?: string}
 ): Promise<AmapPoiOption[]> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -232,28 +281,91 @@ async function searchCity(
         const placeSearch = new amap.PlaceSearch({
           city,
           citylimit: true,
-          pageSize: 8,
-          pageIndex: 1,
-          extensions: 'base'
+          pageSize: discovery?.category === 'businesses' ? 25 : 8,
+          pageIndex: discovery?.page ?? 1,
+          extensions: discovery?.category === 'businesses' ? 'all' : 'base',
+          ...(discovery && {type: discovery.category === 'businesses'
+            ? discovery.diningType ?? '050000' : discoveryCategories[discovery.category]})
         });
 
-        placeSearch.search(keyword, (status, result) => {
+        const onResult = (status: string, result: AmapPlaceSearchResult) => {
           if (settled) return;
           if (status === 'no_data' || result?.info === 'NO_DATA') {
             finish([]);
             return;
           }
           if (status !== 'complete' || !result?.poiList?.pois) {
-            finish([], result?.info && result.info !== 'OK' ? new Error(result.info) : undefined);
+            const error = result?.info && result.info !== 'OK' ? new Error(result.info) : undefined;
+            finish([], error ?? new Error('AMap place search failed'));
             return;
           }
           finish(mapAmapPois(result.poiList.pois, unnamedPlaceLabel, city));
-        });
+        };
+        if (discovery?.origin) {
+          placeSearch.searchNearBy(keyword, discovery.origin.coordinates, discoveryRadiusMeters, onResult);
+        } else {
+          placeSearch.search(keyword, onResult);
+        }
       } catch (error) {
         finish([], error);
       }
     });
   });
+}
+
+export async function searchAmapDiscoveryPlaces(
+  key: string,
+  {city, category, keyword, origin}: {
+    city: AmapDiscoveryCity;
+    category: AmapDiscoveryCategory;
+    keyword: string;
+    origin?: AmapPoiSearchOrigin;
+  },
+  unnamedPlaceLabel: string
+): Promise<AmapPoiOption[]> {
+  const amap = await loadAmapPlaceSdk(key);
+  const options = await searchCity(amap, city === 'macau' ? '澳门' : '珠海', keyword.trim(), unnamedPlaceLabel, {
+    category,
+    origin
+  });
+  const localOptions = options.filter(({city: resultCity, coordinates: [longitude, latitude]}) =>
+    resultCity === city && Math.abs(longitude) <= 180 && Math.abs(latitude) <= 90 &&
+    (longitude !== 0 || latitude !== 0)
+  );
+  const ranked = rankAmapPoiOptions(mergeUniqueAmapPoiOptions(localOptions), origin ?? null);
+  return ranked.filter(({distanceMeters}) => distanceMeters === undefined || distanceMeters <= discoveryRadiusMeters);
+}
+
+export async function searchNearbyBusinesses(
+  key: string, city: AmapDiscoveryCity, coordinates: [number, number], unnamed: string, signal?: AbortSignal, keyword = '', diningType = '050000'
+) {
+  const amap = await loadAmapPlaceSdk(key);
+  const origin = {coordinates, source: 'map'} as const;
+  let items: AmapPoiOption[] = [];
+  let partial = false;
+  for (let page = 1; page <= 4; page++) {
+    signal?.throwIfAborted();
+    try {
+      const batch = await searchCity(amap, city === 'macau' ? '澳门' : '珠海', keyword.trim(), unnamed, {
+        category: 'businesses', origin, page, diningType
+      });
+      const previousCount = items.length;
+      items = mergeUniqueAmapPoiOptions(items, batch);
+      if (batch.length < 25) break;
+      if (page === 4 || items.length === previousCount) {
+        partial = true;
+        break;
+      }
+      await new Promise(resolve => setTimeout(resolve, 400));
+    } catch (error) {
+      if (!items.length) throw error;
+      partial = true;
+      break;
+    }
+  }
+  signal?.throwIfAborted();
+  const local = rankAmapPoiOptions(items.filter(item => item.city === city), origin);
+  return {items: local.filter(item => item.distanceMeters !== undefined && item.distanceMeters <= discoveryRadiusMeters), partial};
 }
 
 export async function searchAmapPoiOptions(

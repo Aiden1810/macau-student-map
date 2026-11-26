@@ -213,6 +213,7 @@ export function createReviewHandlers(
       .select('id,place_id,rating,content,created_at,updated_at', {count: 'exact'})
       .eq('place_id', place.id)
       .eq('status', 'published')
+      .eq('moderation_status', 'approved')
       .is('deleted_at', null)
       .order('created_at', {ascending: false})
       .limit(100);

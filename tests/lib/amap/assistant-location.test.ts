@@ -20,6 +20,10 @@ describe('assistant origin', () => {
         '当前位置',
       )?.city,
     ).toBe('澳门');
+    expect(mapLocatedOrigin({
+      position: {lng: 113.55, lat: 22.19},
+      addressComponent: {province: '澳門特別行政區'},
+    }, '目前位置')?.city).toBe('澳门');
   });
   it('does not guess a city, accept an outside location, or treat null as 0', () => {
     expect(

@@ -1,12 +1,14 @@
 import {
   chatRequestSchema,
   chatUnderstandingSchema,
+  referencedPagePlace,
   resolveChatPlaces,
   type ChatRequest,
   type ChatUnderstanding,
 } from "../assistant/chat";
 import type { AssistantPlace } from "../assistant/contracts";
 import { understandPlaceChat } from "../assistant/chat-model";
+import { filterCatalogMealPlaces } from "../assistant/decision";
 import { allowPaidRequest, loadPublishedPlaces } from "./place-assistant-route";
 import { parseJsonBody } from "./request";
 import { errorResponse, successResponse } from "./result";
@@ -58,10 +60,19 @@ export function createPlaceChatHandler(deps: Dependencies = {}) {
           AbortSignal.any([request.signal, AbortSignal.timeout(20000)]),
         ),
       );
+      const pagePlace = referencedPagePlace(body.data, catalog);
+      const groups = resolveChatPlaces(understanding.placeNames, catalog).map(group =>
+        pagePlace && group.candidates.some(place => place.id === pagePlace.id)
+          ? {...group, candidates: [pagePlace]}
+          : group
+      );
       return successResponse({
         mode: "ai",
         understanding,
-        groups: resolveChatPlaces(understanding.placeNames, catalog),
+        groups,
+        ...(groups.length === 0 && understanding.intent.intent === "recommend" && {
+          catalogCandidates: filterCatalogMealPlaces(catalog, understanding.intent),
+        }),
       });
     } catch {
       return errorResponse({

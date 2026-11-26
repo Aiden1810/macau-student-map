@@ -2,13 +2,11 @@ import {ChevronDown, Globe, LogOut, MessageCircle, Search, UserRound, X} from 'l
 import {useLocale, useTranslations} from 'next-intl';
 import {type CSSProperties, useEffect, useRef, useState} from 'react';
 import {Link, usePathname} from '@/i18n/navigation';
-import {assistantCopy} from '@/lib/assistant/copy';
 import {contactCopy} from '@/lib/contact/copy';
 import {brandName} from '@/lib/brand';
+import {mealHistoryEnabled} from '@/lib/meal-history/model';
 
 interface HeaderProps {
-  assistantOpen: boolean;
-  onToggleAssistant: () => void;
   searchQuery: string;
   setSearchQuery: (value: string) => void;
   searchPlaceholder: string;
@@ -36,8 +34,6 @@ const LANGUAGE_OPTIONS = [
 ] as const;
 
 export default function Header({
-  assistantOpen,
-  onToggleAssistant,
   searchQuery,
   setSearchQuery,
   searchPlaceholder,
@@ -51,6 +47,7 @@ export default function Header({
 }: HeaderProps) {
   const tCommon = useTranslations('Common');
   const tHome = useTranslations('Home');
+  const tMealHistory = useTranslations('MealHistory');
   const tAuth = useTranslations('Auth');
   const locale = useLocale();
   const pathname = usePathname();
@@ -110,7 +107,7 @@ export default function Header({
   };
 
   return (
-    <header className={`pointer-events-auto z-50 pt-[max(env(safe-area-inset-top,0px),0px)] md:pt-0 md:sticky md:top-0 md:border-b md:border-slate-200 md:text-slate-800 md:shadow-sm md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)] ${isCompact ? 'md:bg-white/95' : 'md:bg-white'}`}>
+    <header className={`pointer-events-auto z-50 pt-[max(env(safe-area-inset-top,0px),0px)] md:pt-0 md:sticky md:top-[var(--main-nav-top)] md:border-b md:border-slate-200 md:text-slate-800 md:shadow-sm md:transition-all md:duration-300 md:ease-[cubic-bezier(0.4,0,0.2,1)] ${isCompact ? 'md:bg-white/95' : 'md:bg-white'}`}>
       <div className="mx-auto flex max-w-[1380px] items-center gap-2 p-0 sm:px-0 md:gap-3 md:px-4 md:py-2 lg:px-8">
         <div className="hidden min-w-0 items-center gap-2 md:flex" style={GLASS_STYLE}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pine-700 text-white">
@@ -138,9 +135,6 @@ export default function Header({
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          <button type="button" onClick={onToggleAssistant} aria-haspopup="dialog" aria-expanded={assistantOpen} aria-controls="home-ai-dialog" className="hidden min-h-10 items-center rounded-xl bg-pine-700 md:inline-flex px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 sm:text-sm">
-            {assistantCopy(locale).nav}
-          </button>
           <div ref={mobileMenuRef} className="relative flex items-center md:hidden">
             <button
               type="button"
@@ -170,6 +164,8 @@ export default function Header({
                   {mySubmissionsLabel}
                 </Link>
 
+                {mealHistoryEnabled && <Link href="/meal-history" onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">{tMealHistory('title')}</Link>}
                 <Link href="/contact" onClick={() => setMobileMenuOpen(false)} className="flex min-h-11 items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><MessageCircle size={16} />{contactCopy(locale).title}</Link>
 
                 <div className="border-y border-slate-100 px-3 py-2">
@@ -245,6 +241,8 @@ export default function Header({
                   {mySubmissionsLabel}
                 </Link>
 
+                {mealHistoryEnabled && <Link href="/meal-history" onClick={() => setDesktopMenuOpen(false)}
+                  className="block px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">{tMealHistory('title')}</Link>}
                 <Link href="/contact" onClick={() => setDesktopMenuOpen(false)} className="flex min-h-11 items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"><MessageCircle size={16} />{contactCopy(locale).title}</Link>
 
                 <div className="border-y border-slate-100 px-3 py-2">

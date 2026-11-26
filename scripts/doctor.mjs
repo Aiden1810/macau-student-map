@@ -129,10 +129,10 @@ function run() {
       );
     }
 
-    const amapSecurityCode = env.get('NEXT_PUBLIC_AMAP_SECURITY_CODE')?.trim();
+    const amapSecurityCode = env.get('AMAP_JS_SECURITY_CODE')?.trim();
     const securityPlaceholder = Boolean(amapSecurityCode && isExampleValue(amapSecurityCode));
     addCheck(
-      'ENV: NEXT_PUBLIC_AMAP_SECURITY_CODE',
+      'ENV: AMAP_JS_SECURITY_CODE',
       !securityPlaceholder,
       securityPlaceholder ? '仍为示例占位值。' : amapSecurityCode ? '已填写；未验证服务连通性。' : '未配置；仅当高德控制台要求安全密钥时才需要。',
       securityPlaceholder ? '仅当高德控制台要求安全密钥时填写有效配置，否则留空。' : undefined,
@@ -165,7 +165,8 @@ function run() {
   // 4) AMap implementation check
   const mapComponentRaw = readText(mapComponentPath);
   if (mapComponentRaw) {
-    const usesAmap = /webapi\.amap\.com\/maps/.test(mapComponentRaw) && /loadAmapScript/.test(mapComponentRaw);
+    const sdkLoaderRaw = readText(path.join(root, 'lib/amap/place-search.ts')) ?? '';
+    const usesAmap = /webapi\.amap\.com\/maps/.test(sdkLoaderRaw) && /loadAmapPlaceSdk/.test(mapComponentRaw);
 
     addCheck(
       '高德地图实现',

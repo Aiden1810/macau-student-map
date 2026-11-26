@@ -10,7 +10,7 @@ const row = {
   user_id: id,
   rating: 4,
   content: '体验不错',
-  status: 'published',
+  status: 'pending',
   moderation_status: 'pending',
   moderation_reason: null,
   deleted_at: null,
@@ -40,6 +40,33 @@ function setup(error: unknown = null, authorized = true, admin = true) {
   return {handlers, rpc, client};
 }
 describe('review API guards and database contract', () => {
+  it('requires approval in the public query and disables response caching', async () => {
+    const place = {
+      select: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({data: {id, rating_average: null, review_count: 0}})
+    };
+    const reviews = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({data: [], count: 0})
+    };
+    const handlers = createReviewHandlers({
+      publicClient: () => ({from: (table: string) => table === 'places' ? place : reviews}) as unknown as SupabaseClient,
+      client: () => { throw new Error('Unexpected authenticated client'); },
+      authorizeUser: async () => { throw new Error('Unexpected login check'); },
+      authorizeAdmin: async () => { throw new Error('Unexpected admin check'); }
+    });
+    const response = await handlers.GET(new Request('http://localhost/api/reviews'), context);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(reviews.eq).toHaveBeenCalledWith('moderation_status', 'approved');
+    expect((await response.json()).data.items).toEqual([]);
+  });
   it('denies anonymous writes before accessing the database', async () => {
     const {handlers, client} = setup(null, false);
     expect((await handlers.POST(request({rating: 4}), context)).status).toBe(401);

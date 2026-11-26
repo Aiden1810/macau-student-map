@@ -72,6 +72,30 @@ describe("AMap route comparison", () => {
     expect(result[0].transit).toEqual({ status: "unknown_city" });
     expect(transfer).not.toHaveBeenCalled();
   });
+  it("loads and queries only the walking plugin for a walking-only request", async () => {
+    const plugin = vi.fn((_names: string[], done: () => void) => done());
+    const drive = vi.fn();
+    const transfer = vi.fn();
+    vi.mocked(loadAmapPlaceSdk).mockResolvedValue({
+      plugin, Driving: drive, Transfer: transfer,
+      Walking: class {
+        search(_from: unknown, _to: unknown, done: (status: string, result: unknown) => void) {
+          done("complete", {routes: [{time: 900, distance: 1100}]});
+        }
+      }
+    } as unknown as Awaited<ReturnType<typeof loadAmapPlaceSdk>>);
+    const [result] = await compareAmapRoutes(
+      "test-key", {coordinates: [113.53, 22.13], label: "Campus", city: "澳门"},
+      [{id: "test", coordinates: [113.54, 22.14], city: "澳门"}], "walking"
+    );
+    expect(plugin).toHaveBeenCalledExactlyOnceWith(["AMap.Walking"], expect.any(Function));
+    expect(result).toMatchObject({
+      taxi: {status: "not_queried"}, transit: {status: "not_queried"},
+      walking: {status: "ok", durationSeconds: 900}
+    });
+    expect(drive).not.toHaveBeenCalled();
+    expect(transfer).not.toHaveBeenCalled();
+  });
   it("resolves destination cities from explicit evidence without defaulting to Macau", () => {
     expect(
       resolveRouteCity({ region: null, address: "珠海市香洲区北山正街78号" }),

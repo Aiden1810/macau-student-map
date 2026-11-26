@@ -22,7 +22,8 @@ function runDoctor(env: Record<string, string> | string | null = valid) {
     writeFileSync(target, content);
   }
   write('package.json', readFileSync(path.join(root, 'package.json'), 'utf8'));
-  write('components/MapPlaceholder.tsx', '// loadAmapScript webapi.amap.com/maps');
+  write('components/MapPlaceholder.tsx', '// loadAmapPlaceSdk');
+  write('lib/amap/place-search.ts', '// webapi.amap.com/maps');
   write('next.config.ts', 'export default {};');
   write('supabase/migrations/20260830103144_canonical_local_life_model.sql', '');
   write('supabase/config.toml', readFileSync(path.join(root, 'supabase/config.toml'), 'utf8'));
@@ -106,7 +107,7 @@ describe('doctor configuration diagnostics', () => {
     expect(result.output).toContain('未配置；基础检查可继续，真实 AI 功能无法验证。');
   });
 
-  it.each(['DEEPSEEK_API_KEY', 'NEXT_PUBLIC_AMAP_SECURITY_CODE'])(
+  it.each(['DEEPSEEK_API_KEY', 'AMAP_JS_SECURITY_CODE'])(
     'rejects placeholders when the optional %s is supplied', key => {
       const result = runDoctor({...valid, [key]: 'YOUR_OPTIONAL_KEY'});
       expect(result.status).toBe(1);

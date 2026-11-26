@@ -1,9 +1,11 @@
 import { normalizeSearchText, resolveTagAlias, resolveSearchTagAlias } from "../domain/taxonomy";
+import { distanceMeters } from "../amap/place-search";
 import type {
   AssistantDecision,
   AssistantIntent,
   AssistantOrigin,
   AssistantPlace,
+  ComparisonRow,
   Coordinates,
   RouteSnapshot,
 } from "./contracts";
@@ -76,30 +78,71 @@ function travelSeconds(
   return seconds.length ? Math.min(...seconds) : null;
 }
 
+const resolveBudget = (intent: AssistantIntent) => intent.budgetPerPerson ??
+  (intent.totalBudget !== null && intent.partySize ? intent.totalBudget / intent.partySize : null);
+
+function diningEvidence(place: AssistantPlace, intent: AssistantIntent, budget: number | null) {
+  const budgetStatus: ComparisonRow["budget"] = budget === null ? "no_limit"
+    : place.pricePerPerson === null || !Number.isFinite(place.pricePerPerson) ? "unknown"
+      : place.pricePerPerson <= budget ? "within" : "over";
+  return {
+    place,
+    budget: budgetStatus,
+    foodMatches: (!intent.foods.length || intent.foods.some(food => matchesFood(place, food))) &&
+      !intent.excludedFoods.some(food => matchesFood(place, food)),
+  };
+}
+
+export type MealExclusion = "not_dining" | "food_mismatch" | "over_budget" | "unknown_price" | "over_walking" | "unknown_walking";
+
+function diningExclusion(row: Pick<ComparisonRow, "place" | "foodMatches" | "budget">, intent: AssistantIntent): MealExclusion | null {
+  if (row.place.category !== "food" || /暂停营业|暫停營業|已停业|已停業|已结业|已結業|permanently closed/i.test(row.place.name))
+    return "not_dining";
+  if (!row.foodMatches) return "food_mismatch";
+  if (row.budget === "over") return "over_budget";
+  if (row.budget === "unknown" || (intent.priority === "cheapest" &&
+      (row.place.pricePerPerson === null || !Number.isFinite(row.place.pricePerPerson)))) return "unknown_price";
+  return null;
+}
+
+export function mealCandidateExclusion(row: ComparisonRow, intent: AssistantIntent): MealExclusion | null {
+  const excluded = diningExclusion(row, intent);
+  if (excluded || intent.maxWalkingMinutes == null) return excluded;
+  const seconds = travelSeconds(row.route, "walking");
+  if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return "unknown_walking";
+  return seconds > intent.maxWalkingMinutes * 60 ? "over_walking" : null;
+}
+
+export function filterCatalogMealPlaces(places: AssistantPlace[], intent: AssistantIntent) {
+  const budget = resolveBudget(intent);
+  if ((intent.currency === "MOP" && (budget !== null || intent.totalBudget !== null)) ||
+      (intent.totalBudget !== null && budget === null)) return [];
+  return places.filter(place => diningExclusion(diningEvidence(place, intent, budget), intent) === null);
+}
+
+export function chooseCatalogComparisonPlaces(places: AssistantPlace[], intent: AssistantIntent, origin: AssistantOrigin | null) {
+  const prioritiseProximity = origin && (intent.maxWalkingMinutes != null || intent.priority !== "cheapest");
+  const ranked = places.map((place, index) => ({
+    place,
+    index,
+    score: prioritiseProximity
+      ? place.coordinates ? distanceMeters(origin.coordinates, place.coordinates) : Infinity
+      : place.pricePerPerson ?? Infinity,
+  }));
+  return ranked.sort((left, right) => left.score - right.score || left.index - right.index)
+    .slice(0, 4).map(({place}) => place);
+}
+
 export function comparePlaces(
   places: AssistantPlace[],
   intent: AssistantIntent,
   routes: RouteSnapshot[],
 ): AssistantDecision {
-  const budget =
-    intent.budgetPerPerson ??
-    (intent.totalBudget !== null && intent.partySize
-      ? intent.totalBudget / intent.partySize
-      : null);
+  const walkingLimit = intent.intent === "recommend" ? (intent.maxWalkingMinutes ?? null) : null;
+  const transport = walkingLimit === null ? intent.transport : "walking";
+  const budget = resolveBudget(intent);
   const rows = places.map((place) => ({
-    place,
-    budget:
-      budget === null
-        ? ("no_limit" as const)
-        : place.pricePerPerson === null
-          ? ("unknown" as const)
-          : place.pricePerPerson <= budget
-            ? ("within" as const)
-            : ("over" as const),
-    foodMatches:
-      (!intent.foods.length ||
-        intent.foods.some((food) => matchesFood(place, food))) &&
-      !intent.excludedFoods.some((food) => matchesFood(place, food)),
+    ...diningEvidence(place, intent, budget),
     groupTotal:
       place.pricePerPerson !== null && intent.partySize !== null
         ? Math.round(place.pricePerPerson * intent.partySize * 100) / 100
@@ -108,10 +151,10 @@ export function comparePlaces(
   }));
   const result: AssistantDecision = {
     recommendedPlaceId: null,
-    reason: "no_match",
+    reason: walkingLimit === null ? "no_match" : "walking_limit",
     budgetPerPerson: budget,
     partialRoutes: rows.some(
-      (row) => travelSeconds(row.route, intent.transport) === null,
+      (row) => travelSeconds(row.route, transport) === null,
     ),
     rows,
   };
@@ -128,28 +171,17 @@ export function comparePlaces(
     return { ...result, reason: "party_size" };
   if (intent.intent === "travel_times" || intent.intent === "clarify")
     return { ...result, reason: intent.intent };
-  let eligible = rows.filter(
-    (row) =>
-      row.place.category === "food" &&
-      row.foodMatches &&
-      row.budget !== "over" &&
-      row.budget !== "unknown" &&
-      !/暂停营业|暫停營業|已停业|已停業|已结业|已結業|permanently closed/i.test(
-        row.place.name,
-      ),
-  );
-  if (intent.priority === "cheapest")
-    eligible = eligible.filter((row) => row.place.pricePerPerson !== null);
+  let eligible = rows.filter(row => mealCandidateExclusion(row, intent) === null);
   if (!eligible.length) return result;
   if (intent.priority === "fastest") {
     eligible = eligible.filter(
-      (row) => travelSeconds(row.route, intent.transport) !== null,
+      (row) => travelSeconds(row.route, transport) !== null,
     );
     if (!eligible.length) return { ...result, reason: "missing_routes" };
   }
   const score = (row: (typeof rows)[number]) => {
     const price = row.place.pricePerPerson ?? 100000;
-    const time = travelSeconds(row.route, intent.transport);
+    const time = travelSeconds(row.route, transport);
     if (intent.priority === "cheapest") return price;
     if (intent.priority === "fastest") return time ?? Infinity;
     return Math.min(price, 1000) / 10 + (time === null ? 30 : time / 120);

@@ -11,7 +11,7 @@ import type {
   AssistantPlace,
   RouteSnapshot,
 } from "@/lib/assistant/contracts";
-import { comparePlaces } from "@/lib/assistant/decision";
+import { chooseCatalogComparisonPlaces, comparePlaces } from "@/lib/assistant/decision";
 import { formatAssistantAnswer } from "@/lib/assistant/answer";
 import {
   compareAmapRoutes,
@@ -28,7 +28,7 @@ import {
   type ConversationArchive, type SavedConversation,
 } from "@/lib/assistant/conversation-history";
 
-export function usePlaceChat(copy: ChatCopy) {
+export function usePlaceChat(copy: ChatCopy, pagePlaceId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -156,14 +156,14 @@ export function usePlaceChat(copy: ChatCopy) {
   async function advance(task: PendingChat) {
     if (task.token !== serial.current) return;
     const unresolved = task.groups.find((group) => !group.selected);
-    const places = [
+    const namedPlaces = [
       ...new Map(
         task.groups
           .flatMap((group) => (group.selected ? [group.selected] : []))
           .map((place) => [place.id, place]),
       ).values(),
     ];
-    contextPlaces.current = places;
+    contextPlaces.current = namedPlaces;
     if (unresolved) {
       setPending(task);
       update(task.messageId, {
@@ -173,7 +173,7 @@ export function usePlaceChat(copy: ChatCopy) {
       finishWork(task.token);
       return;
     }
-    if (!places.length) {
+    if (!namedPlaces.length && !task.catalogCandidates) {
       update(task.messageId, { text: copy.askNames, loading: false });
       setPending(null);
       finishWork(task.token);
@@ -181,8 +181,10 @@ export function usePlaceChat(copy: ChatCopy) {
     }
     if (
       !task.origin &&
+      (namedPlaces.length > 0 || Boolean(task.catalogCandidates?.length)) &&
       (task.intent.intent === "travel_times" ||
         task.intent.priority === "fastest" ||
+        (task.intent.intent === "recommend" && task.intent.maxWalkingMinutes != null) ||
         task.originQuery !== null)
     ) {
       setPending(task);
@@ -195,11 +197,14 @@ export function usePlaceChat(copy: ChatCopy) {
       finishWork(task.token);
       return;
     }
+    const places = task.catalogCandidates
+      ? chooseCatalogComparisonPlaces(task.catalogCandidates, task.intent, task.origin)
+      : namedPlaces;
     setPending(null);
     update(task.messageId, { text: copy.routing, loading: true });
     let routes: RouteSnapshot[] = [];
     let mapFailed = false;
-    if (task.origin) {
+    if (task.origin && places.length) {
       try {
         routes = await compareAmapRoutes(
           mapKey,
@@ -226,7 +231,7 @@ export function usePlaceChat(copy: ChatCopy) {
           Boolean(task.origin),
         );
     update(task.messageId, {
-      text,
+      text: task.catalogCandidates && places.length ? `${copy.catalogScope}\n${text}` : text,
       loading: false,
       places: task.origin ? places : undefined,
       routes,
@@ -269,6 +274,7 @@ export function usePlaceChat(copy: ChatCopy) {
               address,
             })),
             originLabel: origin?.label ?? null,
+            ...(pagePlaceId && {pagePlaceId}),
           },
         }),
       });
@@ -290,7 +296,7 @@ export function usePlaceChat(copy: ChatCopy) {
         finishWork(token);
         return;
       }
-      if (!plan.groups.length) {
+      if (!plan.groups.length && !plan.catalogCandidates) {
         update(id, { text: copy.askNames, loading: false });
         finishWork(token);
         return;
@@ -364,6 +370,7 @@ export function usePlaceChat(copy: ChatCopy) {
         token,
         intent: understanding.intent,
         groups,
+        catalogCandidates: plan.catalogCandidates,
         origin: nextOrigin,
         originOptions,
         originQuery,

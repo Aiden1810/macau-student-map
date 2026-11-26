@@ -120,7 +120,7 @@ describe('AMap cross-city search', () => {
   afterEach(() => vi.unstubAllGlobals());
 
   function installSdk(reply: (city: string, keyword: string) => {status: string; info: string; pois?: AmapPlaceSearchPoi[]}) {
-    vi.stubGlobal('window', {AMap: {
+    vi.stubGlobal('window', {location: {origin: 'https://city.test'}, AMap: {
       plugin: (_name: string, ready: () => void) => ready(),
       PlaceSearch: class {
         constructor(private options: {city: string}) {}
@@ -192,5 +192,9 @@ describe('AMap cross-city search', () => {
   it('still reports provider errors instead of disguising them as empty results', async () => {
     installSdk(() => ({status: 'error', info: 'INVALID_USER_KEY'}));
     await expect(searchAmapPoiOptions('test-key', '理发', '未命名')).rejects.toThrow('INVALID_USER_KEY');
+  });
+  it('reports a blocked request even when the SDK omits error details', async () => {
+    installSdk(() => ({status: 'error', info: ''}));
+    await expect(searchAmapPoiOptions('test-key', '龙光', '未命名', 'zhuhai')).rejects.toThrow();
   });
 });

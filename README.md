@@ -109,7 +109,7 @@ Configure these values in **.env.local**:
 | NEXT_PUBLIC_SUPABASE_URL | Supabase project URL |
 | NEXT_PUBLIC_SUPABASE_ANON_KEY | Supabase publishable/anonymous key |
 | NEXT_PUBLIC_AMAP_WEB_KEY | AMap Web JavaScript API key |
-| NEXT_PUBLIC_AMAP_SECURITY_CODE | Optional AMap security code, when enabled in the AMap console |
+| AMAP_JS_SECURITY_CODE | Server-only AMap JS security code for the same-origin `/_AMapService` proxy. Remove the legacy public variable and rebuild after updating the deployment configuration. |
 | DEEPSEEK_API_KEY | Server-only; required for real AI chat and place interpretation |
 | DEEPSEEK_MODEL | Optional model override; current default is deepseek-flash |
 

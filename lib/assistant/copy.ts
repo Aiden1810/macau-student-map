@@ -134,6 +134,7 @@ export function assistantCopy(locale: string) {
       "Place has no coordinates",
     ),
     notQueried: text("待查询", "待查詢", "Not queried"),
+    not_queried: text("未查询", "未查詢", "Not queried"),
     routeError: text(
       "暂时无法查询路线，请重试；仍可按价格和品类比较。",
       "暫時無法查詢路線，請重試；仍可按價格和品類比較。",
@@ -257,6 +258,13 @@ export function assistantCopy(locale: string) {
       "Reference food total for the group",
     ),
     budget: text("人均预算", "人均預算", "Budget per person"),
+    walkingLimit: text("步行上限", "步行上限", "Walking limit"),
+    noWalkingMatch: text(
+      "没有可确认同时满足预算、菜品和步行上限的候选。缺少步行路线的店铺暂无法确认。",
+      "沒有可確認同時符合預算、菜式和步行上限的候選店舖。缺少步行路線的店舖暫時無法確認。",
+      "No candidate could be confirmed to meet the budget, food preferences and walking limit. Places without a walking route remain unconfirmed.",
+    ),
+    walkingUnconfirmed: text("步行时间待确认", "步行時間待確認", "Walking time unconfirmed"),
     food: text("想吃", "想吃", "Food preference"),
     people: text("人数", "人數", "Group size"),
     cheapest: text(

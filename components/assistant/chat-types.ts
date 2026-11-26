@@ -29,6 +29,7 @@ export type PendingChat = {
   token: number;
   intent: AssistantIntent;
   groups: PlaceConfirmation[];
+  catalogCandidates?: AssistantPlace[];
   origin: AssistantOrigin | null;
   originOptions: AmapPoiOption[];
   originQuery: string | null;

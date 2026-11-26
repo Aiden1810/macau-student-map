@@ -4,6 +4,7 @@ import {
   chatUnderstandingSchema,
   chooseKnownChatPlace,
   resolveChatOrigin,
+  selectCatalogForModel,
 } from "../../../lib/assistant/chat";
 import type { AssistantPlace } from "../../../lib/assistant/contracts";
 
@@ -28,6 +29,13 @@ const places: AssistantPlace[] = [
   },
 ];
 describe("chat destination resolution", () => {
+  it("sends only a bounded name shortlist to the model while preserving branch clues", () => {
+    const unrelated = {...places[0], id: "unrelated", name: "栗子蛋糕店"};
+    expect(selectCatalogForModel([unrelated, ...places], ["横琴口岸的穆味王"])[0].id).toBe("one");
+    expect(selectCatalogForModel([unrelated], ["今天吃什么"])).toEqual([]);
+    const sameName = Array.from({length: 50}, (_, i) => ({...places[0], id: String(i)}));
+    expect(selectCatalogForModel(sameName, ["穆味王"])).toHaveLength(40);
+  });
   it("keeps a confirmed same-name branch by id while refreshing its facts", () => {
     const one = { ...places[0], name: "同名店", address: "地址一" };
     const two = { ...places[1], name: "同名店", address: "地址二" };

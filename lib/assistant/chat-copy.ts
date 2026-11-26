@@ -74,6 +74,11 @@ export function chatCopy(locale: string) {
       "我可以比較幾家店的打車、巴士、步行時間和距離，也可以結合人數、預算及想吃的東西推薦一家。直接傳送店名就可以。",
       "I can compare taxi, transit and walking journeys, or help choose a place for your group and budget. Just type the place names.",
     ),
+    catalogScope: t(
+      "本次比较最多 4 家符合已知条件的目录餐厅。",
+      "本次比較最多 4 家符合已知條件的目錄餐廳。",
+      "This comparison covers up to four restaurants from the published directory.",
+    ),
     confirmPlace: t(
       "请确认这家店的具体门店：",
       "請確認這家店的具體門店：",

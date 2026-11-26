@@ -23,7 +23,7 @@ import type {ReviewRow} from '@/lib/data/comments';
 import ReviewForm from '@/components/reviews/ReviewForm';
 import {loadShopDetail} from '@/lib/data/shop-detail';
 import {resolvePriceDisplay} from '@/lib/utils/price';
-import {useFavorites} from '@/lib/hooks/useFavorites';
+import {useSharedFavorites} from '@/lib/favorites/FavoritesProvider';
 import {supabase} from '@/lib/supabase';
 import {Comment, Shop} from '@/types/shop';
 
@@ -207,7 +207,7 @@ export default function ShopDetailPage() {
   const params = useParams<{id: string}>();
   const locale = useLocale();
   const t = useTranslations('ShopDetail');
-  const {favorites, toggleFavorite, isLoaded: favoritesLoaded} = useFavorites();
+  const {favorites, toggleFavorite, isLoaded: favoritesLoaded} = useSharedFavorites();
   const shopId = useMemo(() => String(params?.id ?? ''), [params]);
 
   const [shop, setShop] = useState<Shop | null>(null);
@@ -444,7 +444,7 @@ export default function ShopDetailPage() {
         onChangeIndex={setLightboxIndex}
       />
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 md:hidden">
+      <div className="fixed inset-x-0 bottom-[var(--main-nav-bottom)] z-40 border-t border-line bg-white px-4 pb-3 pt-3 md:hidden">
         <PlaceNavigationActions place={shop} variant="mobile-footer" />
       </div>
 

@@ -19,6 +19,7 @@ vi.mock('../../../lib/supabase', () => ({supabase: {auth,
   })
 }}));
 import {useFavorites} from '../../../lib/hooks/useFavorites';
+import {FavoritesProvider, useSharedFavorites} from '../../../lib/favorites/FavoritesProvider';
 import {FAVORITES_KEY, LEGACY_FAVORITES_KEY, favoriteStorageKey, pendingFavoritesKey} from '../../../lib/favorites/storage';
 
 let host: HTMLDivElement;
@@ -45,6 +46,22 @@ afterEach(async () => {
 });
 
 describe('favorite ownership across auth changes', () => {
+  it('updates the retained map when another screen removes a favorite', async () => {
+    function MapConsumer() {
+      return <output>{useSharedFavorites().favorites.join(',')}</output>;
+    }
+    function PersonalCenterConsumer() {
+      const {toggleFavorite} = useSharedFavorites();
+      return <button onClick={() => void toggleFavorite('alice-favorite')}>Remove</button>;
+    }
+    await act(async () => root.render(<FavoritesProvider><MapConsumer /><PersonalCenterConsumer /></FavoritesProvider>));
+    expect(host.querySelector('output')?.textContent).toBe('alice-favorite');
+    await act(async () => host.querySelector('button')?.click());
+    expect(host.querySelector('output')?.textContent).toBe('');
+    expect(database.remove).toHaveBeenCalledExactlyOnceWith('alice', 'alice-favorite');
+    expect(database.read).toHaveBeenCalledTimes(1);
+  });
+
   it('never imports the unowned old cache or another account cache', async () => {
     localStorage.setItem(LEGACY_FAVORITES_KEY, JSON.stringify(['unknown-owner']));
     await act(async () => root.render(<Harness />));

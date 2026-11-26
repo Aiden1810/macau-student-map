@@ -12,7 +12,7 @@ vi.mock('../../../lib/supabase', () => ({supabase: {...db, auth: {
   getUser: async () => ({data: {user: null}, error: null}),
   onAuthStateChange: () => ({data: {subscription: {unsubscribe() {}}}})
 }}}));
-vi.mock('../../../lib/hooks/useFavorites', () => ({useFavorites: () => ({favorites: [], toggleFavorite() {}, isLoaded: true})}));
+vi.mock('../../../lib/favorites/FavoritesProvider', () => ({useSharedFavorites: () => ({favorites: [], toggleFavorite() {}, isLoaded: true})}));
 vi.mock('../../../i18n/navigation', () => ({Link: ({children}: {children: React.ReactNode}) => <>{children}</>}));
 vi.mock('../../../components/ContributionForm', () => ({default: ({onSuccess, onBusyChange}: {
   onSuccess: () => Promise<void>; onBusyChange?: (busy: boolean) => void;
@@ -23,13 +23,13 @@ vi.mock('../../../components/ContributionForm', () => ({default: ({onSuccess, on
 </div>}));
 vi.mock('../../../components/Header', () => ({default: ({onToggleContribute}: {onToggleContribute: () => void}) =>
   <button data-contribute onClick={onToggleContribute}>contribute</button>}));
-vi.mock('../../../components/assistant/FloatingPlaceAssistant', () => ({default: () => null}));
+vi.mock('../../../components/assistant/GlobalAssistant', () => ({useAssistantPanel: () => ({open: false, toggle() {}})}));
 vi.mock('../../../components/MapPlaceholder', () => ({default: () => null}));
 vi.mock('../../../components/MobileCategoryNav', () => ({default: () => null}));
 vi.mock('../../../components/ShopList', () => ({default: ({filteredShops, loading}: {filteredShops: {name: string}[]; loading: boolean}) =>
   <output data-loading={String(loading)}>{filteredShops.map(shop => shop.name).join(',')}</output>}));
 
-import HomePage from '../../../app/[locale]/page';
+import HomePage from '../../../components/DiscoveryPage';
 let host: HTMLDivElement;
 let root: Root;
 let failLegacy: boolean;

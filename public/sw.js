@@ -1,6 +1,7 @@
-const CACHE_VERSION = 'macau-pulse-v5';
+const CACHE_VERSION = 'macau-pulse-v6';
 const APP_SHELL_CACHE = `app-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `runtime-${CACHE_VERSION}`;
+const isLocalPreview = ['localhost', '127.0.0.1', '[::1]'].includes(new URL(self.location.origin).hostname);
 
 const ICON_VERSION = '20260413m4';
 const APP_SHELL_ASSETS = [
@@ -11,9 +12,11 @@ const APP_SHELL_ASSETS = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(APP_SHELL_CACHE).then(cache => cache.addAll(APP_SHELL_ASSETS)).catch(() => Promise.resolve())
-  );
+  if (!isLocalPreview) {
+    event.waitUntil(
+      caches.open(APP_SHELL_CACHE).then(cache => cache.addAll(APP_SHELL_ASSETS)).catch(() => Promise.resolve())
+    );
+  }
   self.skipWaiting();
 });
 
@@ -22,15 +25,17 @@ self.addEventListener('activate', event => {
     caches.keys().then(keys =>
       Promise.all(
         keys
-          .filter(key => key !== APP_SHELL_CACHE && key !== RUNTIME_CACHE)
+          .filter(key => /^(app-shell|runtime)-macau-pulse-/.test(key) &&
+            (isLocalPreview || (key !== APP_SHELL_CACHE && key !== RUNTIME_CACHE)))
           .map(key => caches.delete(key))
       )
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
+  // Next.js development chunks can change in place. Let localhost use browser HTTP caching.
+  if (isLocalPreview) return;
   const {request} = event;
 
   if (request.method !== 'GET') return;
@@ -41,7 +46,7 @@ self.addEventListener('fetch', event => {
 
   // API responses contain live shop, submission, and account data. Serving
   // them cache-first can keep an old empty response visible indefinitely.
-  if (requestUrl.pathname.startsWith('/api/')) {
+  if (requestUrl.pathname.startsWith('/api/') || requestUrl.pathname.startsWith('/_AMapService/')) {
     event.respondWith(fetch(request, {cache: 'no-store'}));
     return;
   }

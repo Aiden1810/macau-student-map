@@ -9,6 +9,7 @@ type WorkerEvent = {
 };
 
 async function loadServiceWorker(options?: {
+  origin?: string;
   cachedApiResponse?: Response;
   cacheKeys?: string[];
 }) {
@@ -33,7 +34,7 @@ async function loadServiceWorker(options?: {
       })
     },
     self: {
-      location: {origin: 'https://www.aiden-macau-map.top'},
+      location: {origin: options?.origin ?? 'https://www.aiden-macau-map.top'},
       clients: {claim: async () => undefined},
       skipWaiting: () => undefined,
       addEventListener: (type: string, listener: (event: WorkerEvent) => void) => {
@@ -67,6 +68,20 @@ describe('public/sw.js', () => {
     );
     expect(worker.match).not.toHaveBeenCalled();
     expect(worker.put).not.toHaveBeenCalled();
+  });
+
+  it('leaves local preview requests to the browser so a reload sees the latest scripts', async () => {
+    const origin = 'http://127.0.0.1:56552';
+    const worker = await loadServiceWorker({origin, cachedApiResponse: new Response('old chunk')});
+    const respondWith = vi.fn();
+
+    worker.listeners.get('fetch')?.({
+      request: new Request(origin + '/_next/static/chunks/app/%5Blocale%5D/layout.js'),
+      respondWith
+    });
+
+    expect(respondWith).not.toHaveBeenCalled();
+    expect(worker.match).not.toHaveBeenCalled();
   });
 
   it('removes the previous runtime cache when the updated worker activates', async () => {

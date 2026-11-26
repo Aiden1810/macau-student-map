@@ -24,6 +24,11 @@ export default function AssistantAnswer({message, copy}: {message: ChatMessage; 
           <p className="text-xs font-medium text-pine-700">{copy.recommend}</p>
           <h3 className="mt-1 break-words text-xl font-semibold text-pine-900">{winner.place.name}</h3>
           <p className="mt-2 text-sm leading-6 text-stone-700">{copy[intent.priority]}</p>
+          {intent.maxWalkingMinutes != null && (
+            <p className="mt-1 text-xs font-medium text-pine-700">
+              {copy.walkingLimit} · {intent.maxWalkingMinutes} {copy.minutes}
+            </p>
+          )}
         </div>
         <div className={`grid grid-cols-2 divide-x divide-stone-100 ${decision.rows.length > 2 ? 'sm:grid-cols-4' : ''}`}>
           {decision.rows.map(row => (
@@ -37,7 +42,8 @@ export default function AssistantAnswer({message, copy}: {message: ChatMessage; 
                   const route = row.route?.[mode];
                   return <div key={mode}><dt className="leading-5 text-muted">{copy[mode]}</dt>
                     <dd className="mt-1 text-base font-semibold tabular-nums text-ink">{route?.status === 'ok' && Number.isFinite(route.durationSeconds) && route.durationSeconds >= 0
-                      ? <>{Math.ceil(route.durationSeconds / 60)} <span className="text-xs font-normal text-muted">{copy.minutes}</span></> : copy.unavailable}</dd>
+                      ? <>{Math.ceil(route.durationSeconds / 60)} <span className="text-xs font-normal text-muted">{copy.minutes}</span></>
+                      : mode === 'walking' && intent.maxWalkingMinutes != null ? copy.walkingUnconfirmed : copy.unavailable}</dd>
                   </div>;
                 })}
               </dl>
