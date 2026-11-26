@@ -263,7 +263,7 @@ async function searchCity(
   city: string,
   keyword: string,
   unnamedPlaceLabel: string,
-  discovery?: {category: AmapDiscoveryCategory | 'businesses'; origin?: AmapPoiSearchOrigin; page?: number; diningType?: string}
+  discovery?: {category: AmapDiscoveryCategory | 'businesses'; origin?: AmapPoiSearchOrigin; page?: number; diningType?: string; citylimit?: boolean}
 ): Promise<AmapPoiOption[]> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -280,7 +280,7 @@ async function searchCity(
       try {
         const placeSearch = new amap.PlaceSearch({
           city,
-          citylimit: true,
+          citylimit: discovery?.citylimit ?? true,
           pageSize: discovery?.category === 'businesses' ? 25 : 8,
           pageIndex: discovery?.page ?? 1,
           extensions: discovery?.category === 'businesses' ? 'all' : 'base',
@@ -299,7 +299,7 @@ async function searchCity(
             finish([], error ?? new Error('AMap place search failed'));
             return;
           }
-          finish(mapAmapPois(result.poiList.pois, unnamedPlaceLabel, city));
+          finish(mapAmapPois(result.poiList.pois, unnamedPlaceLabel, city === '全国' ? undefined : city));
         };
         if (discovery?.origin) {
           placeSearch.searchNearBy(keyword, discovery.origin.coordinates, discoveryRadiusMeters, onResult);
@@ -337,17 +337,19 @@ export async function searchAmapDiscoveryPlaces(
 }
 
 export async function searchNearbyBusinesses(
-  key: string, city: AmapDiscoveryCity, coordinates: [number, number], unnamed: string, signal?: AbortSignal, keyword = '', diningType = '050000'
+  key: string, city: AmapSearchScope, coordinates: [number, number], unnamed: string, signal?: AbortSignal, keyword = '', diningType = '050000'
 ) {
   const amap = await loadAmapPlaceSdk(key);
   const origin = {coordinates, source: 'map'} as const;
+  const searchCityName = city === 'macau' ? '澳门' : city === 'zhuhai' ? '珠海' : '全国';
+  const restrictCity = city !== 'all';
   let items: AmapPoiOption[] = [];
   let partial = false;
   for (let page = 1; page <= 4; page++) {
     signal?.throwIfAborted();
     try {
-      const batch = await searchCity(amap, city === 'macau' ? '澳门' : '珠海', keyword.trim(), unnamed, {
-        category: 'businesses', origin, page, diningType
+      const batch = await searchCity(amap, searchCityName, keyword.trim(), unnamed, {
+        category: 'businesses', origin, page, diningType, citylimit: restrictCity
       });
       const previousCount = items.length;
       items = mergeUniqueAmapPoiOptions(items, batch);
@@ -364,7 +366,8 @@ export async function searchNearbyBusinesses(
     }
   }
   signal?.throwIfAborted();
-  const local = rankAmapPoiOptions(items.filter(item => item.city === city), origin);
+  const scoped = restrictCity ? items.filter(item => item.city === city) : items;
+  const local = rankAmapPoiOptions(scoped, origin);
   return {items: local.filter(item => item.distanceMeters !== undefined && item.distanceMeters <= discoveryRadiusMeters), partial};
 }
 

@@ -90,4 +90,17 @@ describe('homepage AMap discovery', () => {
     expect(results.map(item=>item.placeId)).toEqual(['high','low','unrated','far-high']);
     expect(results.map(item=>item.rating)).toEqual([4.7,3.8,undefined,5]);
   });
+
+  it('searches around any real coordinate without forcing a single city when scope is all', async () => {
+    const zhuhaiOrigin: [number, number] = [113.553, 22.222];
+    const sdk = installSdk('complete', {poiList: {pois: [
+      {id: 'zh-near', name: '拱北粉面', adcode: '440402', location: {lng: 113.5535, lat: 22.2222}},
+      {id: 'mo-border', name: '关闸茶餐厅', adcode: '820001', location: {lng: 113.552, lat: 22.215}}
+    ]}});
+    const response = await searchNearbyBusinesses('test-key', 'all', zhuhaiOrigin, 'Unnamed');
+    expect(sdk.PlaceSearch).toHaveBeenCalledWith(expect.objectContaining({
+      city: '全国', citylimit: false, pageSize: 25, type: '050000', extensions: 'all'
+    }));
+    expect(response.items.map(item => item.placeId)).toEqual(['zh-near', 'mo-border']);
+  });
 });

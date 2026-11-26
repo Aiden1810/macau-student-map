@@ -21,8 +21,8 @@ export function deriveRegionFromCoordinates(longitude: number | null, latitude: 
   const lng = Number(longitude);
   const lat = Number(latitude);
 
-  // 澳门半岛（近似）
-  if (lng >= 113.52 && lng <= 113.57 && lat >= 22.18 && lat <= 22.23) {
+  // 澳门半岛（关闸以南约 22.2165，避开珠海拱北/青茂/湾仔）
+  if (lng >= 113.532 && lng <= 113.57 && lat >= 22.18 && lat <= 22.2165) {
     return '澳门半岛';
   }
 
